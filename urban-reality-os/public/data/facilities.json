@@ -1,0 +1,179 @@
+{
+  "hospitals": [
+    {
+      "id": "hospital_1",
+      "name": "AIIMS Delhi",
+      "lat": 28.5672,
+      "lng": 77.2100,
+      "responseTime": 8,
+      "coverageRadius": 3.5,
+      "availableUnits": 150
+    },
+    {
+      "id": "hospital_2",
+      "name": "Safdarjung Hospital",
+      "lat": 28.5685,
+      "lng": 77.2020,
+      "responseTime": 10,
+      "coverageRadius": 3.2,
+      "availableUnits": 120
+    },
+    {
+      "id": "hospital_3",
+      "name": "Lok Nayak Hospital",
+      "lat": 28.6360,
+      "lng": 77.2410,
+      "responseTime": 12,
+      "coverageRadius": 2.8,
+      "availableUnits": 100
+    },
+    {
+      "id": "hospital_4",
+      "name": "Ram Manohar Lohia Hospital",
+      "lat": 28.6180,
+      "lng": 77.2070,
+      "responseTime": 9,
+      "coverageRadius": 3.0,
+      "availableUnits": 110
+    },
+    {
+      "id": "hospital_5",
+      "name": "Lady Hardinge Medical College",
+      "lat": 28.6370,
+      "lng": 77.2180,
+      "responseTime": 11,
+      "coverageRadius": 2.5,
+      "availableUnits": 90
+    },
+    {
+      "id": "hospital_6",
+      "name": "Guru Teg Bahadur Hospital",
+      "lat": 28.6740,
+      "lng": 77.3140,
+      "responseTime": 15,
+      "coverageRadius": 2.2,
+      "availableUnits": 80
+    }
+  ],
+  "policeStations": [
+    {
+      "id": "police_1",
+      "name": "Connaught Place Police Station",
+      "lat": 28.6315,
+      "lng": 77.2194,
+      "responseTime": 5,
+      "coverageRadius": 2.0,
+      "availableUnits": 25
+    },
+    {
+      "id": "police_2",
+      "name": "Karol Bagh Police Station",
+      "lat": 28.6510,
+      "lng": 77.1900,
+      "responseTime": 6,
+      "coverageRadius": 2.2,
+      "availableUnits": 30
+    },
+    {
+      "id": "police_3",
+      "name": "Lajpat Nagar Police Station",
+      "lat": 28.5700,
+      "lng": 77.2430,
+      "responseTime": 7,
+      "coverageRadius": 2.1,
+      "availableUnits": 28
+    },
+    {
+      "id": "police_4",
+      "name": "Rajouri Garden Police Station",
+      "lat": 28.6470,
+      "lng": 77.1230,
+      "responseTime": 8,
+      "coverageRadius": 2.3,
+      "availableUnits": 32
+    },
+    {
+      "id": "police_5",
+      "name": "Dwarka Police Station",
+      "lat": 28.5820,
+      "lng": 77.0500,
+      "responseTime": 10,
+      "coverageRadius": 2.5,
+      "availableUnits": 35
+    },
+    {
+      "id": "police_6",
+      "name": "Rohini Police Station",
+      "lat": 28.7380,
+      "lng": 77.0810,
+      "responseTime": 12,
+      "coverageRadius": 2.4,
+      "availableUnits": 30
+    },
+    {
+      "id": "police_7",
+      "name": "Shahdara Police Station",
+      "lat": 28.6730,
+      "lng": 77.2890,
+      "responseTime": 9,
+      "coverageRadius": 2.2,
+      "availableUnits": 28
+    },
+    {
+      "id": "police_8",
+      "name": "Nangloi Police Station",
+      "lat": 28.6820,
+      "lng": 77.0670,
+      "responseTime": 11,
+      "coverageRadius": 2.1,
+      "availableUnits": 25
+    }
+  ],
+  "fireStations": [
+    {
+      "id": "fire_1",
+      "name": "Karol Bagh Fire Station",
+      "lat": 28.6510,
+      "lng": 77.1900,
+      "responseTime": 6,
+      "coverageRadius": 3.0,
+      "availableUnits": 15
+    },
+    {
+      "id": "fire_2",
+      "name": "Connaught Place Fire Station",
+      "lat": 28.6315,
+      "lng": 77.2194,
+      "responseTime": 5,
+      "coverageRadius": 2.8,
+      "availableUnits": 18
+    },
+    {
+      "id": "fire_3",
+      "name": "Lajpat Nagar Fire Station",
+      "lat": 28.5700,
+      "lng": 77.2430,
+      "responseTime": 7,
+      "coverageRadius": 2.9,
+      "availableUnits": 16
+    },
+    {
+      "id": "fire_4",
+      "name": "Rajouri Garden Fire Station",
+      "lat": 28.6470,
+      "lng": 77.1230,
+      "responseTime": 8,
+      "coverageRadius": 3.1,
+      "availableUnits": 20
+    },
+    {
+      "id": "fire_5",
+      "name": "Dwarka Fire Station",
+      "lat": 28.5820,
+      "lng": 77.0500,
+      "responseTime": 10,
+      "coverageRadius": 3.2,
+      "availableUnits": 14
+    }
+  ]
+}
