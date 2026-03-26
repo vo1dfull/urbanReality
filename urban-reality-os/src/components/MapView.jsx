@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { createRoot } from "react-dom/client";
@@ -104,6 +104,7 @@ export default function MapView() {
     const [floodMode, setFloodMode] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [hoveredFacility, setHoveredFacility] = useState(null); // Facility hover state
 
     const [layers, setLayers] = useState({
         aqi: true,
@@ -1625,6 +1626,31 @@ export default function MapView() {
             }
         }
 
+
+        // Add hover interactions for facility layers
+        const facilityLayersList = ["hospitals-layer", "police-layer", "fire-layer"];
+        
+        facilityLayersList.forEach(layerId => {
+            if (!map.getLayer(layerId)) return;
+            
+            map.on('mousemove', layerId, (e) => {
+                map.getCanvas().style.cursor = 'pointer';
+                if (e.features.length > 0) {
+                    const feature = e.features[0];
+                    setHoveredFacility({
+                        ...feature.properties,
+                        x: e.originalEvent.clientX,
+                        y: e.originalEvent.clientY
+                    });
+                }
+            });
+
+            map.on('mouseleave', layerId, () => {
+                map.getCanvas().style.cursor = '';
+                setHoveredFacility(null);
+            });
+        });
+
         // Add coverage visualization layer
         if (!map.getSource("facility-coverage")) {
             const coverageCanvas = document.createElement('canvas');
@@ -1667,56 +1693,83 @@ export default function MapView() {
 
         const canvas = coverageSource.canvas;
         const ctx = canvas.getContext('2d');
+        let animationFrameId;
 
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const renderFrame = () => {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (!layers.hospitals && !layers.policeStations && !layers.fireStations) {
-            coverageSource.setCoordinates(coverageSource.coordinates); // Trigger update
-            return;
-        }
-
-        // Get active facilities
-        const activeFacilities = [];
-        if (layers.hospitals) activeFacilities.push(...facilityData.hospitals.map(f => ({ ...f, type: 'hospital', color: '#06b6d4' })));
-        if (layers.policeStations) activeFacilities.push(...facilityData.policeStations.map(f => ({ ...f, type: 'police', color: '#8b5cf6' })));
-        if (layers.fireStations) activeFacilities.push(...facilityData.fireStations.map(f => ({ ...f, type: 'fire', color: '#f97316' })));
-
-        // Convert lat/lng to canvas coordinates (simplified)
-        const bounds = map.getBounds();
-        const latRange = bounds.getNorth() - bounds.getSouth();
-        const lngRange = bounds.getEast() - bounds.getWest();
-
-        const latToY = (lat) => ((bounds.getNorth() - lat) / latRange) * canvas.height;
-        const lngToX = (lng) => ((lng - bounds.getWest()) / lngRange) * canvas.width;
-
-        // Draw coverage rings
-        activeFacilities.forEach(facility => {
-            const x = lngToX(facility.lng);
-            const y = latToY(facility.lat);
-
-            if (facilityViewMode === 'coverage') {
-                // Draw radial gradient rings
-                const radii = [facility.coverageRadius * 20, facility.coverageRadius * 40, facility.coverageRadius * 60]; // Scaled for canvas
-
-                radii.forEach((radius, index) => {
-                    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                    const opacity = index === 0 ? 0.8 : index === 1 ? 0.4 : 0.2;
-
-                    gradient.addColorStop(0, facility.color + Math.round(opacity * 255).toString(16).padStart(2, '0'));
-                    gradient.addColorStop(0.7, facility.color + Math.round(opacity * 0.5 * 255).toString(16).padStart(2, '0'));
-                    gradient.addColorStop(1, facility.color + '00');
-
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, 2 * Math.PI);
-                    ctx.fillStyle = gradient;
-                    ctx.fill();
-                });
+            if (!layers.hospitals && !layers.policeStations && !layers.fireStations) {
+                coverageSource.setCoordinates(coverageSource.coordinates);
+                return; // Stop rendering if all layers are off
             }
-        });
 
-        // Trigger canvas update
-        coverageSource.setCoordinates(coverageSource.coordinates);
+            // Get active facilities
+            const activeFacilities = [];
+            if (layers.hospitals) activeFacilities.push(...facilityData.hospitals.map(f => ({ ...f, type: 'hospital', color: '#06b6d4' })));
+            if (layers.policeStations) activeFacilities.push(...facilityData.policeStations.map(f => ({ ...f, type: 'police', color: '#8b5cf6' })));
+            if (layers.fireStations) activeFacilities.push(...facilityData.fireStations.map(f => ({ ...f, type: 'fire', color: '#f97316' })));
+
+            const bounds = map.getBounds();
+            const latRange = bounds.getNorth() - bounds.getSouth();
+            const lngRange = bounds.getEast() - bounds.getWest();
+
+            const latToY = (lat) => ((bounds.getNorth() - lat) / latRange) * canvas.height;
+            const lngToX = (lng) => ((lng - bounds.getWest()) / lngRange) * canvas.width;
+            
+            // Calculate pulse based on time
+            const now = performance.now();
+            const pulsePhase = (Math.sin(now / 800) + 1) / 2; // 0 to 1 smooth oscillation
+            const pulseScale = 1 + (pulsePhase * 0.15); // Scale between 1x and 1.15x
+            const pulseOpacity = 0.8 + (pulsePhase * 0.2); // Fluctuate opacity
+
+            // Draw coverage rings
+            activeFacilities.forEach(facility => {
+                const x = lngToX(facility.lng);
+                const y = latToY(facility.lat);
+
+                if (facilityViewMode === 'coverage') {
+                    // Draw radial gradient rings with pulse animation
+                    const baseRadii = [facility.coverageRadius * 20, facility.coverageRadius * 40, facility.coverageRadius * 60];
+
+                    baseRadii.forEach((baseRadius, index) => {
+                        // Apply pulse mostly to outer rings
+                        const radius = index === 0 ? baseRadius : baseRadius * (index === 2 ? pulseScale : 1 + (pulsePhase * 0.05));
+                        
+                        // Prevent drawing if radius is zero or negative somehow
+                        if (radius <= 0) return;
+
+                        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                        
+                        // Base opacities for high, med, low coverage
+                        const rawOpacity = index === 0 ? 0.8 : index === 1 ? 0.4 : 0.15;
+                        const opacity = rawOpacity * (index > 0 ? pulseOpacity : 1);
+
+                        gradient.addColorStop(0, facility.color + Math.round(opacity * 255).toString(16).padStart(2, '0'));
+                        gradient.addColorStop(0.7, facility.color + Math.round(opacity * 0.5 * 255).toString(16).padStart(2, '0'));
+                        gradient.addColorStop(1, facility.color + '00');
+
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                        ctx.fillStyle = gradient;
+                        ctx.fill();
+                    });
+                }
+            });
+
+            // Trigger canvas update on map
+            coverageSource.setCoordinates(coverageSource.coordinates);
+            
+            // Loop!
+            animationFrameId = requestAnimationFrame(renderFrame);
+        };
+
+        // Start animation loop
+        renderFrame();
+
+        return () => {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        };
     }, [layers, facilityData, facilityViewMode]);
 
     /* ================= CINEMATIC CAMERA ================= */
@@ -2534,6 +2587,47 @@ export default function MapView() {
             <CoordinateDisplay mapRef={mapRef} />
             <FacilityListPanel facilityData={facilityData} layers={layers} mapRef={mapRef} />
             {/* BottomLayers removed — Facility Check is now part of the bottom-left layer bar */}
+
+            {/* Hover Tooltip for Facilities */}
+            {hoveredFacility && (
+                <div style={{
+                    position: 'fixed',
+                    left: hoveredFacility.x + 15,
+                    top: hoveredFacility.y + 15,
+                    background: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: 8,
+                    padding: '12px 16px',
+                    color: '#f8fafc',
+                    zIndex: 1000,
+                    pointerEvents: 'none',
+                    minWidth: 180,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>
+                            {hoveredFacility.type === 'hospital' ? '🏥' : 
+                             hoveredFacility.type === 'police' ? '🚔' : '🔥'}
+                        </span>
+                        {hoveredFacility.name || "Facility"}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ opacity: 0.8 }}>Response Time:</span>
+                            <span style={{ color: '#60a5fa', fontWeight: 600 }}>{hoveredFacility.responseTime || "5"} min</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ opacity: 0.8 }}>Coverage Radius:</span>
+                            <span style={{ color: '#34d399', fontWeight: 600 }}>{hoveredFacility.coverageRadius || "2"} km</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ opacity: 0.8 }}>Available Units:</span>
+                            <span style={{ color: '#fbbf24', fontWeight: 600 }}>{hoveredFacility.availableUnits || "3"}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div
                 ref={mapContainer}
