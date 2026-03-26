@@ -88,11 +88,6 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
             {/* Layers Section */}
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: "#f8fafc" }}>Map Layers</div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <button onClick={() => setMapStyle('satellite')} style={{ padding: '8px 10px', borderRadius: 8, background: mapStyle === 'satellite' ? '#111827' : 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>Satellite</button>
-                <button onClick={() => setMapStyle('terrain')} style={{ padding: '8px 10px', borderRadius: 8, background: mapStyle === 'terrain' ? '#111827' : 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>Terrain</button>
-                <button onClick={() => setMapStyle('default')} style={{ padding: '8px 10px', borderRadius: 8, background: mapStyle === 'default' ? '#111827' : 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>Street</button>
-              </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {[
                   { id: 'aqi', label: 'Air Quality (AQI)' },

@@ -1,0 +1,103 @@
+Date : 2026-03-27 01:44:12
+Directory : f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os
+Total : 53 files,  11363 codes, 305 comments, 621 blanks, all 12289 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| JSON           |          9 |      6,897 |          0 |          9 |      6,906 |
+| JavaScript JSX |         18 |      3,246 |        193 |        357 |      3,796 |
+| JavaScript     |         20 |        930 |        105 |        188 |      1,223 |
+| PostCSS        |          2 |        230 |          7 |         37 |        274 |
+| Markdown       |          2 |         47 |          0 |         29 |         76 |
+| HTML           |          1 |         12 |          0 |          1 |         13 |
+| XML            |          1 |          1 |          0 |          0 |          1 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                        | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                           |         53 |     11,363 |        305 |        621 |     12,289 |
+| . (Files)                                                                                                   |          7 |      4,487 |          1 |         24 |      4,512 |
+| backend                                                                                                     |          9 |      2,638 |          8 |         59 |      2,705 |
+| backend (Files)                                                                                             |          4 |      2,448 |          1 |         22 |      2,471 |
+| backend\config                                                                                              |          1 |         15 |          0 |          3 |         18 |
+| backend\middleware                                                                                          |          1 |         16 |          0 |          3 |         19 |
+| backend\models                                                                                              |          1 |         20 |          0 |          3 |         23 |
+| backend\routes                                                                                              |          2 |        139 |          7 |         28 |        174 |
+| public                                                                                                      |          5 |         85 |          0 |          4 |         89 |
+| public (Files)                                                                                              |          1 |          1 |          0 |          0 |          1 |
+| public\data                                                                                                 |          4 |         84 |          0 |          4 |         88 |
+| server                                                                                                      |          4 |        149 |          9 |         34 |        192 |
+| server (Files)                                                                                              |          2 |         75 |          6 |         16 |         97 |
+| server\models                                                                                               |          1 |         10 |          0 |          3 |         13 |
+| server\routes                                                                                               |          1 |         64 |          3 |         15 |         82 |
+| src                                                                                                         |         28 |      4,004 |        287 |        500 |      4,791 |
+| src (Files)                                                                                                 |          3 |         68 |          5 |         13 |         86 |
+| src\components                                                                                              |         15 |      3,359 |        194 |        371 |      3,924 |
+| src\context                                                                                                 |          1 |         41 |          1 |          8 |         50 |
+| src\pages                                                                                                   |          1 |          8 |          0 |          2 |         10 |
+| src\utils                                                                                                   |          8 |        528 |         87 |        106 |        721 |
++-------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                                                    | language       | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\README.md                                  | Markdown       |         27 |          0 |         17 |         44 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\README.md                          | Markdown       |         20 |          0 |         12 |         32 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\config\db.js                       | JavaScript     |         15 |          0 |          3 |         18 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\middleware\authMiddleware.js       | JavaScript     |         16 |          0 |          3 |         19 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\models\User.js                     | JavaScript     |         20 |          0 |          3 |         23 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\package-lock.json                  | JSON           |      2,376 |          0 |          1 |      2,377 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\package.json                       | JSON           |         21 |          0 |          1 |         22 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\routes\authRoutes.js               | JavaScript     |         56 |          3 |         17 |         76 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\routes\userRoutes.js               | JavaScript     |         83 |          4 |         11 |         98 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\server.js                          | JavaScript     |         31 |          1 |          8 |         40 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\eslint.config.js                           | JavaScript     |         28 |          0 |          2 |         30 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\index.html                                 | HTML           |         12 |          0 |          1 |         13 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\package-lock.json                          | JSON           |      4,367 |          0 |          1 |      4,368 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\package.json                               | JSON           |         33 |          0 |          1 |         34 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\aqi.json                       | JSON           |         29 |          0 |          1 |         30 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\demographics.json              | JSON           |          5 |          0 |          1 |          6 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\flood.json                     | JSON           |         21 |          0 |          1 |         22 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\traffic.json                   | JSON           |         29 |          0 |          1 |         30 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\vite.svg                            | XML            |          1 |          0 |          0 |          1 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\index.js                            | JavaScript     |         59 |          6 |         15 |         80 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\models\User.js                      | JavaScript     |         10 |          0 |          3 |         13 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\package.json                        | JSON           |         16 |          0 |          1 |         17 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\routes\auth.js                      | JavaScript     |         64 |          3 |         15 |         82 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\App.jsx                                | JavaScript JSX |          4 |          0 |          2 |          6 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\AuthModal.jsx               | JavaScript JSX |        147 |          1 |         16 |        164 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\BottomLayers.jsx            | JavaScript JSX |         73 |          1 |          6 |         80 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\CitySuggestions.jsx         | JavaScript JSX |        118 |         11 |         12 |        141 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\EconomicImpact.jsx          | JavaScript JSX |         56 |          4 |          9 |         69 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\EconomicPanel.jsx           | JavaScript JSX |         84 |          3 |          7 |         94 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\InfoPanel.jsx               | JavaScript JSX |         57 |          5 |          9 |         71 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\LayerToggle.jsx             | JavaScript JSX |         86 |          0 |          3 |         89 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\LocationPopup.css           | PostCSS        |        192 |          3 |         31 |        226 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\LocationPopup.jsx           | JavaScript JSX |        189 |         11 |         29 |        229 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\MapMenu.jsx                 | JavaScript JSX |        163 |          5 |         11 |        179 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\MapView.jsx                 | JavaScript JSX |      1,796 |        131 |        201 |      2,128 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\MetrixHover.jsx             | JavaScript JSX |          0 |          0 |          1 |          1 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\ResponsiveLocationPanel.jsx | JavaScript JSX |         52 |          7 |          9 |         68 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\SearchBar.jsx               | JavaScript JSX |        300 |         12 |         24 |        336 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\TimeSlider.jsx              | JavaScript JSX |         46 |          0 |          3 |         49 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\context\AuthContext.jsx                | JavaScript JSX |         41 |          1 |          8 |         50 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\index.css                              | PostCSS        |         38 |          4 |          6 |         48 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\main.jsx                               | JavaScript JSX |         26 |          1 |          5 |         32 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\pages\Dashboard.jsx                    | JavaScript JSX |          8 |          0 |          2 |         10 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\aqi.js                           | JavaScript     |         49 |          6 |         11 |         66 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\demographics.js                  | JavaScript     |         32 |         21 |         12 |         65 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\economicLoss.js                  | JavaScript     |         24 |          6 |          7 |         37 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\economics.js                     | JavaScript     |        107 |          2 |         10 |        119 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\gemini.js                        | JavaScript     |         92 |         21 |         16 |        129 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\impactModel.js                   | JavaScript     |         93 |         14 |         20 |        127 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\rainfall.js                      | JavaScript     |         20 |          0 |          4 |         24 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\worldBank.js                     | JavaScript     |        111 |         17 |         26 |        154 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\tailwind.config.js                         | JavaScript     |         11 |          1 |          0 |         12 |
+| f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\vite.config.js                             | JavaScript     |          9 |          0 |          2 |         11 |
+| Total                                                                                                       |                |     11,363 |        305 |        621 |     12,289 |
++-------------------------------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

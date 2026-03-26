@@ -5,53 +5,32 @@ export function calculateEconomicLoss({
   trafficCongestion,
   worldBank
 }) {
-  // --- Safe Input Parsing ---
-  const safeAQI = Number(aqi) || 0;
-  const safeRain = Number(rainfallMm) || 0;
-  const safeFlood = Number(floodRisk) || 0;
-  const safeTraffic = Number(trafficCongestion) || 0;
+  // --- Base economy ---
+  const gdpPerCapita = worldBank?.gdpPerCapita?.value || 2500; // USD
+  const population = worldBank?.population?.value || 3e7;
 
-  // --- Base economy (Default to Delhi/General Metro stats if missing) ---
-  // Default GDP Per Capita ~ $2,500 USD (Approx Indian Metro Avg)
-  // Default Pop ~ 20 Million (Delhi NCR)
-  const gdpPerCapita = Number(worldBank?.gdpPerCapita?.value) || 2500; 
-  const population = Number(worldBank?.population?.value) || 20000000;
+  // Daily GDP loss base
+  const dailyGDP = (gdpPerCapita * population) / 365; // USD/day
 
-  // Daily GDP = (Annual GDP) / 365
-  const dailyGDP_USD = (gdpPerCapita * population) / 365;
+  // --- Impact multipliers ---
+  const aqiLoss = Math.max(0, (aqi - 50) / 300);        // Health & productivity
+  const rainLoss = Math.min(rainfallMm / 50, 1);        // Flooding / slowdown
+  const floodLoss = floodRisk;                          // Infrastructure damage
+  const trafficLoss = Math.min(trafficCongestion, 1);  // Logistics loss
 
-  // --- Impact multipliers (0.0 to 1.0 scale) ---
-  // AQI: Starts impacting > 50, max impact at 400+
-  const aqiLoss = Math.min(Math.max(0, (safeAQI - 50) / 400), 1);
-  
-  // Rain: Moderate rain (20mm) ok, 150mm+ causes standstill
-  const rainLoss = Math.min(safeRain / 150, 1);
-  
-  // Flood: Direct risk index from model
-  const floodLoss = Math.min(safeFlood, 1);
-  
-  // Traffic: Congestion index
-  const trafficLoss = Math.min(safeTraffic, 1);
-
-  // --- Weighted Impact Factor ---
-  // Weights reflect how much each factor paralyzes the city
-  // Flood (0.4) > Traffic (0.25) > Rain (0.2) > AQI (0.15)
+  // --- Weighted loss ---
   const impactFactor =
-    (0.15 * aqiLoss) +
-    (0.20 * rainLoss) +
-    (0.40 * floodLoss) +
-    (0.25 * trafficLoss);
+    0.25 * aqiLoss +
+    0.20 * rainLoss +
+    0.35 * floodLoss +
+    0.20 * trafficLoss;
 
   // --- Final economic loss ---
-  const lossUSD = dailyGDP_USD * impactFactor;
+  const lossUSD = dailyGDP * impactFactor;
 
-  // Convert to INR Crores (1 USD ≈ 84 INR)
-  const EXCHANGE_RATE = 84;
-  const lossINR = lossUSD * EXCHANGE_RATE;
-  
-  // Convert to Crores (1 Crore = 10,000,000)
-  const lossCr = lossINR / 10000000;
+  // Convert to INR Crores (1 USD ≈ 83 INR)
+  const lossINR = lossUSD * 83;
+  const lossCr = lossINR / 1e7;
 
-  // Return formatted number, minimum 0
-  return Math.max(0, Math.round(lossCr * 100) / 100);
+  return Math.max(0.1, Math.round(lossCr * 10) / 10); // ₹ Cr
 }

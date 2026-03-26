@@ -63,40 +63,64 @@ export function calculateImpactModel({
     floodRisk = 0,
     worldBank = {}
 }) {
-    const yearsElapsed = year - baseYear;
+    // ---- SAFETY ----
+    const safePopulationBase =
+        Number.isFinite(populationBase) && populationBase > 0
+            ? populationBase
+            : 28_000_000; // Delhi fallback
 
-    // --- Population ---
-    const annualGrowthRate = 0.016; // 1.6%
+    const yearsElapsed = Math.max(0, year - baseYear);
+
+    // ---- POPULATION ----
     const population =
-        Math.round(populationBase * Math.pow(1 + annualGrowthRate, yearsElapsed));
+        safePopulationBase *
+        Math.pow(1 + populationGrowthRate / 100, yearsElapsed);
 
-    // --- Risk Index (0–1) ---
-    const riskIndex = Math.min(
-        1,
-        floodRisk * 0.45 +
-        (aqi / 300) * 0.35 +
-        trafficCongestion * 0.2
+    // ---- EXPOSURE ----
+    const aqiFactor = Math.min(aqi / 300, 1);
+    const rainFactor = Math.min(rainfallMm / 50, 1);
+    const trafficFactor = Math.min(trafficCongestion, 1);
+
+    const exposure =
+        0.45 * aqiFactor +
+        0.30 * rainFactor +
+        0.25 * trafficFactor;
+
+    const peopleAffected = Math.round(population * exposure * 0.25);
+
+    // ---- ECONOMIC LOSS ----
+    const gdpPerCapita =
+        Number(worldBank?.gdpPerCapita?.value) || 2500;
+
+    const productivityLossCr =
+        (peopleAffected * gdpPerCapita * 0.002) / 1e7;
+
+    const infrastructureLossCr =
+        floodRisk * 1200;
+
+    // ---- TIME MULTIPLIER ----
+    const timeMultiplier = 1 + yearsElapsed * 0.06;
+
+    const economicLossCr = Math.min(
+        2500,
+        Math.round(
+            (productivityLossCr + infrastructureLossCr) * timeMultiplier
+        )
     );
 
-    // --- People affected ---
-    // Exposure factor based on risk (realistic values)
-    let exposureFactor = 0.08; // Low
-    if (riskIndex > 0.6) exposureFactor = 0.18; // High
-    else if (riskIndex > 0.3) exposureFactor = 0.12; // Medium
-
-    const peopleAffected = Math.round(population * exposureFactor);
-
-    // --- Economic loss (yearly, per-person baseline) ---
-    const LOSS_PER_PERSON_PER_YEAR = 120000; // ₹1.2 Lakh
-    const MAX_CITY_LOSS_CR = 150000; // Hard cap (₹1.5 lakh Cr)
-
-    let economicLossCr = Math.round((peopleAffected * LOSS_PER_PERSON_PER_YEAR) / 1e7);
-    economicLossCr = Math.min(economicLossCr, MAX_CITY_LOSS_CR);
+    // ---- RISK ----
+    let risk = "Low 🟡";
+    if (aqi >= 250 || economicLossCr > 1500 || exposure > 0.65) {
+        risk = "Severe 🔴";
+    } else if (aqi >= 150 || economicLossCr > 600 || exposure > 0.45) {
+        risk = "Moderate 🟠";
+    }
 
     return {
-        population,
-        risk: riskIndex < 0.3 ? "Low" : riskIndex < 0.6 ? "Medium" : "High",
+        population: Math.round(population),
         peopleAffected,
-        economicLossCr
+        economicLossCr,
+        exposure: Number(exposure.toFixed(2)),
+        risk
     };
 }

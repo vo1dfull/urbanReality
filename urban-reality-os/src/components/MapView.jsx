@@ -15,9 +15,6 @@ import { fetchIndiaMacroData } from "../utils/worldBank";
 import { calculateImpactModel } from "../utils/impactModel";
 import { fetchRealtimeAQI } from "../utils/aqi";
 import LocationPopup from "./LocationPopup";
-import InsightPanel from "./InsightPanel";
-import MetricBar from "./MetricBar";
-import { getTerrainInsight } from "../utils/gemini";
 
 // Constants
 const BASE_YEAR = 2025;
@@ -30,7 +27,11 @@ const MAP_CONFIG = {
     pitch: 60,
     bearing: -20
 };
-// Local impact model defaults (used as fallback when world-bank data absent)
+const FLOOD_ANIMATION_CONFIG = {
+    depthIncrement: 0.02,
+    resetDepth: 0,
+    baseDepthMultiplier: 0.4
+};
 const IMPACT_MODEL = {
     baseAQI: 90,
     maxAQI: 200,
@@ -41,383 +42,11 @@ const IMPACT_MODEL = {
     basePopulation: 28000,
     populationGrowth: 6000
 };
-
-// Default cinematic fly path
-const defaultFlyPath = [
-    { center: [77.209, 28.6139], zoom: 13, pitch: 65, bearing: -20 },
-    { center: [77.22, 28.63], zoom: 15, pitch: 70, bearing: 60 },
-    { center: [77.23, 28.65], zoom: 14, pitch: 60, bearing: 140 }
-];
-// Flood animation constants
-const FLOOD_ANIMATION = {
-    depthIncrement: 0.02,
-    maxDepth: 3.5,
-    resetDepth: 0,
-    baseDepthMultiplier: 0.4
-};
-
-const FLOOD_GRID_STEP = 0.002; // ~200m
-// Backwards-compatible alias used elsewhere
-const FLOOD_ANIMATION_CONFIG = FLOOD_ANIMATION;
 // Use environment variable - set VITE_TOMTOM_API_KEY in your .env file
 const TOMTOM_KEY = import.meta.env.VITE_TOMTOM_API_KEY;
 // OpenWeather Air Pollution API key (set VITE_OPENWEATHER_API_KEY in .env)
 // Get free API key from: https://openweathermap.org/api/air-pollution
 const OPENWEATHER_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY || "";
-const MAPTILER_KEY = "UQBNCVHquLf1PybiywBt";
-const SATELLITE_STYLE = `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`;
-const TERRAIN_STYLE = `https://api.maptiler.com/maps/basic-v2/style.json?key=${MAPTILER_KEY}`;
-const STREET_STYLE = `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`;
-
-// --- Terrain Utils ---
-const TERRAIN_SAMPLE_DELTA = 0.0005;
-
-function getElevation(map, lngLat) {
-    if (!map || !lngLat) return 0;
-    try {
-        // Guard: if terrain isn't ready yet, avoid calling queryTerrainElevation
-        if (!map.getTerrain || !map.getTerrain()) return 0;
-        return map.queryTerrainElevation(lngLat, { exaggerated: false }) ?? 0;
-    } catch (e) {
-        return 0;
-    }
-}
-
-function getSlope(map, lngLat) {
-    if (!map || !lngLat) return 0;
-    try {
-        const e1 = getElevation(map, lngLat);
-        const e2 = getElevation(map, {
-            lng: lngLat.lng + TERRAIN_SAMPLE_DELTA,
-            lat: lngLat.lat
-        });
-        return Math.abs(e2 - e1) / TERRAIN_SAMPLE_DELTA;
-    } catch (e) {
-        return 0;
-    }
-}
-
-function getDrainageScore(map, lngLat) {
-    const slope = getSlope(map, lngLat);
-    return Math.max(0, 1 - slope * 4);
-}
-
-function calculateHeatIndex(map, lngLat, builtDensity = 0.6) {
-    const elevation = getElevation(map, lngLat);
-    const slope = getSlope(map, lngLat);
-    return Math.max(0, 1 + builtDensity * 2 - elevation * 0.002 - slope * 0.4);
-}
-
-function trafficSpeedMultiplier(map, lngLat) {
-    const slope = getSlope(map, lngLat);
-    return Math.max(0.4, 1 - slope * 0.6);
-}
-
-function populationRisk(map, lngLat, population) {
-    const floodRisk = getDrainageScore(map, lngLat);
-    const heat = calculateHeatIndex(map, lngLat);
-    return population * (floodRisk * 0.6 + heat * 0.4);
-}
-
-// --- Consolidated Terrain Metrics ---
-function getTerrainMetrics(map, lngLat) {
-    if (!map || !lngLat) return { elevation: 0, slope: 0, drainage: 0, heat: 0 };
-    return {
-        elevation: getElevation(map, lngLat),
-        slope: getSlope(map, lngLat),
-        drainage: getDrainageScore(map, lngLat),
-        heat: calculateHeatIndex(map, lngLat)
-    };
-}
-
-function simulateFlood(map, center, rainfall) {
-    // Replace old simulation with grid-based generator using FLOOD_GRID_STEP
-    if (!map || !center) return [];
-
-    const features = [];
-    const baseRain = Math.min(rainfall / 20, 1); // normalized
-
-    // Adaptive step based on zoom to reduce polygon count at low zooms
-    const step = (typeof map.getZoom === 'function' && map.getZoom() > 14) ? 0.002 : 0.004;
-    for (let dx = -0.01; dx <= 0.01; dx += step) {
-        for (let dy = -0.01; dy <= 0.01; dy += step) {
-            try {
-                const lng = center[0] + dx;
-                const lat = center[1] + dy;
-
-                const { elevation, drainage } = getTerrainMetrics(map, { lng, lat });
-                const drainageClamped = Math.max(0.1, drainage);
-
-                const depth = Math.max(0, baseRain * 4 - elevation * 0.02) * drainageClamped;
-                if (depth <= 0) continue;
-
-                features.push({
-                    type: "Feature",
-                    properties: { depth: Math.min(depth, FLOOD_ANIMATION.maxDepth) },
-                    geometry: {
-                        type: "Polygon",
-                        coordinates: [[
-                            [lng, lat],
-                            [lng + step, lat],
-                            [lng + step, lat + step],
-                            [lng, lat + step],
-                            [lng, lat]
-                        ]]
-                    }
-                });
-            } catch (e) {
-                // Skip invalid coordinates
-            }
-        }
-    }
-
-    return features;
-}
-
-// --- Elevation Cache ---
-const elevationCache = new Map();
-
-// Terrain/cache helpers
-const terrainCache = new Map();
-
-// NOTE: cinematic mode used to directly mutate DOM from top-level functions.
-// We dispatch a window event so React components can keep a synchronized state.
-
-function startFloodAnimation(map, center, rainfall, controller = {}) {
-    if (!map || !center || rainfall <= 0) return;
-    const source = map.getSource("flood-zones");
-    if (!source) return;
-
-    const animRef = controller.animRef || { current: null };
-    const depthRef = controller.depthRef || { current: 0 };
-
-    depthRef.current = FLOOD_ANIMATION.resetDepth;
-
-    const animate = () => {
-        depthRef.current = Math.min(FLOOD_ANIMATION.maxDepth, depthRef.current + FLOOD_ANIMATION.depthIncrement);
-
-        const features = simulateFlood(map, center, rainfall * depthRef.current);
-
-        try {
-            source.setData({ type: "FeatureCollection", features });
-        } catch (e) {
-            // source may be removed during style switch
-        }
-
-        if (depthRef.current < FLOOD_ANIMATION.maxDepth) {
-            animRef.current = requestAnimationFrame(animate);
-        } else {
-            animRef.current = null;
-        }
-    };
-
-    if (animRef.current) cancelAnimationFrame(animRef.current);
-    animRef.current = requestAnimationFrame(animate);
-    return { animRef, depthRef };
-}
-
-function stopFloodAnimation(map, controller = {}) {
-    const animRef = controller.animRef || { current: null };
-    try {
-        if (animRef.current) {
-            cancelAnimationFrame(animRef.current);
-            animRef.current = null;
-        }
-    } catch (e) { }
-    try {
-        const source = map.getSource("flood-zones");
-        if (source) source.setData({ type: "FeatureCollection", features: [] });
-    } catch (e) { }
-}
-
-function getCachedElevation(map, lngLat) {
-    if (!map || !lngLat) return 0;
-    const key = `${lngLat.lng.toFixed(5)},${lngLat.lat.toFixed(5)}`;
-    if (!elevationCache.has(key)) {
-        elevationCache.set(key, getElevation(map, lngLat));
-    }
-    return elevationCache.get(key);
-}
-
-// --- Water Flow Direction ---
-function getFlowDirection(map, lngLat) {
-    if (!map || !lngLat) return { dx: 0, dy: 0 };
-    const d = 0.0006;
-
-    try {
-        const eCenter = getCachedElevation(map, lngLat);
-        const eEast = getCachedElevation(map, { lng: lngLat.lng + d, lat: lngLat.lat });
-        const eNorth = getCachedElevation(map, { lng: lngLat.lng, lat: lngLat.lat + d });
-
-        return {
-            dx: eCenter - eEast,
-            dy: eCenter - eNorth
-        };
-    } catch (e) {
-        return { dx: 0, dy: 0 };
-    }
-}
-
-// --- Risk Score Calculation ---
-function calculateRisk(map, lngLat, population = 1) {
-    if (!map || !lngLat) return 0;
-    try {
-        const flood = getDrainageScore(map, lngLat);
-        const heat = calculateHeatIndex(map, lngLat);
-        return (flood * 0.6 + heat * 0.4) * population;
-    } catch (e) {
-        return 0;
-    }
-}
-
-// --- Emergency Response Time ---
-function emergencyResponseTime(map, lngLat) {
-    if (!map || !lngLat) return 5;
-    try {
-        const slope = getSlope(map, lngLat);
-        const floodPenalty = getDrainageScore(map, lngLat);
-        return Math.round(5 + slope * 12 + floodPenalty * 8);
-    } catch (e) {
-        return 5;
-    }
-}
-
-// --- Update Functions for Terrain Features ---
-function updateWaterFlow(map) {
-    if (!map) return;
-    try {
-        const center = map.getCenter();
-        const features = [];
-        const arrowLength = 0.001; // Length of flow arrow
-
-        for (let i = -0.01; i <= 0.01; i += 0.004) {
-            for (let j = -0.01; j <= 0.01; j += 0.004) {
-                const lngLat = {
-                    lng: center.lng + i,
-                    lat: center.lat + j
-                };
-
-                const { dx, dy } = getFlowDirection(map, lngLat);
-                const magnitude = Math.sqrt(dx * dx + dy * dy);
-
-                // Only show arrows where there's significant flow
-                if (magnitude > 0.1) {
-                    // Normalize direction
-                    const normDx = dx / magnitude;
-                    const normDy = dy / magnitude;
-
-                    // Create line from start to end point
-                    const startLng = lngLat.lng;
-                    const startLat = lngLat.lat;
-                    const endLng = startLng + normDx * arrowLength;
-                    const endLat = startLat + normDy * arrowLength;
-
-                    features.push({
-                        type: "Feature",
-                        properties: { magnitude },
-                        geometry: {
-                            type: "LineString",
-                            coordinates: [[startLng, startLat], [endLng, endLat]]
-                        }
-                    });
-                }
-            }
-        }
-
-        const source = map.getSource("water-flow");
-        if (source) {
-            source.setData({
-                type: "FeatureCollection",
-                features
-            });
-        }
-    } catch (e) {
-        console.warn("Water flow update failed:", e);
-    }
-}
-
-function updateRiskHeatmap(map) {
-    if (!map) return;
-    try {
-        const center = map.getCenter();
-        const features = [];
-
-        for (let x = -0.015; x <= 0.015; x += 0.004) {
-            for (let y = -0.015; y <= 0.015; y += 0.004) {
-                const lngLat = { lng: center.lng + x, lat: center.lat + y };
-                const risk = calculateRisk(map, lngLat);
-
-                if (risk > 0) {
-                    features.push({
-                        type: "Feature",
-                        properties: { risk },
-                        geometry: {
-                            type: "Point",
-                            coordinates: [lngLat.lng, lngLat.lat]
-                        }
-                    });
-                }
-            }
-        }
-
-        const source = map.getSource("risk-heat");
-        if (source) {
-            source.setData({
-                type: "FeatureCollection",
-                features
-            });
-        }
-    } catch (e) {
-        console.warn("Risk heatmap update failed:", e);
-    }
-}
-
-function updateEmergencyZones(map) {
-    if (!map) return;
-    try {
-        const center = map.getCenter();
-        const features = [];
-
-        for (let i = -0.01; i <= 0.01; i += 0.005) {
-            for (let j = -0.01; j <= 0.01; j += 0.005) {
-                const lngLat = { lng: center.lng + i, lat: center.lat + j };
-
-                features.push({
-                    type: "Feature",
-                    properties: {
-                        time: emergencyResponseTime(map, lngLat)
-                    },
-                    geometry: {
-                        type: "Point",
-                        coordinates: [lngLat.lng, lngLat.lat]
-                    }
-                });
-            }
-        }
-
-        const source = map.getSource("emergency-zones");
-        if (source) {
-            source.setData({
-                type: "FeatureCollection",
-                features
-            });
-        }
-    } catch (e) {
-        console.warn("Emergency zones update failed:", e);
-    }
-}
-
-// --- Throttling Utility ---
-function createThrottledUpdate(delay = 300) {
-    let lastUpdate = 0;
-    return (fn) => {
-        const now = Date.now();
-        if (now - lastUpdate > delay) {
-            lastUpdate = now;
-            fn();
-        }
-    };
-}
 
 // Major Indian cities with coordinates
 const MAJOR_INDIAN_CITIES = [
@@ -448,162 +77,6 @@ const MAJOR_INDIAN_CITIES = [
     { name: "Meerut", lat: 28.9845, lng: 77.7064 }
 ];
 
-/* ====== Map Helpers: centralized rendering & lighting helpers ====== */
-function ensureHillshade(map) {
-    if (!map) return;
-    try {
-        // Hillshade requires a raster-dem source named "terrain" (or the terrain source to be present)
-        if (!map.getSource || !map.getSource("terrain")) return;
-        if (map.getLayer && map.getLayer("terrain-hillshade")) return;
-
-        map.addLayer({
-            id: "terrain-hillshade",
-            type: "hillshade",
-            source: "terrain",
-            paint: {
-                "hillshade-exaggeration": 0.6,
-                "hillshade-shadow-color": "#3d3d3d",
-                "hillshade-highlight-color": "#ffffff",
-                "hillshade-accent-color": "#9c8468"
-            }
-        });
-    } catch (e) {
-        console.warn("ensureHillshade failed:", e);
-    }
-}
-
-function add3DBuildings(map) {
-    if (!map) return;
-    try {
-        if (map.getLayer && map.getLayer("3d-buildings")) return;
-        // Attempt to find a usable vector source for building data. MapTiler styles may rename sources.
-        const sources = map.getStyle && map.getStyle()?.sources ? map.getStyle().sources : {};
-        let vectorSourceId = Object.keys(sources).find(k => sources[k] && sources[k].type === 'vector');
-
-        // Prefer 'openmaptiles' if it exists
-        if (!vectorSourceId && sources.openmaptiles) vectorSourceId = 'openmaptiles';
-        if (!vectorSourceId) return;
-
-        // Determine a sensible source-layer by inspecting style layers
-        const candidateLayers = ["building", "buildings", "building_3d"];
-        const styleLayers = map.getStyle()?.layers || [];
-        const sourceLayer = candidateLayers.find(cl => styleLayers.some(sl => sl["source-layer"] === cl)) || candidateLayers[0];
-
-        map.addLayer({
-            id: "3d-buildings",
-            source: vectorSourceId,
-            "source-layer": sourceLayer,
-            type: "fill-extrusion",
-            minzoom: 14,
-            paint: {
-                "fill-extrusion-color": "#d1d1d1",
-                "fill-extrusion-height": [
-                    "coalesce",
-                    ["get", "render_height"],
-                    ["get", "height"],
-                    12
-                ],
-                "fill-extrusion-base": [
-                    "coalesce",
-                    ["get", "render_min_height"],
-                    0
-                ],
-                "fill-extrusion-opacity": 0.85
-            }
-        });
-    } catch (e) {
-        console.warn("add3DBuildings failed:", e);
-    }
-}
-
-function updateSunLighting(map, hour = 14) {
-    if (!map) return;
-    try {
-        const azimuth = (hour / 24) * 360;
-        const altitude = Math.max(15, 80 - Math.abs(12 - hour) * 5);
-        map.setLight({
-            anchor: "map",
-            position: [azimuth, altitude, 80],
-            intensity: 0.8,
-            color: "#ffffff"
-        });
-    } catch (e) {
-        console.warn("updateSunLighting failed:", e);
-    }
-}
-
-function enableGlobalLighting(map) {
-    if (!map) return;
-    try {
-        map.setLight({
-            anchor: "map",
-            position: [1.5, 90, 80],
-            intensity: 0.7,
-            color: "#ffffff"
-        });
-    } catch (e) { /* ignore */ }
-}
-
-function enableFog(map) {
-    if (!map) return;
-    try {
-        map.setFog({
-            range: [0.6, 10],
-            color: "#dbe7f3",
-            "horizon-blend": 0.2,
-            "star-intensity": 0
-        });
-    } catch (e) { /* ignore */ }
-}
-
-function rehydrateCustomLayers(map) {
-    if (!map) return;
-    try {
-        // Terrain + hillshade + buildings + lighting should be reapplied after style/load
-        if (map.getSource && map.getSource("terrain")) map.setTerrain && map.setTerrain({ source: "terrain", exaggeration: 1.4 });
-        ensureHillshade(map);
-        add3DBuildings(map);
-        // Apply lighting after the style/terrain becomes idle
-        map.once("idle", () => {
-            enableGlobalLighting(map);
-            enableFog(map);
-            updateSunLighting(map, 16);
-        });
-    } catch (e) {
-        console.warn("rehydrateCustomLayers failed:", e);
-    }
-}
-
-function startFlyThrough(map, flyPath = defaultFlyPath) {
-    if (!map) return;
-    try {
-        setCinematicMode(true);
-        flyPath.forEach((step, i) => {
-            setTimeout(() => {
-                map.easeTo({ ...step, duration: 2500, easing: (t) => t * (2 - t) });
-                if (i === flyPath.length - 1) setTimeout(() => setCinematicMode(false), 2600);
-            }, i * 2600);
-        });
-    } catch (e) { console.warn('startFlyThrough failed:', e); }
-}
-
-function streetLevelView(map, lngLat) {
-    if (!map || !lngLat) return;
-    try {
-        setCinematicMode(true);
-        map.easeTo({ center: [lngLat.lng, lngLat.lat], zoom: 17, pitch: 80, bearing: Math.random() * 360, duration: 1800 });
-        setTimeout(() => setCinematicMode(false), 2000);
-    } catch (e) { console.warn('streetLevelView failed:', e); }
-}
-
-function setCinematicMode(active) {
-    try {
-        document.body.classList.toggle('cinematic', !!active);
-        // Dispatch event for other components to react to cinematic mode
-        window.dispatchEvent(new CustomEvent("cinematic-mode", { detail: { active: !!active } }));
-    } catch (e) { }
-}
-
 export default function MapView() {
     const mapContainer = useRef(null);
     const mapRef = useRef(null);
@@ -618,38 +91,21 @@ export default function MapView() {
     const rainfallRef = useRef(0); // Store current rainfall for flood animation
     const macroDataRef = useRef(null);
     const lastAQIRef = useRef(null); // Persist AQI across renders
-    const lastUpdateRef = useRef(0); // For throttling terrain updates
-    const throttledUpdateRef = useRef(null); // Throttled update function
 
     const [year, setYear] = useState(INITIAL_YEAR);
-    const [debugData, setDebugData] = useState(null);
     const [impactData, setImpactData] = useState(null);
-    const [impact, setImpact] = useState(null);
     const [urbanAnalysis, setUrbanAnalysis] = useState(null);
     const [analysisLoading, setAnalysisLoading] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(true);
     const [floodMode, setFloodMode] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [terrainInsight, setTerrainInsight] = useState(null);
-    const [insightLoading, setInsightLoading] = useState(false);
-    const [isCinematic, setIsCinematic] = useState(false);
-    const terrainInsightRef = useRef({ coords: null, insight: null });
-
-    // Sync cinematic mode from top-level functions
-    useEffect(() => {
-        const handleCinematic = (e) => setIsCinematic(!!e.detail.active);
-        window.addEventListener('cinematic-mode', handleCinematic);
-        return () => window.removeEventListener('cinematic-mode', handleCinematic);
-    }, []);
 
     const [layers, setLayers] = useState({
         aqi: true,
         flood: true,
         traffic: true,
-        floodDepth: false,
-        terrain: true,
-        hillshade: true
+        floodDepth: false
     });
 
     const [cameraState, setCameraState] = useState({
@@ -663,8 +119,6 @@ export default function MapView() {
     const [loadingAQI, setLoadingAQI] = useState(false);
     const [macroData, setMacroData] = useState(null);
     const [demographics, setDemographics] = useState(null);
-    const demographicsRef = useRef(null);
-    useEffect(() => { demographicsRef.current = demographics; }, [demographics]);
     const [cityDemo, setCityDemo] = useState(null);
     const [locationPopulation, setLocationPopulation] = useState(null);
     const [activeLocation, setActiveLocation] = useState(null);
@@ -727,16 +181,13 @@ export default function MapView() {
         const impact = calculateImpactModel({
             year,
             baseYear: BASE_YEAR,
-            populationBase: worldBank?.population?.value ?? IMPACT_MODEL.basePopulation,
+            populationBase: worldBank?.population?.value,
             aqi: projectedAQI,
             rainfallMm: baseRainfall,
             trafficCongestion: projectedTraffic,
             floodRisk: projectedFloodRisk,
             worldBank
         });
-
-        // keep single source of truth for latest impact
-        setImpact(impact);
 
         setImpactData({
             zone: `${aPlace} (${year})`,
@@ -749,7 +200,7 @@ export default function MapView() {
             population: impact.population,
             growthRate: 1.6,
             tfr: 1.9,
-            migrantsPct: Math.round(Math.min(30, 15 + (year - BASE_YEAR) * 0.5))
+            migrantsPct: 21
         });
 
         // If popup root is mounted, re-render it with updated impact
@@ -768,10 +219,9 @@ export default function MapView() {
                         rainProbability={null}
                         macroData={worldBank}
                         impact={impact}
-                        demographics={demographicsRef.current}
+                        demographics={demographics}
                         analysis={urbanAnalysis}
                         analysisLoading={analysisLoading}
-                        terrainInsight={terrainInsight}
                         openWeatherKey={OPENWEATHER_KEY}
                         onSave={(name) => { if (window.saveLocation) window.saveLocation(name, aLat, aLng); }}
                     />
@@ -818,27 +268,9 @@ export default function MapView() {
             }
         };
 
-        popupRef.current.on("close", () => {
-            try {
-                // Reset popup session so hover can resume
-                popupSessionRef.current = 0;
-                handlePopupClose();
-            } catch (e) {
-                console.warn("Popup close handler failed:", e);
-            }
-        });
+        popupRef.current.on("close", handlePopupClose);
 
         map.addControl(new maplibregl.NavigationControl(), "top-right");
-
-        // Keep elevation cache bounded: clear on camera moves
-        try { map.on && map.on("movestart", () => elevationCache.clear()); } catch (e) { }
-
-        // Expose debug helpers to window for quick testing
-        try {
-            window.updateSunLighting = (h = 16) => updateSunLighting(mapRef.current, h);
-            window.startFlyThrough = () => startFlyThrough(mapRef.current);
-            window.streetLevelView = (lngLat) => streetLevelView(mapRef.current, lngLat);
-        } catch (e) { }
 
         const loadMapData = async () => {
             try {
@@ -864,166 +296,6 @@ export default function MapView() {
                 });
 
                 map.setTerrain({ source: "terrain", exaggeration: 1.4 });
-
-                // Lighting & Fog for photoreal satellite — apply once style/terrain becomes idle
-                try {
-                    map.once("idle", () => {
-                        enableGlobalLighting(map);
-                        enableFog(map);
-                        // Set initial sun position (late afternoon as default)
-                        updateSunLighting(map, 16);
-                    });
-                } catch (e) { console.warn('Lighting init failed:', e); }
-
-                // LOD and 3D performance adjustments on zoom
-                try {
-                    map.on('zoom', () => {
-                        const z = map.getZoom();
-                        // Terrain LOD
-                        try { map.setTerrain({ source: 'terrain', exaggeration: z > 13 ? 1.4 : 0.8 }); } catch (e) { }
-                        // 3D buildings visibility
-                        try { if (map.getLayer('3d-buildings')) map.setLayoutProperty('3d-buildings', 'visibility', z > 14 ? 'visible' : 'none'); } catch (e) { }
-                    });
-                } catch (e) { console.warn('Zoom handlers failed:', e); }
-
-                /* ===== HILLSHADE (TERRAIN VISUALIZATION) ===== */
-                try {
-                    ensureHillshade(map);
-                    if (map.getLayer && map.getLayer("terrain-hillshade")) {
-                        map.setLayoutProperty("terrain-hillshade", "visibility", layers.hillshade ? "visible" : "none");
-                    }
-                } catch (e) {
-                    console.warn("Hillshade ensure failed:", e);
-                }
-
-                /* ===== TERRAIN-AWARE FLOOD SOURCE ===== */
-                try {
-                    map.addSource("flood-terrain", {
-                        type: "geojson",
-                        data: {
-                            type: "FeatureCollection",
-                            features: []
-                        }
-                    });
-
-                    map.addLayer({
-                        id: "terrain-flood-layer",
-                        type: "fill",
-                        source: "flood-terrain",
-                        paint: {
-                            "fill-color": [
-                                "interpolate",
-                                ["linear"],
-                                ["get", "depth"],
-                                0, "rgba(0,0,0,0)",
-                                0.3, "rgba(80,170,255,0.25)",
-                                1, "rgba(40,120,220,0.5)",
-                                3, "rgba(20,60,160,0.7)"
-                            ],
-                            "fill-opacity": 0.6
-                        },
-                        layout: {
-                            visibility: layers.flood ? "visible" : "none"
-                        }
-                    });
-                } catch (e) {
-                    console.warn("Terrain flood layer setup failed:", e);
-                }
-
-                /* ===== WATER FLOW ARROWS ===== */
-                try {
-                    map.addSource("water-flow", {
-                        type: "geojson",
-                        data: { type: "FeatureCollection", features: [] }
-                    });
-
-                    // Use line layer to show flow direction
-                    map.addLayer({
-                        id: "water-flow-arrows",
-                        type: "line",
-                        source: "water-flow",
-                        layout: {
-                            "line-cap": "round",
-                            "line-join": "round",
-                            visibility: "none" // Hidden by default, toggle via layer controls
-                        },
-                        paint: {
-                            "line-color": "rgba(59, 130, 246, 0.7)",
-                            "line-width": 2,
-                            "line-opacity": 0.6
-                        }
-                    });
-                } catch (e) {
-                    console.warn("Water flow arrows setup failed:", e);
-                }
-
-                /* ===== RISK HEATMAP ===== */
-                try {
-                    map.addSource("risk-heat", {
-                        type: "geojson",
-                        data: { type: "FeatureCollection", features: [] }
-                    });
-
-                    map.addLayer({
-                        id: "risk-heatmap",
-                        type: "heatmap",
-                        source: "risk-heat",
-                        paint: {
-                            "heatmap-weight": ["get", "risk"],
-                            "heatmap-intensity": 1.2,
-                            "heatmap-radius": 25,
-                            "heatmap-color": [
-                                "interpolate",
-                                ["linear"],
-                                ["heatmap-density"],
-                                0, "rgba(0,0,0,0)",
-                                0.3, "rgba(255,255,0,0.6)",
-                                0.6, "rgba(255,165,0,0.8)",
-                                1, "rgba(255,0,0,1)"
-                            ],
-                            "heatmap-opacity": 0.6
-                        },
-                        layout: {
-                            visibility: "none" // Hidden by default
-                        }
-                    });
-                } catch (e) {
-                    console.warn("Risk heatmap setup failed:", e);
-                }
-
-                /* ===== EMERGENCY RESPONSE ZONES ===== */
-                try {
-                    map.addSource("emergency-zones", {
-                        type: "geojson",
-                        data: { type: "FeatureCollection", features: [] }
-                    });
-
-                    map.addLayer({
-                        id: "emergency-response",
-                        type: "circle",
-                        source: "emergency-zones",
-                        paint: {
-                            "circle-radius": 10,
-                            "circle-color": [
-                                "interpolate",
-                                ["linear"],
-                                ["get", "time"],
-                                5, "rgba(34,197,94,0.8)",
-                                10, "rgba(234,179,8,0.8)",
-                                20, "rgba(239,68,68,0.8)"
-                            ],
-                            "circle-opacity": 0.6,
-                            "circle-stroke-width": 1,
-                            "circle-stroke-color": "#ffffff",
-                            "circle-stroke-opacity": 0.5
-                        },
-                        layout: {
-                            visibility: "none" // Hidden by default
-                        }
-                    });
-                } catch (e) {
-                    console.warn("Emergency response zones setup failed:", e);
-                }
 
                 /* ===== AQI (REAL-TIME FROM OPENWEATHER API) ===== */
                 const fetchAllCitiesAQI = async () => {
@@ -1167,34 +439,6 @@ export default function MapView() {
                     });
                 }
 
-                // Add lightweight generated flood zones source + layer
-                try {
-                    if (isMounted) {
-                        map.addSource("flood-zones", {
-                            type: "geojson",
-                            data: { type: "FeatureCollection", features: [] }
-                        });
-
-                        map.addLayer({
-                            id: "flood-zones-layer",
-                            type: "fill",
-                            source: "flood-zones",
-                            paint: {
-                                "fill-color": [
-                                    "interpolate",
-                                    ["linear"],
-                                    ["get", "depth"],
-                                    0, "rgba(0,0,0,0)",
-                                    0.5, "rgba(96,165,250,0.4)",
-                                    1.5, "rgba(37,99,235,0.6)",
-                                    3, "rgba(30,58,138,0.85)"
-                                ],
-                                "fill-opacity": 0.75
-                            }
-                        });
-                    }
-                } catch (e) { console.warn('Failed to add flood-zones layer:', e); }
-
                 /* ===== TRAFFIC (TomTom API) ===== */
                 try {
                     if (isMounted && TOMTOM_KEY) {
@@ -1216,14 +460,7 @@ export default function MapView() {
                             type: "raster",
                             source: "traffic",
                             paint: {
-                                "raster-opacity": [
-                                    "interpolate",
-                                    ["linear"],
-                                    ["zoom"],
-                                    10, 0.35,
-                                    14, 0.7,
-                                    17, 0.9
-                                ],
+                                "raster-opacity": 1.0,
                                 "raster-fade-duration": 300
                             },
                             layout: {
@@ -1252,8 +489,24 @@ export default function MapView() {
                 }
 
                 /* ===== 3D BUILDINGS ===== */
-                if (isMounted) {
-                    try { add3DBuildings(map); } catch (e) { console.warn('Could not add 3d-buildings layer:', e); }
+                if (isMounted && map.getSource && map.getSource("openmaptiles")) {
+                    try {
+                        map.addLayer({
+                            id: "3d-buildings",
+                            source: "openmaptiles",
+                            "source-layer": "building",
+                            type: "fill-extrusion",
+                            minzoom: 14,
+                            paint: {
+                                "fill-extrusion-color": "#cbd5e1",
+                                "fill-extrusion-height": ["get", "render_height"],
+                                "fill-extrusion-base": ["get", "render_min_height"],
+                                "fill-extrusion-opacity": 0.9
+                            }
+                        });
+                    } catch (e) {
+                        console.warn('Could not add 3d-buildings layer:', e);
+                    }
                 }
 
                 if (isMounted) setLoading(false);
@@ -1334,16 +587,6 @@ export default function MapView() {
             const y = yearRef.current;
             const macroData = macroDataRef.current;
 
-            // Smooth camera transition to clicked location
-            mapRef.current.easeTo({
-                center: [lng, lat],
-                zoom: Math.max(mapRef.current.getZoom(), 14),
-                pitch: 65,
-                bearing: -30,
-                duration: 1800,
-                easing: (t) => t * (2 - t) // Ease-out curve
-            });
-
             // Start a new popup session
             const sessionId = ++popupSessionRef.current;
 
@@ -1379,7 +622,7 @@ export default function MapView() {
                         rainProbability={null}
                         macroData={macroDataRef.current}
                         impact={null}
-                        demographics={demographicsRef.current}
+                        demographics={demographics}
                         analysis={urbanAnalysis}
                         analysisLoading={true}
                         openWeatherKey={OPENWEATHER_KEY}
@@ -1447,11 +690,6 @@ export default function MapView() {
                 const rainfall = rainData ? rainData.rain : 0;
                 const rainProbability = rainData ? rainData.probability : 0;
                 rainfallRef.current = rainfall; // Store for flood animation
-                // Auto-start lightweight flood animation for clicked location
-                try {
-                    const center = [lng, lat];
-                    startFloodAnimation(mapRef.current, center, rainfall);
-                } catch (e) { }
                 lastAQIRef.current = realTimeAQI; // Persist AQI for re-renders
 
                 // Time Factor (use BASE_YEAR)
@@ -1524,7 +762,7 @@ export default function MapView() {
                         population: impact.population,
                         growthRate: 1.6,
                         tfr: 1.9,
-                        migrantsPct: Math.round(Math.min(30, 15 + (y - BASE_YEAR) * 0.5))
+                        migrantsPct: 21
                     });
 
                     // Save base/reference snapshot for this clicked location
@@ -1563,12 +801,11 @@ export default function MapView() {
                                     finalAQI={finalAQI}
                                     rainfall={rainfall}
                                     rainProbability={rainProbability}
-                                    macroData={macroDataRef.current}
+                                    macroData={macroData}
                                     impact={impact}
-                                    demographics={demographicsRef.current}
+                                    demographics={demographics}
                                     analysis={urbanAnalysis}
                                     analysisLoading={analysisLoading}
-                                    terrainInsight={terrainInsight}
                                     openWeatherKey={OPENWEATHER_KEY}
                                     onSave={(name) => { if (window.saveLocation) window.saveLocation(name, lat, lng); }}
                                 />
@@ -1587,68 +824,7 @@ export default function MapView() {
                         // show loading state in popup if already mounted
                         /* AI Analysis Loading State - State already set above, popup will re-render via state */
 
-                        // Get terrain data for AI analysis using consolidated helper
-                        let elevation = null;
-                        let slope = 0;
-                        let heatIndex = 0;
-                        let drainageScore = 0;
-
-                        try {
-                            if (mapRef.current) {
-                                const lngLat = { lng, lat };
-                                const metrics = getTerrainMetrics(mapRef.current, lngLat);
-                                elevation = metrics.elevation;
-                                slope = metrics.slope;
-                                heatIndex = metrics.heat;
-                                drainageScore = metrics.drainage;
-                            }
-                        } catch (e) {
-                            console.warn("Terrain query failed:", e);
-                        }
-
-                        // Build sanitized payload for AI (explain-only) with full terrain context
-                        const terrainContext = {
-                            elevation: elevation ? Math.round(elevation) : null,
-                            slope: Math.round(slope * 100) / 100,
-                            heatIndex: Math.round(heatIndex * 100) / 100,
-                            drainageScore: Math.round(drainageScore * 100) / 100
-                        };
-
-                        // Generate terrain insight on click
-                        try {
-                            setInsightLoading(true);
-                            // Reuse cached terrain insight if available for same coordinates
-                            const curCoords = { lat, lng };
-                            if (
-                                terrainInsightRef.current.coords &&
-                                Math.abs(terrainInsightRef.current.coords.lat - lat) < 1e-5 &&
-                                Math.abs(terrainInsightRef.current.coords.lng - lng) < 1e-5
-                            ) {
-                                // Use cached insight
-                                if (popupSessionRef.current === sessionId) {
-                                    setTerrainInsight(terrainInsightRef.current.insight);
-                                }
-                            } else {
-                                const insight = await getTerrainInsight({
-                                    elevation: elevation ?? 0,
-                                    slope: slope,
-                                    floodRisk: drainageScore,
-                                    heat: heatIndex,
-                                    population: impact?.population ?? 0,
-                                    aqi: finalAQI
-                                });
-                                if (popupSessionRef.current === sessionId) {
-                                    setTerrainInsight(insight);
-                                    terrainInsightRef.current = { coords: { lat, lng }, insight };
-                                }
-                            }
-                        } catch (e) {
-                            console.warn("Terrain insight failed:", e);
-                        } finally {
-                            // Always clear insight loading so UI doesn't get stuck
-                            setInsightLoading(false);
-                        }
-
+                        // Build sanitized payload for AI (explain-only)
                         const aiPayload = {
                             zone: placeName,
                             year: y,
@@ -1658,8 +834,7 @@ export default function MapView() {
                             traffic: projectedTraffic,
                             floodRisk: FloodRisk,
                             peopleAffected: impact.peopleAffected,
-                            economicLossCr: impact.economicLossCr,
-                            terrain: terrainContext
+                            economicLossCr: impact.economicLossCr
                         };
 
                         // Fetch analysis with sanitized payload
@@ -1670,10 +845,8 @@ export default function MapView() {
 
                         // Race condition check: only update if this is still the latest request
                         if (lastRequestTimeRef.current === requestTime) {
-                            // Ensure deterministic impact is applied before clearing AI loading state
                             setUrbanAnalysis(analysis || "No analysis available.");
-                            // Defer clearing loading to ensure React updates impact state first
-                            setTimeout(() => setAnalysisLoading(false), 0);
+                            setAnalysisLoading(false);
 
                             // NOTE: Gemini provides explanatory analysis only. Do not overwrite deterministic loss here.
                             // Re-render popup React root (if present) with new analysis from state
@@ -1695,12 +868,11 @@ export default function MapView() {
                                             finalAQI={finalAQI}
                                             rainfall={rainfall}
                                             rainProbability={rainProbability}
-                                            macroData={macroDataRef.current}
+                                            macroData={macroData}
                                             impact={impact}
-                                            demographics={demographicsRef.current}
+                                            demographics={demographics}
                                             analysis={analysis || 'No analysis available.'}
                                             analysisLoading={false}
-                                            terrainInsight={terrainInsight}
                                             openWeatherKey={OPENWEATHER_KEY}
                                             onSave={(name) => { if (window.saveLocation) window.saveLocation(name, lat, lng); }}
                                         />
@@ -1726,12 +898,11 @@ export default function MapView() {
                                             finalAQI={finalAQI}
                                             rainfall={rainfall}
                                             rainProbability={rainProbability}
-                                            macroData={macroDataRef.current}
+                                            macroData={macroData}
                                             impact={impact}
-                                            demographics={demographicsRef.current}
+                                            demographics={demographics}
                                             analysis={null}
                                             analysisLoading={false}
-                                            terrainInsight={terrainInsight}
                                             openWeatherKey={OPENWEATHER_KEY}
                                             onSave={(name) => { if (window.saveLocation) window.saveLocation(name, lat, lng); }}
                                         />
@@ -1792,9 +963,6 @@ export default function MapView() {
                 cancelAnimationFrame(floodAnimRef.current);
                 floodAnimRef.current = null;
             }
-
-            // Stop generated flood-zones animation if running
-            try { stopFloodAnimation(map); } catch (e) { }
 
             flyThroughTimeoutsRef.current.forEach(clearTimeout);
             flyThroughTimeoutsRef.current = [];
@@ -1918,194 +1086,72 @@ export default function MapView() {
         const map = mapRef.current;
         if (!map.getLayer("aqi-layer")) return;
 
-        // Throttle function for hover updates
-        let lastCall = 0;
-        const throttle = (func, delay) => {
-            return (e) => {
-                const now = Date.now();
-                if (now - lastCall >= delay) {
-                    lastCall = now;
-                    func(e);
+        let hoverTimeout;
+        
+        const debouncedHoverUpdate = (e) => {
+            clearTimeout(hoverTimeout);
+            hoverTimeout = setTimeout(() => {
+                if (!map.getLayer("aqi-layer") || !e.features || e.features.length === 0) return;
+                
+                const feature = e.features[0];
+                const props = feature.properties;
+                const coords = e.lngLat;
+
+                // Update popup with hover data (if popup is open)
+                if (popupRef.current && popupRef.current.isOpen() && popupRootRef.current) {
+                    try {
+                        const hoverAQI = {
+                            aqi: props.aqi,
+                            pm25: props.pm25 ?? null,
+                            pm10: props.pm10 ?? null
+                        };
+
+                        popupRootRef.current.render(
+                            <LocationPopup
+                                placeName={props.city || "Hover Location"}
+                                lat={coords.lat}
+                                lng={coords.lng}
+                                year={yearRef.current}
+                                baseYear={BASE_YEAR}
+                                realTimeAQI={hoverAQI}
+                                finalAQI={props.aqi}
+                                rainfall={0}
+                                rainProbability={null}
+                                macroData={macroDataRef.current}
+                                impact={null}
+                                demographics={null}
+                                analysis={null}
+                                analysisLoading={false}
+                                openWeatherKey={OPENWEATHER_KEY}
+                                onSave={null}
+                            />
+                        );
+                    } catch (err) {
+                        console.warn("Hover update failed:", err);
+                    }
                 }
-            };
+
+                // Change cursor on hover
+                map.getCanvas().style.cursor = "pointer";
+            }, 120);
         };
-
-        const handleHover = (e) => {
-            if (!map.getLayer("aqi-layer") || !e.features || e.features.length === 0) return;
-
-            const feature = e.features[0];
-            const props = feature.properties;
-            const coords = e.lngLat;
-
-            // Hover must not overwrite a clicked popup — only block when a click-popup is open
-            if (
-                activeLocation &&
-                popupRef.current?.isOpen() &&
-                popupSessionRef.current === activeLocation.sessionId
-            ) return;
-
-            // Update popup with hover data (if popup is open)
-            if (popupRef.current && popupRef.current.isOpen() && popupRootRef.current) {
-                try {
-                    const hoverAQI = {
-                        aqi: props.aqi,
-                        pm25: props.pm25 ?? null,
-                        pm10: props.pm10 ?? null
-                    };
-
-                    popupRootRef.current.render(
-                        <LocationPopup
-                            placeName={props.city || "Hover Location"}
-                            lat={coords.lat}
-                            lng={coords.lng}
-                            year={yearRef.current}
-                            baseYear={BASE_YEAR}
-                            realTimeAQI={hoverAQI}
-                            finalAQI={props.aqi}
-                            rainfall={0}
-                            rainProbability={null}
-                            macroData={macroDataRef.current}
-                            impact={null}
-                            demographics={demographicsRef.current}
-                            analysis={null}
-                            analysisLoading={false}
-                            terrainInsight={terrainInsight}
-                            openWeatherKey={OPENWEATHER_KEY}
-                            onSave={null}
-                        />
-                    );
-                } catch (err) {
-                    console.warn("Hover update failed:", err);
-                }
-            }
-
-            // Change cursor on hover
-            map.getCanvas().style.cursor = "pointer";
-        };
-
-        const throttledHover = throttle(handleHover, 100);
 
         const handleMouseLeave = () => {
+            clearTimeout(hoverTimeout);
             map.getCanvas().style.cursor = "";
         };
 
-        map.on("mousemove", "aqi-layer", throttledHover);
+        map.on("mousemove", "aqi-layer", debouncedHoverUpdate);
         map.on("mouseleave", "aqi-layer", handleMouseLeave);
 
         return () => {
-            map.off("mousemove", "aqi-layer", throttledHover);
+            clearTimeout(hoverTimeout);
+            map.off("mousemove", "aqi-layer", debouncedHoverUpdate);
             map.off("mouseleave", "aqi-layer", handleMouseLeave);
         };
-    }, [layers.aqi, loading, activeLocation]);
+    }, [layers.aqi, loading]);
 
-    /* ================= TERRAIN HOVER HUD ================= */
-    useEffect(() => {
-        if (!mapRef.current || loading) return;
-
-        const map = mapRef.current;
-        let lastTerrainHover = 0;
-
-        const handleTerrainHover = (e) => {
-            try {
-                const now = Date.now();
-                if (now - lastTerrainHover < 120) return; // throttle to ~120ms
-                lastTerrainHover = now;
-
-                const elevation = getElevation(map, e.lngLat);
-                const slope = getSlope(map, e.lngLat);
-                const heat = calculateHeatIndex(map, e.lngLat);
-                const drainage = getDrainageScore(map, e.lngLat);
-                const response = emergencyResponseTime(map, e.lngLat);
-
-                if (elevation !== null) {
-                    map.getCanvas().style.cursor = "crosshair";
-
-                    const debugInfo = {
-                        elevation: Math.round(elevation),
-                        slope: parseFloat(slope.toFixed(2)),
-                        heat: parseFloat(heat.toFixed(2)),
-                        drainage: parseFloat(drainage.toFixed(2)),
-                        response: response
-                    };
-
-                    setDebugData(debugInfo);
-
-                    // Dispatch custom event for HUD/popup integration
-                    window.dispatchEvent(new CustomEvent("terrain-hover", {
-                        detail: debugInfo
-                    }));
-                }
-            } catch (err) {
-                // Terrain query may fail in some areas
-            }
-        };
-
-        const handleTerrainLeave = () => {
-            map.getCanvas().style.cursor = "";
-            setDebugData(null);
-            lastTerrainHover = 0;
-        };
-
-        map.on("mousemove", handleTerrainHover);
-        map.on("mouseleave", handleTerrainLeave);
-
-        return () => {
-            map.off("mousemove", handleTerrainHover);
-            map.off("mouseleave", handleTerrainLeave);
-        };
-    }, [loading]);
-
-    /* ================= TERRAIN FEATURES UPDATE (WATER FLOW, RISK, EMERGENCY) ================= */
-    useEffect(() => {
-        if (!mapRef.current || loading) return;
-
-        const map = mapRef.current;
-
-        // Initialize throttled update function
-        if (!throttledUpdateRef.current) {
-            throttledUpdateRef.current = createThrottledUpdate(400);
-        }
-
-        const updateTerrainFeatures = () => {
-            throttledUpdateRef.current(() => {
-                try {
-                    // Update water flow arrows if layer is visible
-                    if (map.getLayer("water-flow-arrows") &&
-                        map.getLayoutProperty("water-flow-arrows", "visibility") === "visible") {
-                        updateWaterFlow(map);
-                    }
-
-                    // Update risk heatmap if layer is visible
-                    if (map.getLayer("risk-heatmap") &&
-                        map.getLayoutProperty("risk-heatmap", "visibility") === "visible") {
-                        updateRiskHeatmap(map);
-                    }
-
-                    // Update emergency zones if layer is visible
-                    if (map.getLayer("emergency-response") &&
-                        map.getLayoutProperty("emergency-response", "visibility") === "visible") {
-                        updateEmergencyZones(map);
-                    }
-                } catch (e) {
-                    console.warn("Terrain features update failed:", e);
-                }
-            });
-        };
-
-        // Update on map move/zoom
-        map.on("moveend", updateTerrainFeatures);
-        map.on("zoomend", updateTerrainFeatures);
-
-        // Initial update
-        setTimeout(updateTerrainFeatures, 500);
-
-        return () => {
-            map.off("moveend", updateTerrainFeatures);
-            map.off("zoomend", updateTerrainFeatures);
-        };
-    }, [loading]);
-
-    /* ================= FLOOD DEPTH ANIMATION (TERRAIN-AWARE) ================= */
+    /* ================= FLOOD DEPTH ANIMATION ================= */
     useEffect(() => {
         if (!mapRef.current) return;
 
@@ -2151,33 +1197,6 @@ export default function MapView() {
             const currentDepth = floodDepthRef.current + FLOOD_ANIMATION_CONFIG.depthIncrement;
             floodDepthRef.current = Math.min(currentDepth, maxDepth);
 
-            // Use terrain-aware flood if terrain-flood source exists
-            const terrainFloodSource = map.getSource("flood-terrain");
-            if (terrainFloodSource && activeLocation) {
-                const center = [activeLocation.lng, activeLocation.lat];
-                const floodFeatures = simulateFlood(
-                    map,
-                    center,
-                    rainfallRef.current * floodDepthRef.current
-                );
-
-                terrainFloodSource.setData({
-                    type: "FeatureCollection",
-                    features: floodFeatures
-                });
-
-                // Update water flow arrows after flood update (throttled)
-                if (map.getLayer("water-flow-arrows") &&
-                    map.getLayoutProperty("water-flow-arrows", "visibility") === "visible") {
-                    if (throttledUpdateRef.current) {
-                        throttledUpdateRef.current(() => updateWaterFlow(map));
-                    } else {
-                        updateWaterFlow(map);
-                    }
-                }
-            }
-
-            // Keep original flood-depth source for backward compatibility
             floodSource.setData({
                 type: "FeatureCollection",
                 features: [
@@ -2216,7 +1235,7 @@ export default function MapView() {
                 floodAnimRef.current = null;
             }
         };
-    }, [floodMode, year, layers.floodDepth, activeLocation]);
+    }, [floodMode, year, layers.floodDepth]);
 
     /* ================= MAP STYLE SWITCHING ================= */
     const styleRef = useRef(null);
@@ -2264,14 +1283,6 @@ export default function MapView() {
                 }
             }
 
-            // Stop flood animation safely after style change
-            try {
-                if (floodAnimRef.current) {
-                    cancelAnimationFrame(floodAnimRef.current);
-                    floodAnimRef.current = null;
-                }
-            } catch (e) { }
-
             // Re-add traffic layer if enabled
             if (layers.traffic && TOMTOM_KEY) {
                 setTimeout(() => {
@@ -2304,21 +1315,6 @@ export default function MapView() {
                     }
                 }, 300);
             }
-
-            // Stop flood animation safely after style change
-            try {
-                if (floodAnimRef.current) {
-                    cancelAnimationFrame(floodAnimRef.current);
-                    floodAnimRef.current = null;
-                }
-            } catch (e) { }
-
-            // Clear flood-terrain source data to avoid invisible persistent polygons
-            try {
-                if (map.getSource && map.getSource("flood-terrain")) {
-                    map.getSource("flood-terrain").setData({ type: "FeatureCollection", features: [] });
-                }
-            } catch (e) { }
 
             // Re-add AQI layer if we have cached geo data
             if (aqiGeo) {
@@ -2362,20 +1358,8 @@ export default function MapView() {
                 }, 300);
             }
 
-            // Clear elevation cache and rehydrate custom layers (terrain, hillshade, buildings, lighting)
-            try { elevationCache.clear(); } catch (e) { }
-            try {
-                // Keep a cinematic camera for satellite for UX
-                if (mapStyle === "satellite") {
-                    map.easeTo({ pitch: Math.max(map.getPitch(), 65), bearing: map.getBearing(), zoom: Math.max(map.getZoom(), 14), duration: 1500 });
-                }
-
-                rehydrateCustomLayers(map);
-            } catch (e) {
-                console.warn("Post-style rehydrate failed:", e);
-            }
-
             // Re-add other custom layers if needed
+            // Note: AQI, flood layers would need to be re-added here if needed
         });
     }, [mapStyle, loading, layers.traffic, layers.aqi, aqiGeo]);
 
@@ -2391,37 +1375,23 @@ export default function MapView() {
         };
 
         toggle("aqi-layer", layers.aqi);
-        // If terrain-aware flood (depth) is enabled, hide the flat flood layer to avoid double-visuals
-        toggle("flood-layer", layers.flood && !layers.floodDepth);
+        toggle("flood-layer", layers.flood);
         toggle("traffic-layer", layers.traffic);
         toggle("flood-depth-layer", layers.floodDepth);
-        toggle("terrain-hillshade", layers.hillshade);
-        toggle("terrain-flood-layer", layers.flood);
-
-        // Add flood animation class when flood mode is active
-        if (mapRef.current) {
-            const floodLayerEl = document.querySelector('.maplibregl-map');
-            if (floodLayerEl) {
-                if (floodMode && layers.floodDepth) {
-                    floodLayerEl.classList.add('flood-layer');
-                } else {
-                    floodLayerEl.classList.remove('flood-layer');
-                }
-            }
-        }
-    }, [layers, loading, floodMode]);
+    }, [layers, loading]);
 
     /* ================= CINEMATIC CAMERA ================= */
     const flyToPoint = useCallback((lng, lat, zoom = 14, pitch = 65, bearing = 0) => {
         if (!mapRef.current) return;
-        // Use easeTo for smoother, cinematic transitions
-        mapRef.current.easeTo({
+
+        mapRef.current.flyTo({
             center: [lng, lat],
             zoom,
             pitch,
             bearing,
-            duration: 1800,
-            easing: (t) => t * (2 - t) // Ease-out curve
+            speed: 0.6,
+            curve: 1.8,
+            essential: true
         });
     }, []);
 
@@ -2431,15 +1401,16 @@ export default function MapView() {
 
         const sessionId = ++popupSessionRef.current;
 
-        // Smooth camera transition to selected location
+        // Fly to the selected location
         if (mapRef.current) {
-            mapRef.current.easeTo({
+            mapRef.current.flyTo({
                 center: [lng, lat],
                 zoom: 14,
                 pitch: 65,
                 bearing: mapRef.current.getBearing(),
-                duration: 1800,
-                easing: (t) => t * (2 - t)
+                speed: 0.6,
+                curve: 1.8,
+                essential: true
             });
         }
 
@@ -3139,54 +2110,8 @@ export default function MapView() {
                 </button>
             </div>
 
-            <EconomicPanel data={impactData} demographics={demographicsRef.current} analysis={urbanAnalysis} analysisLoading={analysisLoading} />
+            <EconomicPanel data={impactData} demographics={demographics} analysis={urbanAnalysis} analysisLoading={analysisLoading} />
             <CitySuggestions map={mapRef.current} visible={showSuggestions} />
-            <InsightPanel
-                insight={terrainInsight}
-                loading={insightLoading}
-                onExplain={async () => {
-                    if (!mapRef.current || !activeLocation) return;
-                    setInsightLoading(true);
-                    try {
-                        const { lng, lat } = activeLocation;
-                        const lngLat = { lng, lat };
-                        const elevation = getElevation(mapRef.current, lngLat);
-                        const slope = getSlope(mapRef.current, lngLat);
-                        const heat = calculateHeatIndex(mapRef.current, lngLat);
-                        const drainage = getDrainageScore(mapRef.current, lngLat);
-                        const aqi = lastAQIRef.current?.aqi || 0;
-                        const population = demographicsRef.current?.population || 0;
-                        // Reuse cached insight if available
-                        if (
-                            terrainInsightRef.current.coords &&
-                            Math.abs(terrainInsightRef.current.coords.lat - lat) < 1e-5 &&
-                            Math.abs(terrainInsightRef.current.coords.lng - lng) < 1e-5
-                        ) {
-                            setTerrainInsight(terrainInsightRef.current.insight);
-                        } else {
-                            const insight = await getTerrainInsight({
-                                elevation: elevation ?? 0,
-                                slope: slope,
-                                floodRisk: drainage,
-                                heat: heat,
-                                population: population,
-                                aqi: aqi
-                            });
-                            setTerrainInsight(insight);
-                            terrainInsightRef.current = { coords: { lat, lng }, insight };
-                        }
-                    } catch (e) {
-                        console.warn("Terrain insight failed:", e);
-                        setTerrainInsight("Unable to generate insight. Please try again.");
-                    } finally {
-                        // Always clear insight loading so UI doesn't get stuck
-                        setInsightLoading(false);
-                    }
-                }}
-            />
-
-            {/* Cinematic Overlay Vignette */}
-            <div className={`cinematic-vignette ${isCinematic ? 'active' : ''}`} />
 
             <div
                 ref={mapContainer}
@@ -3201,4 +2126,3 @@ export default function MapView() {
         </>
     );
 }
-

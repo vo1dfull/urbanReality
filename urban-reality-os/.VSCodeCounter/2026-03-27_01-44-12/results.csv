@@ -1,0 +1,55 @@
+"filename", "language", "JSON", "JavaScript", "PostCSS", "JavaScript JSX", "Markdown", "HTML", "XML", "comment", "blank", "total"
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\README.md", "Markdown", 0, 0, 0, 0, 27, 0, 0, 0, 17, 44
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\README.md", "Markdown", 0, 0, 0, 0, 20, 0, 0, 0, 12, 32
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\config\db.js", "JavaScript", 0, 15, 0, 0, 0, 0, 0, 0, 3, 18
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\middleware\authMiddleware.js", "JavaScript", 0, 16, 0, 0, 0, 0, 0, 0, 3, 19
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\models\User.js", "JavaScript", 0, 20, 0, 0, 0, 0, 0, 0, 3, 23
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\package-lock.json", "JSON", 2376, 0, 0, 0, 0, 0, 0, 0, 1, 2377
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\package.json", "JSON", 21, 0, 0, 0, 0, 0, 0, 0, 1, 22
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\routes\authRoutes.js", "JavaScript", 0, 56, 0, 0, 0, 0, 0, 3, 17, 76
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\routes\userRoutes.js", "JavaScript", 0, 83, 0, 0, 0, 0, 0, 4, 11, 98
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\backend\server.js", "JavaScript", 0, 31, 0, 0, 0, 0, 0, 1, 8, 40
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\eslint.config.js", "JavaScript", 0, 28, 0, 0, 0, 0, 0, 0, 2, 30
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\index.html", "HTML", 0, 0, 0, 0, 0, 12, 0, 0, 1, 13
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\package-lock.json", "JSON", 4367, 0, 0, 0, 0, 0, 0, 0, 1, 4368
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\package.json", "JSON", 33, 0, 0, 0, 0, 0, 0, 0, 1, 34
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\aqi.json", "JSON", 29, 0, 0, 0, 0, 0, 0, 0, 1, 30
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\demographics.json", "JSON", 5, 0, 0, 0, 0, 0, 0, 0, 1, 6
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\flood.json", "JSON", 21, 0, 0, 0, 0, 0, 0, 0, 1, 22
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\data\traffic.json", "JSON", 29, 0, 0, 0, 0, 0, 0, 0, 1, 30
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\public\vite.svg", "XML", 0, 0, 0, 0, 0, 0, 1, 0, 0, 1
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\index.js", "JavaScript", 0, 59, 0, 0, 0, 0, 0, 6, 15, 80
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\models\User.js", "JavaScript", 0, 10, 0, 0, 0, 0, 0, 0, 3, 13
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\package.json", "JSON", 16, 0, 0, 0, 0, 0, 0, 0, 1, 17
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\server\routes\auth.js", "JavaScript", 0, 64, 0, 0, 0, 0, 0, 3, 15, 82
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\App.jsx", "JavaScript JSX", 0, 0, 0, 4, 0, 0, 0, 0, 2, 6
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\AuthModal.jsx", "JavaScript JSX", 0, 0, 0, 147, 0, 0, 0, 1, 16, 164
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\BottomLayers.jsx", "JavaScript JSX", 0, 0, 0, 73, 0, 0, 0, 1, 6, 80
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\CitySuggestions.jsx", "JavaScript JSX", 0, 0, 0, 118, 0, 0, 0, 11, 12, 141
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\EconomicImpact.jsx", "JavaScript JSX", 0, 0, 0, 56, 0, 0, 0, 4, 9, 69
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\EconomicPanel.jsx", "JavaScript JSX", 0, 0, 0, 84, 0, 0, 0, 3, 7, 94
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\InfoPanel.jsx", "JavaScript JSX", 0, 0, 0, 57, 0, 0, 0, 5, 9, 71
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\LayerToggle.jsx", "JavaScript JSX", 0, 0, 0, 86, 0, 0, 0, 0, 3, 89
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\LocationPopup.css", "PostCSS", 0, 0, 192, 0, 0, 0, 0, 3, 31, 226
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\LocationPopup.jsx", "JavaScript JSX", 0, 0, 0, 189, 0, 0, 0, 11, 29, 229
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\MapMenu.jsx", "JavaScript JSX", 0, 0, 0, 163, 0, 0, 0, 5, 11, 179
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 0, 0, 1796, 0, 0, 0, 131, 201, 2128
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\MetrixHover.jsx", "JavaScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\ResponsiveLocationPanel.jsx", "JavaScript JSX", 0, 0, 0, 52, 0, 0, 0, 7, 9, 68
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\SearchBar.jsx", "JavaScript JSX", 0, 0, 0, 300, 0, 0, 0, 12, 24, 336
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\components\TimeSlider.jsx", "JavaScript JSX", 0, 0, 0, 46, 0, 0, 0, 0, 3, 49
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\context\AuthContext.jsx", "JavaScript JSX", 0, 0, 0, 41, 0, 0, 0, 1, 8, 50
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\index.css", "PostCSS", 0, 0, 38, 0, 0, 0, 0, 4, 6, 48
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\main.jsx", "JavaScript JSX", 0, 0, 0, 26, 0, 0, 0, 1, 5, 32
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\pages\Dashboard.jsx", "JavaScript JSX", 0, 0, 0, 8, 0, 0, 0, 0, 2, 10
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\aqi.js", "JavaScript", 0, 49, 0, 0, 0, 0, 0, 6, 11, 66
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\demographics.js", "JavaScript", 0, 32, 0, 0, 0, 0, 0, 21, 12, 65
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\economicLoss.js", "JavaScript", 0, 24, 0, 0, 0, 0, 0, 6, 7, 37
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\economics.js", "JavaScript", 0, 107, 0, 0, 0, 0, 0, 2, 10, 119
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\gemini.js", "JavaScript", 0, 92, 0, 0, 0, 0, 0, 21, 16, 129
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\impactModel.js", "JavaScript", 0, 93, 0, 0, 0, 0, 0, 14, 20, 127
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\rainfall.js", "JavaScript", 0, 20, 0, 0, 0, 0, 0, 0, 4, 24
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\src\utils\worldBank.js", "JavaScript", 0, 111, 0, 0, 0, 0, 0, 17, 26, 154
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\tailwind.config.js", "JavaScript", 0, 11, 0, 0, 0, 0, 0, 1, 0, 12
+"f:\Coding\UrbanRealityOS-HC\urbanReality-master\urban-reality-os\vite.config.js", "JavaScript", 0, 9, 0, 0, 0, 0, 0, 0, 2, 11
+"Total", "-", 6897, 930, 230, 3246, 47, 12, 1, 305, 621, 12289

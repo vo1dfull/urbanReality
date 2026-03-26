@@ -33,49 +33,37 @@ const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
 app.post('/api/urban-analysis', async (req, res) => {
   try {
-    // FIX: Extract 'prompt' along with other data to handle client-side custom prompts (like Terrain Analysis)
-    const { prompt, data, year, metrics } = req.body;
+    const { data, year, metrics } = req.body;
     // metrics = { aqi: number, traffic: number, floodDepth: number, weather: string }
 
     if (!genAI) {
-      return res.json({ 
-        analysis: `Urban analysis (Offline). Metrics: AQI ${metrics?.aqi || 'N/A'}, Traffic ${Math.round((metrics?.traffic || 0) * 100)}%, Flood Depth ${metrics?.floodDepth || 0}m. Population: ${data?.people || 'Unknown'}. Economic impact estimated based on local models.` 
-      });
+      return res.json({ analysis: `Urban analysis (Offline). Metrics: AQI ${metrics?.aqi || 'N/A'}, Traffic ${Math.round((metrics?.traffic || 0) * 100)}%, Flood Depth ${metrics?.floodDepth || 0}m. Population: 2500000 people. Economic impact estimated based on local models.` });
     }
 
     const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-    let finalPrompt = prompt;
+    const prompt = `
+      Act as an advanced Urban Economist and City Planner AI. 
+      Analyze the Real-Time Economic Impact for a zone in Delhi for the year ${year}.
+      
+      Real-Time Data:
+      - Persons Affected: ${data.people}
+      - Estimated Baseline Loss: ₹${data.loss} Cr (Local Model)
+      - Risk Level: ${data.risk}
+      - Current AQI: ${metrics?.aqi || 90} (Air Quality Index)
+      - Traffic Congestion: ${Math.round((metrics?.traffic || 0) * 100)}%
+      - Flood Depth: ${metrics?.floodDepth || 0} meters
+      
+      Task:
+      1. Re-calculate or refine the "Economic Loss" considering the *real-time* AQI and Traffic multipliers (e.g., high AQI reduces productivity, high traffic delays logistics). State the "Real-Time Economic Loss".
+      2. Provide a brief, 2-sentence executive summary of *why* the loss is at this level.
+      3. Suggest one immediate intervention.
 
-    // If no specific prompt is provided by the client, construct the default Economic Analysis prompt
-    if (!finalPrompt && data) {
-      finalPrompt = `
-        Act as an advanced Urban Economist and City Planner AI. 
-        Analyze the Real-Time Economic Impact for a zone in Delhi for the year ${year}.
-        
-        Real-Time Data:
-        - Persons Affected: ${data.people || 0}
-        - Estimated Baseline Loss: ₹${data.loss || 0} Cr (Local Model)
-        - Risk Level: ${data.risk || 'Unknown'}
-        - Current AQI: ${metrics?.aqi || 90} (Air Quality Index)
-        - Traffic Congestion: ${Math.round((metrics?.traffic || 0) * 100)}%
-        - Flood Depth: ${metrics?.floodDepth || 0} meters
-        
-        Task:
-        1. Re-calculate or refine the "Economic Loss" considering the *real-time* AQI and Traffic multipliers (e.g., high AQI reduces productivity, high traffic delays logistics). State the "Real-Time Economic Loss".
-        2. Provide a brief, 2-sentence executive summary of *why* the loss is at this level.
-        3. Suggest one immediate intervention.
+      **Mandatory Output Format:**
+      "Real-Time Loss: ₹[Amount] Cr. Population: ${data.people} people. [Summary]. [Intervention]."
+    `;
 
-        **Mandatory Output Format:**
-        "Real-Time Loss: ₹[Amount] Cr. Population: ${data.people} people. [Summary]. [Intervention]."
-      `;
-    }
-
-    if (!finalPrompt) {
-        return res.status(400).json({ error: "Insufficient data or prompt provided for analysis." });
-    }
-
-    const result = await model.generateContent(finalPrompt);
+    const result = await model.generateContent(prompt);
     const text = result.response.text();
 
     res.json({ analysis: text });

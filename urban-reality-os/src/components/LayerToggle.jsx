@@ -1,9 +1,7 @@
 const LAYER_LABELS = {
   aqi: "AQI",
   flood: "Flood Zones",
-  floodDepth: "Flood Depth",
-  terrain: "Terrain",
-  hillshade: "Hillshade"
+  floodDepth: "Flood Depth"
 };
 
 export default function LayerToggle({ layers, setLayers }) {

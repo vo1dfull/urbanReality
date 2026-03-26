@@ -25,22 +25,14 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 }
 
 /* ===== DARK THEME MAP POPUP ===== */
-.maplibregl-popup,
-.maplibregl-popup-content,
-.maplibregl-popup-tip {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
 .maplibregl-popup {
   z-index: 1100; /* below controls which we set higher */
 }
-
 .maplibregl-popup-content {
+  background: transparent !important;
+  box-shadow: none !important;
   padding: 0 !important;
 }
-
 .maplibregl-popup-tip {
   display: none !important;
 }
@@ -53,83 +45,4 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
 /* Small responsive tweak: make popups max-width so content wraps nicely */
 .maplibregl-popup-content > div {
   max-width: 340px;
-}
-
-/* ===== GLASSMORPHISM UI ===== */
-.glass {
-  background: rgba(15, 20, 30, 0.55);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-}
-
-/* ===== ANIMATED METRIC BARS ===== */
-.metric-bar {
-  height: 6px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.metric-fill {
-  height: 100%;
-  transition: width 0.8s ease, background 0.8s ease;
-}
-
-/* ===== WATER & FLOOD ANIMATION ===== */
-@keyframes waterPulse {
-  0% { opacity: 0.4; }
-  50% { opacity: 0.7; }
-  100% { opacity: 0.4; }
-}
-
-.flood-layer {
-  animation: waterPulse 2.5s ease-in-out infinite;
-}
-
-/* ===== TERRAIN HOVER GLOW ===== */
-.maplibregl-canvas-container {
-  cursor: crosshair;
-}
-
-.maplibregl-canvas-container:hover {
-  cursor: crosshair;
-}
-
-/* ===== INSIGHT PANEL STYLING ===== */
-.insight-panel h3 {
-  font-size: 14px;
-  opacity: 0.7;
-  letter-spacing: 0.05em;
-  margin: 0 0 12px 0;
-  font-weight: 600;
-  color: #60a5fa;
-}
-
-.insight-panel p {
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 0;
-  color: #e6eef8;
-}
-
-.thinking {
-  font-size: 13px;
-  color: #94a3b8;
-  font-style: italic;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.thinking::before {
-  content: "⏳";
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }

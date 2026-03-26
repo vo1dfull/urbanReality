@@ -1,32 +1,30 @@
 import React, { useState, memo } from "react";
 import "./LocationPopup.css";
 
-// AQI Bar Component (Memoized)
-const AQIBar = memo(function AQIBar({ value }) {
-    if (value === null || value === undefined || value === "N/A") return null;
+// AQI Bar Component
+function AQIBar({ value }) {
+    if (!value || value === "N/A") return null;
     
-    const numValue = Number(value);
+    const numValue = typeof value === "number" ? value : parseInt(value);
     if (isNaN(numValue)) return null;
     
     const percent = Math.min((numValue / 500) * 100, 100);
     
-    const getGradient = () => {
-        if (numValue >= 300) return "linear-gradient(90deg, #ef4444, #fb7185)";
-        if (numValue >= 200) return "linear-gradient(90deg, #f97316, #fb923c)";
-        if (numValue >= 100) return "linear-gradient(90deg, #eab308, #facc15)";
-        return "linear-gradient(90deg, #22c55e, #4ade80)";
+    const getColor = () => {
+        if (numValue >= 300) return "#ef4444"; // red
+        if (numValue >= 200) return "#f97316"; // orange
+        if (numValue >= 100) return "#eab308"; // yellow
+        return "#22c55e"; // green
     };
-    
-    const isSevere = numValue >= 300;
     
     return (
         <div className="aqi-bar-container">
             <div className="aqi-bar-track">
                 <div
-                    className={`aqi-bar-fill ${isSevere ? "severe" : ""}`}
+                    className="aqi-bar-fill"
                     style={{
                         width: `${percent}%`,
-                        background: getGradient(),
+                        backgroundColor: getColor(),
                         transition: "all 0.7s ease"
                     }}
                 />
@@ -34,7 +32,7 @@ const AQIBar = memo(function AQIBar({ value }) {
             <div className="aqi-bar-label">Severity Index</div>
         </div>
     );
-});
+}
 
 // Data Badge Component
 function DataBadge({ label, live = false }) {
@@ -74,70 +72,48 @@ function LocationPopup({
     placeName,
     lat,
     lng,
-    // Data props
+    year,
+    baseYear,
+
     realTimeAQI,
     finalAQI,
+
     rainfall,
     rainProbability,
+
     macroData,
     impact,
     demographics,
-    // AI props
+
     analysis,
     analysisLoading,
+
     onSave
 }) {
-    const [saving, setSaving] = useState(false);
-    const [saveSuccess, setSaveSuccess] = useState(false);
     /* ================= DATA PROCESSING ================= */
 
-    // Priority: Demographics (Simulated) > MacroData (WorldBank) > Impact (Fallback)
-    const population = 
-        demographics?.totalPopulation ?? 
-        macroData?.population?.value ?? 
-        impact?.population ?? 
+    const population =
+        demographics?.population ??
+        impact?.population ??
+        macroData?.population?.value ??
         null;
 
     const growthRate = demographics?.growthRate ?? null;
-    const migrants = demographics?.migrationShare ?? null;
+    const migrants = demographics?.migrantsPct ?? null;
 
-    // Fix: Handle 0 properly using checks against null/undefined
-    const pm25 = realTimeAQI?.pm25 ?? realTimeAQI?.components?.pm2_5;
+    // Fix: Use direct pm25/pm10 from realTimeAQI (not components)
+    const pm25 = realTimeAQI?.pm25 ?? realTimeAQI?.components?.pm25;
     const pm10 = realTimeAQI?.pm10 ?? realTimeAQI?.components?.pm10;
-    
-    // Use finalAQI if available, otherwise realTime, default to N/A
-    const aqiValue = (finalAQI !== undefined && finalAQI !== null) 
-        ? finalAQI 
-        : (realTimeAQI?.aqi ?? "N/A");
+    const aqiValue = finalAQI ?? realTimeAQI?.aqi ?? "N/A";
 
     const getAQIClass = (aqi) => {
-        if (aqi === null || aqi === undefined || aqi === "N/A") return "";
+        if (!aqi || aqi === "N/A") return "";
         const val = typeof aqi === "number" ? aqi : parseInt(aqi);
         if (isNaN(val)) return "";
         if (val <= 50) return "aqi-good";
         if (val <= 100) return "aqi-moderate";
         if (val <= 200) return "aqi-poor";
         return "aqi-severe";
-    };
-
-    const getAQILabel = (aqi) => {
-        if (aqi === null || aqi === undefined || aqi === "N/A") return "N/A";
-        const val = typeof aqi === "number" ? aqi : parseInt(aqi);
-        if (isNaN(val)) return "N/A";
-        if (val >= 300) return "Severe";
-        if (val >= 200) return "Very Poor";
-        if (val >= 100) return "Moderate";
-        return "Good";
-    };
-
-    const getAQILabelColor = (aqi) => {
-        if (aqi === null || aqi === undefined || aqi === "N/A") return "#94a3b8";
-        const val = typeof aqi === "number" ? aqi : parseInt(aqi);
-        if (isNaN(val)) return "#94a3b8";
-        if (val >= 300) return "#ef4444";
-        if (val >= 200) return "#f97316";
-        if (val >= 100) return "#eab308";
-        return "#22c55e";
     };
 
     const formatPopulation = (num) => {
@@ -147,8 +123,8 @@ function LocationPopup({
         return num.toLocaleString();
     };
 
-    const isRealTime = !!realTimeAQI?.aqi;
-    const hasWorldBank = !!macroData?.population;
+    const isRealTimeAQI = !!realTimeAQI?.aqi;
+    const hasWorldBankData = !!macroData;
 
     /* ================= UI ================= */
 
@@ -164,40 +140,21 @@ function LocationPopup({
             {/* AIR QUALITY CARD */}
             <Section 
                 title="Air Quality" 
-                badge={isRealTime ? { live: true } : null}
+                badge={isRealTimeAQI ? { live: true } : null}
             >
                 <div className={`location-popup-metric ${getAQIClass(aqiValue)}`} id="aqi-value-container">
                     <span>AQI</span>
                     <strong id="aqi-value">{aqiValue}</strong>
                 </div>
                 <AQIBar value={aqiValue} />
-                <div className="aqi-severity-label">
-                    <span className="aqi-severity-text">Severity</span>
-                    <span 
-                        className="aqi-severity-value"
-                        style={{ color: getAQILabelColor(aqiValue) }}
-                    >
-                        {getAQILabel(aqiValue)}
-                    </span>
+                <div className="location-popup-metric muted">
+                    <span>PM2.5</span>
+                    <strong id="pm25-value">{pm25 ? `${pm25.toFixed(1)}` : "—"}</strong>
                 </div>
-                {((pm25 !== null && pm25 !== undefined) || (pm10 !== null && pm10 !== undefined)) && (
-                    <div className="metric-tiles">
-                        <div className="metric-tile">
-                            <span>PM2.5</span>
-                            <div>
-                                <strong id="pm25-value">{(pm25 !== null && pm25 !== undefined) ? pm25.toFixed(1) : "—"}</strong>
-                                {(pm25 !== null && pm25 !== undefined) && <span className="unit">µg/m³</span>}
-                            </div>
-                        </div>
-                        <div className="metric-tile">
-                            <span>PM10</span>
-                            <div>
-                                <strong id="pm10-value">{(pm10 !== null && pm10 !== undefined) ? pm10.toFixed(1) : "—"}</strong>
-                                {(pm10 !== null && pm10 !== undefined) && <span className="unit">µg/m³</span>}
-                            </div>
-                        </div>
-                    </div>
-                )}
+                <div className="location-popup-metric muted">
+                    <span>PM10</span>
+                    <strong id="pm10-value">{pm10 ? `${pm10.toFixed(1)}` : "—"}</strong>
+                </div>
             </Section>
 
             {/* WEATHER CARD */}
@@ -205,20 +162,20 @@ function LocationPopup({
                 title="Weather"
                 badge={{ live: true, label: "Open-Meteo" }}
             >
-                <div className="location-popup-metric weather-metric">
+                <div className="location-popup-metric">
                     <span>🌧 Rainfall</span>
-                    <strong id="rainfall-value">{Number.isFinite(rainfall) ? `${rainfall} mm` : "0 mm"}</strong>
+                    <strong id="rainfall-value">{rainfall !== null ? `${rainfall} mm` : "0 mm"}</strong>
                 </div>
-                <div className="location-popup-metric weather-metric">
+                <div className="location-popup-metric">
                     <span>☁ Rain Prob.</span>
-                    <strong id="rain-probability-value">{Number.isFinite(rainProbability) ? `${rainProbability}%` : "0%"}</strong>
+                    <strong id="rain-probability-value">{rainProbability !== null ? `${rainProbability}%` : "0%"}</strong>
                 </div>
             </Section>
 
             {/* POPULATION CARD */}
             <Section 
                 title="Population"
-                badge={hasWorldBank ? { label: "World Bank" } : null}
+                badge={hasWorldBankData ? { label: "World Bank" } : null}
             >
                 <div className="location-popup-metric big">
                     <span id="population-value">👥 {formatPopulation(population)}</span>
@@ -231,11 +188,6 @@ function LocationPopup({
                     <span>Migrants</span>
                     <strong id="migrants-value">{migrants ? `${migrants}%` : "—"}</strong>
                 </div>
-                {(!growthRate && !migrants) && (
-                    <div className="text-xs text-slate-500 mt-2" style={{ fontSize: "11px", color: "#64748b", marginTop: "8px" }}>
-                        Growth & migration estimates are unavailable for the selected year
-                    </div>
-                )}
             </Section>
 
             {/* AI ANALYSIS SECTION */}
@@ -251,9 +203,9 @@ function LocationPopup({
                 ) : (
                     <div className="location-popup-error" id="analysis-error">
                         <div className="error-content">
-                            🤖 AI insights are temporarily unavailable.
+                            🤖 AI insights unavailable.
                             <br />
-                            <span className="error-subtext">Core environmental data is still live.</span>
+                            <span className="error-subtext">Showing baseline data only.</span>
                         </div>
                     </div>
                 )}
@@ -264,22 +216,9 @@ function LocationPopup({
                 <button
                     id="save-location-btn"
                     className="location-popup-save-btn"
-                    disabled={saving}
-                    onClick={async () => {
-                        setSaving(true);
-                        setSaveSuccess(false);
-                        try {
-                            await onSave(placeName);
-                            setSaveSuccess(true);
-                            setTimeout(() => setSaveSuccess(false), 2000);
-                        } catch (err) {
-                            console.error("Save failed:", err);
-                        } finally {
-                            setSaving(false);
-                        }
-                    }}
+                    onClick={() => onSave(placeName)}
                 >
-                    {saving ? "Saving..." : saveSuccess ? "✓ Location saved" : "⭐ Save Location"}
+                    ⭐ Save Location
                 </button>
             )}
         </div>
