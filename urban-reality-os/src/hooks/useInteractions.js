@@ -297,26 +297,49 @@ export default function useInteractions() {
     const layerIds = facilityPlugin.getLayerIds();
     const setHoveredFacility = useMapStore.getState().setHoveredFacility;
 
-    // ── Throttle: only propagate state change every 100ms max ──
+    // Cursor state tracker
+    let cursorSet = false;
+
+    // ── Throttle: only propagate state change every 300ms max ──
     const handleFacilityMouseMove = throttle((e) => {
-      map.getCanvas().style.cursor = 'pointer';
+      if (!cursorSet) {
+        map.getCanvas().style.cursor = 'pointer';
+        cursorSet = true;
+      }
+      
       if (e.features?.length) {
-        const currentHover = useMapStore.getState().hoveredFacility;
+        const store = useMapStore.getState();
+        const currentHover = store.hoveredFacility;
         const newProps = e.features[0].properties;
 
-        // Additional identity guard: skip re-render if same facility
-        if (!currentHover || currentHover.id !== newProps.id || currentHover.type !== newProps.type) {
-          setHoveredFacility({
-            ...newProps,
-            x: e.originalEvent.clientX,
-            y: e.originalEvent.clientY,
-          });
+        // HARD identity check
+        if (
+          currentHover &&
+          currentHover.id === newProps.id &&
+          currentHover.type === newProps.type
+        ) {
+          return; // 🔥 NO UPDATE
         }
+
+        // Only update when truly different, providing initial x/y
+        setHoveredFacility({
+          id: newProps.id,
+          type: newProps.type,
+          name: newProps.name,
+          responseTime: newProps.responseTime,
+          coverageRadius: newProps.coverageRadius,
+          availableUnits: newProps.availableUnits,
+          startX: e.originalEvent.clientX,
+          startY: e.originalEvent.clientY,
+        });
       }
-    }, 100);
+    }, 300);
 
     const handleFacilityMouseLeave = () => {
-      map.getCanvas().style.cursor = '';
+      if (cursorSet) {
+        map.getCanvas().style.cursor = '';
+        cursorSet = false;
+      }
       setHoveredFacility(null);
     };
 

@@ -54,7 +54,6 @@ export const useFacilityState = () =>
       facilityData: s.facilityData,
       facilityCheckOpen: s.facilityCheckOpen,
       facilityViewMode: s.facilityViewMode,
-      hoveredFacility: s.hoveredFacility,
     }))
   );
 

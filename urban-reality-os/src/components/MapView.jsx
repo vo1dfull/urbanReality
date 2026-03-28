@@ -3,7 +3,7 @@
 // ✅ Uses grouped selectors (store/selectors.js) → far fewer re-renders
 // ✅ UI split: MapCanvas, PanelRoot, OverlayRoot rendered separately
 // ================================================
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -57,7 +57,7 @@ export default function MapView() {
   const { loading, error, mapReady, mapStyle } = useMapState();
   const layers = useLayers();
   const { floodMode } = useFloodState();
-  const { facilityData, facilityCheckOpen, facilityViewMode, hoveredFacility } = useFacilityState();
+  const { facilityData, facilityCheckOpen, facilityViewMode } = useFacilityState();
   const { showLayersMenu, showSuggestions } = useUIToggles();
 
   // ── Individual setters (stable refs — won't cause re-renders) ──
@@ -154,7 +154,7 @@ export default function MapView() {
       />
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
-      <OverlayRoot hoveredFacility={hoveredFacility} mapStyle={mapStyle} year={year} mapRef={mapRef} />
+      <OverlayRoot mapStyle={mapStyle} year={year} mapRef={mapRef} />
     </>
   );
 }
@@ -444,12 +444,28 @@ function PanelRoot({
 // OverlayRoot — Top-layer tooltips and popups
 // Re-renders only when hover/popup state changes
 // ══════════════════════════════════════════════════
-function OverlayRoot({ hoveredFacility, mapStyle, year, mapRef }) {
+function OverlayRoot({ mapStyle, year, mapRef }) {
+  const hoveredFacility = useMapStore(s => s.hoveredFacility);
+  const [pos, setPos] = useState({ x: -1000, y: -1000 });
+
+  useEffect(() => {
+    if (hoveredFacility) {
+      setPos({ x: hoveredFacility.startX, y: hoveredFacility.startY });
+    }
+  }, [hoveredFacility]);
+
+  useEffect(() => {
+    if (!hoveredFacility) return;
+    const move = (e) => setPos({ x: e.clientX, y: e.clientY });
+    window.addEventListener('mousemove', move);
+    return () => window.removeEventListener('mousemove', move);
+  }, [hoveredFacility]);
+
   return (
     <>
       {hoveredFacility && (
         <div style={{
-          position: 'fixed', left: hoveredFacility.x + 15, top: hoveredFacility.y + 15,
+          position: 'fixed', left: pos.x + 15, top: pos.y + 15,
           background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)',
           border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
           padding: '12px 16px', color: '#f8fafc', zIndex: 1000,
