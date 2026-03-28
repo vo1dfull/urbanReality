@@ -191,10 +191,32 @@ export default function MapView() {
         return { type: "FeatureCollection", features };
     }, []);
 
-    const ensureTrafficLayer = useCallback((map, isVisible) => {
-        if (!map) return;
+    const ensureTrafficLayer = useCallback((map, isVisible, forceRecreate = false) => {
+        if (!map || !TOMTOM_KEY) return;
 
         try {
+            const layerExists = map.getLayer("traffic-layer");
+            const sourceExists = map.getSource("traffic");
+
+            // If force recreate (after style change), remove first
+            if (forceRecreate && layerExists) {
+                try {
+                    map.removeLayer("traffic-layer");
+                    trafficLayerAddedRef.current = false;
+                } catch (e) {
+                    console.warn('Could not remove traffic layer:', e);
+                }
+            }
+            if (forceRecreate && sourceExists) {
+                try {
+                    map.removeSource("traffic");
+                    trafficSourceAddedRef.current = false;
+                } catch (e) {
+                    console.warn('Could not remove traffic source:', e);
+                }
+            }
+
+            // Always ensure source exists
             if (!map.getSource("traffic")) {
                 map.addSource("traffic", {
                     type: "raster",
@@ -206,6 +228,7 @@ export default function MapView() {
                 trafficSourceAddedRef.current = true;
             }
 
+            // Always ensure layer exists
             if (!map.getLayer("traffic-layer")) {
                 map.addLayer({
                     id: "traffic-layer",
@@ -221,17 +244,32 @@ export default function MapView() {
                 });
                 trafficLayerAddedRef.current = true;
 
+                // Position layer correctly - place before UI layers
                 try {
-                    if (map.getLayer('aqi-layer')) {
-                        map.moveLayer('traffic-layer', 'aqi-layer');
-                    } else if (map.getLayer('flood-layer')) {
-                        map.moveLayer('traffic-layer', 'flood-layer');
+                    const layers = map.getStyle().layers || [];
+                    let insertBeforeId = null;
+                    
+                    // Find first UI-focused layer to insert traffic before
+                    for (const layer of layers) {
+                        if (['aqi-layer', 'flood-layer', 'flood-fill', 'flood-risk-heatmap', 'facilities', 'hospitals-layer', 'police-layer', 'fire-layer'].includes(layer.id)) {
+                            insertBeforeId = layer.id;
+                            break;
+                        }
+                    }
+                    
+                    if (insertBeforeId && map.getLayer(insertBeforeId)) {
+                        map.moveLayer('traffic-layer', insertBeforeId);
                     }
                 } catch (e) {
                     console.warn('Could not reposition traffic layer:', e);
                 }
             } else {
-                map.setLayoutProperty("traffic-layer", "visibility", isVisible ? "visible" : "none");
+                // Layer exists, just update visibility
+                try {
+                    map.setLayoutProperty("traffic-layer", "visibility", isVisible ? "visible" : "none");
+                } catch (e) {
+                    console.warn('Could not set traffic visibility:', e);
+                }
             }
         } catch (err) {
             console.error("Error ensuring traffic layer:", err);
@@ -320,6 +358,51 @@ export default function MapView() {
             console.warn("Error restoring flood layers:", err);
         }
     }, [floodData, layers.flood, layers.floodDepth]);
+
+    const ensureFacilityCoverageLayer = useCallback((map) => {
+        if (!map || !facilityData) return;
+
+        try {
+            if (!map.getSource("facility-coverage")) {
+                const coverageCanvas = document.createElement('canvas');
+                coverageCanvas.width = 1024;
+                coverageCanvas.height = 1024;
+
+                map.addSource("facility-coverage", {
+                    type: "canvas",
+                    canvas: coverageCanvas,
+                    coordinates: [
+                        [76.8, 28.8],
+                        [77.4, 28.8],
+                        [77.4, 28.4],
+                        [76.8, 28.4]
+                    ],
+                    animate: true
+                });
+            }
+
+            if (!map.getLayer("facility-coverage-layer")) {
+                const beforeLayer = map.getLayer("hospitals-layer") ? "hospitals-layer" : undefined;
+                const layerDef = {
+                    id: "facility-coverage-layer",
+                    type: "raster",
+                    source: "facility-coverage",
+                    paint: {
+                        "raster-opacity": 0.6,
+                        "raster-fade-duration": 0
+                    }
+                };
+
+                if (beforeLayer) {
+                    map.addLayer(layerDef, beforeLayer);
+                } else {
+                    map.addLayer(layerDef);
+                }
+            }
+        } catch (err) {
+            console.warn("Error ensuring facility coverage layer:", err);
+        }
+    }, [facilityData]);
 
     // Keyboard shortcut: F → toggle Facility Check panel
     useEffect(() => {
@@ -625,49 +708,8 @@ export default function MapView() {
                 }
 
                 /* ===== TRAFFIC (TomTom API) ===== */
-                try {
-                    if (isMounted && TOMTOM_KEY) {
-                        // Add TomTom Traffic Flow Source
-                        if (!map.getSource("traffic")) {
-                            map.addSource("traffic", {
-                                type: "raster",
-                                tiles: [
-                                    `https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`
-                                ],
-                                tileSize: 256
-                            });
-                            trafficSourceAddedRef.current = true;
-
-                            // Add Raster Layer
-                            map.addLayer({
-                                id: "traffic-layer",
-                                type: "raster",
-                                source: "traffic",
-                                paint: {
-                                    "raster-opacity": 1.0,
-                                    "raster-fade-duration": 300
-                                },
-                                layout: {
-                                    visibility: layers.traffic ? "visible" : "none"
-                                }
-                            });
-                            trafficLayerAddedRef.current = true;
-
-                            // Position below AQI/flood layers
-                            try {
-                                if (map.getLayer('aqi-layer')) {
-                                    map.moveLayer('traffic-layer', 'aqi-layer');
-                                } else if (map.getLayer('flood-layer')) {
-                                    map.moveLayer('traffic-layer', 'flood-layer');
-                                }
-                            } catch (moveErr) {
-                                console.warn('Could not reposition traffic layer:', moveErr);
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.error("Error loading traffic data:", err);
-                    if (isMounted) setError("Failed to load traffic data from TomTom API");
+                if (isMounted && TOMTOM_KEY) {
+                    ensureTrafficLayer(map, layers.traffic);
                 }
 
                 /* ===== 3D BUILDINGS ===== */
@@ -1311,8 +1353,8 @@ export default function MapView() {
                     }
                 }
 
-                // Always re-add traffic layer regardless of style
-                ensureTrafficLayer(map, layers.traffic);
+                // Force recreate traffic layer for all style changes to ensure it's visible
+                ensureTrafficLayer(map, layers.traffic, true);
 
                 // Re-add AQI layer if we have cached geo data
                 if (aqiGeo) {
@@ -1441,33 +1483,7 @@ export default function MapView() {
                             });
                         }
 
-                        if (!map.getSource("facility-coverage")) {
-                            const coverageCanvas = document.createElement('canvas');
-                            coverageCanvas.width = 1024;
-                            coverageCanvas.height = 1024;
-
-                            map.addSource("facility-coverage", {
-                                type: "canvas",
-                                canvas: coverageCanvas,
-                                coordinates: [
-                                    [76.8, 28.8],
-                                    [77.4, 28.8],
-                                    [77.4, 28.4],
-                                    [76.8, 28.4]
-                                ],
-                                animate: true
-                            });
-
-                            map.addLayer({
-                                id: "facility-coverage-layer",
-                                type: "raster",
-                                source: "facility-coverage",
-                                paint: {
-                                    "raster-opacity": 0.6,
-                                    "raster-fade-duration": 0
-                                }
-                            });
-                        }
+                        ensureFacilityCoverageLayer(map);
                     } catch (err) {
                         console.error("Error re-adding facility layers:", err);
                     }
@@ -1627,34 +1643,7 @@ export default function MapView() {
         });
 
         // Add coverage visualization layer
-        if (!map.getSource("facility-coverage")) {
-            const coverageCanvas = document.createElement('canvas');
-            coverageCanvas.width = 1024;
-            coverageCanvas.height = 1024;
-            const ctx = coverageCanvas.getContext('2d');
-
-            map.addSource("facility-coverage", {
-                type: "canvas",
-                canvas: coverageCanvas,
-                coordinates: [
-                    [76.8, 28.8], // top-left
-                    [77.4, 28.8], // top-right
-                    [77.4, 28.4], // bottom-right
-                    [76.8, 28.4]  // bottom-left
-                ],
-                animate: true
-            });
-
-            map.addLayer({
-                id: "facility-coverage-layer",
-                type: "raster",
-                source: "facility-coverage",
-                paint: {
-                    "raster-opacity": 0.6,
-                    "raster-fade-duration": 0
-                }
-            }, "hospitals-layer"); // Place below facility markers
-        }
+        ensureFacilityCoverageLayer(map);
 
         return () => {
             const facilityLayersList = ["hospitals-layer", "police-layer", "fire-layer"];
