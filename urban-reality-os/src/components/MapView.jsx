@@ -1,27 +1,30 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, startTransition } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { createRoot } from "react-dom/client";
 
-
+// New UI System
+import CommandBar from "./CommandBar";
+import ControlDock from "./ControlDock";
+import ContextEngine from "./ContextEngine";
+import TimelineBar from "./TimelineBar";
+import TerrainController from "./terrain/TerrainController";
+import CoordinateDisplay from "./CoordinateDisplay";
 import MapMenu from "./MapMenu";
-import LayerToggle from "./LayerToggle";
+import SearchBar from "./SearchBar";
+import TimeSlider from "./TimeSlider";
 import EconomicPanel from "./EconomicPanel";
 import CitySuggestions from "./CitySuggestions";
-import TimeSlider from "./TimeSlider";
-import SearchBar from "./SearchBar";
+import FacilityStatsPanel from "./FacilityStatsPanel";
+import FacilityListPanel from "./FacilityListPanel";
+import LocationPopup from "./LocationPopup";
+import { createRoot } from "react-dom/client";
 import { getUrbanAnalysis } from "../utils/gemini";
 import { fetchIndiaMacroData } from "../utils/worldBank";
 import { calculateImpactModel } from "../utils/impactModel";
 import { fetchRealtimeAQI } from "../utils/aqi";
-import LocationPopup from "./LocationPopup";
-import FacilityStatsPanel from "./FacilityStatsPanel";
-import CoordinateDisplay from "./CoordinateDisplay";
-import FacilityListPanel from "./FacilityListPanel";
-// BottomLayers removed — unified into inline bottom-left bar
 
 // Constants
-const BASE_YEAR = 2025;
+const BASE_YEAR = 2026;
 const INITIAL_YEAR = BASE_YEAR;
 const MIN_YEAR = BASE_YEAR;
 const MAX_YEAR = 2040;
@@ -84,27 +87,26 @@ const MAJOR_INDIAN_CITIES = [
 export default function MapView() {
     const mapContainer = useRef(null);
     const mapRef = useRef(null);
-    const popupRef = useRef(null);
-    const popupRootRef = useRef(null);
     const popupSessionRef = useRef(0);
     const lastRequestTimeRef = useRef(0);
     const yearRef = useRef(INITIAL_YEAR);
     const floodAnimRef = useRef(null);
     const floodDepthRef = useRef(0);
     const flyThroughTimeoutsRef = useRef([]);
-    const rainfallRef = useRef(0); // Store current rainfall for flood animation
+    const rainfallRef = useRef(0);
     const macroDataRef = useRef(null);
-    const lastAQIRef = useRef(null); // Persist AQI across renders
+    const lastAQIRef = useRef(null);
 
     const [year, setYear] = useState(INITIAL_YEAR);
     const [impactData, setImpactData] = useState(null);
     const [urbanAnalysis, setUrbanAnalysis] = useState(null);
     const [analysisLoading, setAnalysisLoading] = useState(false);
-    const [showSuggestions, setShowSuggestions] = useState(true);
-    const [floodMode, setFloodMode] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [hoveredFacility, setHoveredFacility] = useState(null); // Facility hover state
+
+    // ContextEngine state
+    const [uiMode, setUiMode] = useState(null); // null | 'location' | 'terrain'
+    const [locationData, setLocationData] = useState(null);
 
     const [layers, setLayers] = useState({
         aqi: true,
@@ -116,27 +118,72 @@ export default function MapView() {
         fireStations: false
     });
 
-    const [facilityData, setFacilityData] = useState(null);
-    const [facilityViewMode, setFacilityViewMode] = useState("coverage"); // "coverage", "gap", "heatmap"
-
-    const [cameraState, setCameraState] = useState({
-        bearing: MAP_CONFIG.bearing,
-        pitch: MAP_CONFIG.pitch
-    });
-
-    const [mapStyle, setMapStyle] = useState("default"); // "default", "satellite", "terrain"
-    const [showLayersMenu, setShowLayersMenu] = useState(false);
-    const [facilityCheckOpen, setFacilityCheckOpen] = useState(false);
+    const [mapStyle, setMapStyle] = useState("default");
     const [aqiGeo, setAqiGeo] = useState(null);
     const [loadingAQI, setLoadingAQI] = useState(false);
     const [macroData, setMacroData] = useState(null);
     const [demographics, setDemographics] = useState(null);
+    const [activeLocation, setActiveLocation] = useState(null);
+    const [facilityCheckOpen, setFacilityCheckOpen] = useState(false);
+    const [showLayersMenu, setShowLayersMenu] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [facilityViewMode, setFacilityViewMode] = useState('coverage');
+    const [hoveredFacility, setHoveredFacility] = useState(null);
+    const [facilityData, setFacilityData] = useState(null);
     const [cityDemo, setCityDemo] = useState(null);
     const [locationPopulation, setLocationPopulation] = useState(null);
-    const [activeLocation, setActiveLocation] = useState(null);
+    const [cameraState, setCameraState] = useState({ bearing: MAP_CONFIG.bearing, pitch: MAP_CONFIG.pitch });
+    const [floodMode, setFloodMode] = useState(false);
+    const cameraStateRef = useRef({ bearing: MAP_CONFIG.bearing, pitch: MAP_CONFIG.pitch });
+    const cameraRafIdRef = useRef(null);
+    const yearDebounceRef = useRef(null);
+    const floodFrameRef = useRef(0);
+    const popupRef = useRef(null);
+    const popupRootRef = useRef(null);
 
     // Sync macroData to ref for usage in callbacks
     useEffect(() => { macroDataRef.current = macroData; }, [macroData]);
+
+    const fetchAllCitiesAQI = async () => {
+        if (!OPENWEATHER_KEY) {
+            console.warn("OpenWeather API key not available");
+            return null;
+        }
+
+        const CHUNK_SIZE = 5;
+        const features = [];
+
+        for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
+            const chunk = MAJOR_INDIAN_CITIES.slice(i, i + CHUNK_SIZE);
+            const results = await Promise.all(chunk.map(async (city) => {
+                try {
+                    const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
+                    if (!r) return null;
+                    return {
+                        type: "Feature",
+                        properties: {
+                            aqi: r.aqi,
+                            city: city.name,
+                            level: r.category || null,
+                            pm25: r.pm25 ?? null,
+                            pm10: r.pm10 ?? null
+                        },
+                        geometry: { type: "Point", coordinates: [city.lng, city.lat] }
+                    };
+                } catch (err) {
+                    console.warn(`Failed to fetch AQI for ${city.name}:`, err);
+                    return null;
+                }
+            }));
+
+            features.push(...results.filter(Boolean));
+            if (i + CHUNK_SIZE < MAJOR_INDIAN_CITIES.length) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+        }
+
+        return { type: "FeatureCollection", features };
+    };
 
     // Keyboard shortcut: F → toggle Facility Check panel
     useEffect(() => {
@@ -170,90 +217,92 @@ export default function MapView() {
     // Recalculate projections when the selected location or year changes
     useEffect(() => {
         if (!activeLocation) return;
+        clearTimeout(yearDebounceRef.current);
 
-        const {
-            lat: aLat,
-            lng: aLng,
-            placeName: aPlace,
-            baseAQI,
-            baseRainfall,
-            baseTraffic,
-            baseFloodRisk,
-            worldBank
-        } = activeLocation;
+        yearDebounceRef.current = window.setTimeout(() => {
+            const {
+                lat: aLat,
+                lng: aLng,
+                placeName: aPlace,
+                baseAQI,
+                baseRainfall,
+                baseTraffic,
+                baseFloodRisk,
+                worldBank
+            } = activeLocation;
 
-        const yearsElapsed = year - BASE_YEAR;
-        const timeFactor = yearsElapsed / (MAX_YEAR - BASE_YEAR);
+            const yearsElapsed = year - BASE_YEAR;
+            const timeFactor = yearsElapsed / (MAX_YEAR - BASE_YEAR);
 
-        // Project AQI
-        const projectedAQI = Math.round(
-            baseAQI + timeFactor * (IMPACT_MODEL.maxAQI - IMPACT_MODEL.baseAQI)
-        );
+            const projectedAQI = Math.round(
+                baseAQI + timeFactor * (IMPACT_MODEL.maxAQI - IMPACT_MODEL.baseAQI)
+            );
 
-        // Project Traffic
-        const projectedTraffic = Math.min(
-            1,
-            baseTraffic + timeFactor * 0.5
-        );
+            const projectedTraffic = Math.min(
+                1,
+                baseTraffic + timeFactor * 0.5
+            );
 
-        // Project Flood Risk
-        const projectedFloodRisk = Math.min(
-            1,
-            baseFloodRisk + timeFactor * 0.4
-        );
+            const projectedFloodRisk = Math.min(
+                1,
+                baseFloodRisk + timeFactor * 0.4
+            );
 
-        // Deterministic impact model
-        const impact = calculateImpactModel({
-            year,
-            baseYear: BASE_YEAR,
-            populationBase: worldBank?.population?.value,
-            aqi: projectedAQI,
-            rainfallMm: baseRainfall,
-            trafficCongestion: projectedTraffic,
-            floodRisk: projectedFloodRisk,
-            worldBank
-        });
+            const impact = calculateImpactModel({
+                year,
+                baseYear: BASE_YEAR,
+                populationBase: worldBank?.population?.value,
+                aqi: projectedAQI,
+                rainfallMm: baseRainfall,
+                trafficCongestion: projectedTraffic,
+                floodRisk: projectedFloodRisk,
+                worldBank
+            });
 
-        setImpactData({
-            zone: `${aPlace} (${year})`,
-            people: impact.peopleAffected,
-            loss: impact.economicLossCr,
-            risk: impact.risk
-        });
+            const updatedImpactData = {
+                zone: `${aPlace} (${year})`,
+                people: impact.peopleAffected,
+                loss: impact.economicLossCr,
+                risk: impact.risk
+            };
 
-        setDemographics({
-            population: impact.population,
-            growthRate: 1.6,
-            tfr: 1.9,
-            migrantsPct: 21
-        });
+            const updatedDemographics = {
+                population: impact.population,
+                growthRate: 1.6,
+                tfr: 1.9,
+                migrantsPct: 21
+            };
 
-        // If popup root is mounted, re-render it with updated impact
-        try {
-            if (popupRootRef.current && popupRef.current?.isOpen() && activeLocation?.sessionId === popupSessionRef.current) {
-                popupRootRef.current.render(
-                    <LocationPopup
-                        placeName={aPlace}
-                        lat={aLat}
-                        lng={aLng}
-                        year={year}
-                        baseYear={BASE_YEAR}
-                        realTimeAQI={lastAQIRef.current}
-                        finalAQI={projectedAQI}
-                        rainfall={baseRainfall}
-                        rainProbability={null}
-                        macroData={worldBank}
-                        impact={impact}
-                        demographics={demographics}
-                        analysis={urbanAnalysis}
-                        analysisLoading={analysisLoading}
-                        openWeatherKey={OPENWEATHER_KEY}
-                        onSave={(name) => { if (window.saveLocation) window.saveLocation(name, aLat, aLng); }}
-                    />
-                );
-            }
-        } catch (e) { console.warn("Popup render skipped (Year Change):", e); }
+            setImpactData(updatedImpactData);
+            setDemographics(updatedDemographics);
 
+            try {
+                if (popupRootRef.current && popupRef.current?.isOpen() && activeLocation?.sessionId === popupSessionRef.current) {
+                    popupRootRef.current.render(
+                        <LocationPopup
+                            placeName={aPlace}
+                            lat={aLat}
+                            lng={aLng}
+                            year={year}
+                            baseYear={BASE_YEAR}
+                            realTimeAQI={lastAQIRef.current}
+                            finalAQI={projectedAQI}
+                            rainfall={baseRainfall}
+                            rainProbability={null}
+                            macroData={worldBank}
+                            impact={impact}
+                            demographics={updatedDemographics}
+                            analysis={urbanAnalysis}
+                            analysisLoading={analysisLoading}
+                            openWeatherKey={OPENWEATHER_KEY}
+                            onSave={(name) => { if (window.saveLocation) window.saveLocation(name, aLat, aLng); }}
+                        />
+                    );
+                }
+            } catch (e) { console.warn("Popup render skipped (Year Change):", e); }
+        }, 80);
+
+        return () => clearTimeout(yearDebounceRef.current);
     }, [year, activeLocation]);
 
     /* ================= MAP INIT ================= */
@@ -270,7 +319,10 @@ export default function MapView() {
             zoom: MAP_CONFIG.zoom,
             pitch: MAP_CONFIG.pitch,
             bearing: MAP_CONFIG.bearing,
-            antialias: true
+            antialias: false,
+            fadeDuration: 0,
+            maxTileCacheSize: 50,
+            trackResize: true
         });
 
         mapRef.current = map;
@@ -320,7 +372,7 @@ export default function MapView() {
                     tileSize: 256
                 });
 
-                map.setTerrain({ source: "terrain", exaggeration: 1.4 });
+                map.setTerrain({ source: "terrain", exaggeration: 1.0 });
 
                 /* ===== AQI (REAL-TIME FROM OPENWEATHER API) ===== */
                 const fetchAllCitiesAQI = async () => {
@@ -331,33 +383,41 @@ export default function MapView() {
 
                     try {
                         setLoadingAQI(true);
-                        const aqiPromises = MAJOR_INDIAN_CITIES.map(async (city) => {
-                            try {
-                                const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
-                                if (!r) return null;
-                                return {
-                                    type: "Feature",
-                                    properties: {
-                                        aqi: r.aqi,
-                                        city: city.name,
-                                        level: r.category || null,
-                                        pm25: r.pm25 ?? null,
-                                        pm10: r.pm10 ?? null
-                                    },
-                                    geometry: { type: "Point", coordinates: [city.lng, city.lat] }
-                                };
-                            } catch (err) {
-                                console.warn(`Failed to fetch AQI for ${city.name}:`, err);
-                                return null;
-                            }
-                        });
+                        const CHUNK_SIZE = 5;
+                        const features = [];
 
-                        const results = await Promise.all(aqiPromises);
-                        const features = results.filter(f => f !== null);
+                        for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
+                            const chunk = MAJOR_INDIAN_CITIES.slice(i, i + CHUNK_SIZE);
+                            const results = await Promise.all(chunk.map(async (city) => {
+                                try {
+                                    const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
+                                    if (!r) return null;
+                                    return {
+                                        type: "Feature",
+                                        properties: {
+                                            aqi: r.aqi,
+                                            city: city.name,
+                                            level: r.category || null,
+                                            pm25: r.pm25 ?? null,
+                                            pm10: r.pm10 ?? null
+                                        },
+                                        geometry: { type: "Point", coordinates: [city.lng, city.lat] }
+                                    };
+                                } catch (err) {
+                                    console.warn(`Failed to fetch AQI for ${city.name}:`, err);
+                                    return null;
+                                }
+                            }));
+
+                            features.push(...results.filter(Boolean));
+                            if (i + CHUNK_SIZE < MAJOR_INDIAN_CITIES.length) {
+                                await new Promise((resolve) => setTimeout(resolve, 200));
+                            }
+                        }
 
                         return {
                             type: "FeatureCollection",
-                            features: features
+                            features
                         };
                     } catch (err) {
                         console.error("Error fetching AQI data:", err);
@@ -632,44 +692,20 @@ export default function MapView() {
             const requestTime = Date.now();
             lastRequestTimeRef.current = requestTime;
 
-            // Show loading popup immediately at clicked location (React only)
-            if (popupRef.current && mapRef.current) {
-                // Clean up any previous root
-                try { if (popupRootRef.current) { popupRootRef.current.unmount(); popupRootRef.current = null; } } catch (e) { console.warn("Root cleanup warning:", e); }
-
-                const container = document.createElement('div');
-                container.className = 'custom-popup';
-
-                // Attach popup to map using DOM container
-                popupRef.current.setLngLat([lng, lat]).setDOMContent(container).addTo(mapRef.current);
-
-                // Create React root and render Loading State
-                const root = createRoot(container);
-                popupRootRef.current = root;
-
-                root.render(
-                    <LocationPopup
-                        placeName="Analyzing Location..."
-                        lat={lat}
-                        lng={lng}
-                        year={y}
-                        baseYear={BASE_YEAR}
-                        realTimeAQI={lastAQIRef.current}
-                        finalAQI={null}
-                        rainfall={0}
-                        rainProbability={null}
-                        macroData={macroDataRef.current}
-                        impact={null}
-                        demographics={demographics}
-                        analysis={urbanAnalysis}
-                        analysisLoading={true}
-                        openWeatherKey={OPENWEATHER_KEY}
-                        onSave={null}
-                    />
-                );
-
-                // Unmount the root when popup closes - REMOVED (Handled by global listener)
-            }
+            // ── Show loading state immediately via ContextEngine ──
+            setLocationData({
+                placeName: 'Analyzing…',
+                lat, lng,
+                year: y,
+                finalAQI: null,
+                realTimeAQI: lastAQIRef.current,
+                rainfall: 0,
+                impact: null,
+                demographics: null,
+                analysis: null,
+                analysisLoading: true,
+            });
+            setUiMode('location');
 
             try {
                 // Set initial loading state with session ID
@@ -785,82 +821,62 @@ export default function MapView() {
                     worldBank: macroData
                 });
 
-                setImpactData({
+                const nextImpactData = {
                     zone: `${placeName} (${y})`,
                     people: impact.peopleAffected,
                     loss: impact.economicLossCr,
                     risk: impact.risk
-                });
+                };
 
-                setLocationPopulation(null); // Reset population detail logic
+                const nextDemographics = {
+                    population: impact.population,
+                    growthRate: 1.6,
+                    tfr: 1.9,
+                    migrantsPct: 21
+                };
 
-                // Calculate Demographics (Initial) using deterministic impact
-                try {
-                    setDemographics({
-                        population: impact.population,
-                        growthRate: 1.6,
-                        tfr: 1.9,
-                        migrantsPct: 21
-                    });
+                const nextActiveLocation = {
+                    lat,
+                    lng,
+                    placeName,
+                    baseAQI: finalAQI,
+                    baseRainfall: rainfall,
+                    baseTraffic: currentTrafficFactor,
+                    baseFloodRisk: FloodRisk,
+                    worldBank: macroData,
+                    sessionId: sessionId
+                };
 
-                    // Save base/reference snapshot for this clicked location
-                    try {
-                        setActiveLocation({
-                            lat,
-                            lng,
-                            placeName,
-                            baseAQI: finalAQI,
-                            baseRainfall: rainfall,
-                            baseTraffic: currentTrafficFactor,
-                            baseFloodRisk: FloodRisk,
-                            worldBank: macroData,
-                            sessionId: sessionId
-                        });
-                    } catch (e) { console.warn("Active location update warning:", e); }
-                } catch (err) {
-                    console.warn('Demographics calc failed:', err);
-                }
+                const nextLocationData = {
+                    placeName,
+                    lat,
+                    lng,
+                    year: y,
+                    finalAQI,
+                    realTimeAQI,
+                    rainfall,
+                    impact,
+                    demographics: nextDemographics,
+                    analysis: null,
+                    analysisLoading: true
+                };
 
-                // HMTL String generation removed (dead code)
-
-                // 6. Update popup with fetched data
-                if (popupRef.current && mapRef.current) {
-                    // Re-render existing React root
-                    if (popupRootRef.current && popupRef.current.isOpen() && sessionId === popupSessionRef.current) {
-                        try {
-                            popupRootRef.current.render(
-                                <LocationPopup
-                                    placeName={placeName}
-                                    lat={lat}
-                                    lng={lng}
-                                    year={y}
-                                    baseYear={BASE_YEAR}
-                                    realTimeAQI={realTimeAQI}
-                                    finalAQI={finalAQI}
-                                    rainfall={rainfall}
-                                    rainProbability={rainProbability}
-                                    macroData={macroData}
-                                    impact={impact}
-                                    demographics={demographics}
-                                    analysis={urbanAnalysis}
-                                    analysisLoading={analysisLoading}
-                                    openWeatherKey={OPENWEATHER_KEY}
-                                    onSave={(name) => { if (window.saveLocation) window.saveLocation(name, lat, lng); }}
-                                />
-                            );
-                        } catch (e) { console.warn("Popup data render error:", e); }
+                startTransition(() => {
+                    setImpactData(nextImpactData);
+                    setLocationPopulation(null);
+                    setDemographics(nextDemographics);
+                    setActiveLocation(nextActiveLocation);
+                    if (sessionId === popupSessionRef.current) {
+                        setLocationData(nextLocationData);
                     }
-                }
+                });
 
                 // 7. Trigger AI Analysis (Background)
                 (async () => {
                     try {
                         if (popupSessionRef.current !== sessionId) return;
-
                         setAnalysisLoading(true);
                         setUrbanAnalysis(null);
-                        // show loading state in popup if already mounted
-                        /* AI Analysis Loading State - State already set above, popup will re-render via state */
 
                         // Build sanitized payload for AI (explain-only)
                         const aiPayload = {
@@ -881,72 +897,18 @@ export default function MapView() {
                         // Guard completion update
                         if (popupSessionRef.current !== sessionId) return;
 
-                        // Race condition check: only update if this is still the latest request
+                        // Update ContextEngine with AI result
                         if (lastRequestTimeRef.current === requestTime) {
-                            setUrbanAnalysis(analysis || "No analysis available.");
+                            setLocationData(prev => prev ? ({ ...prev, analysis: analysis || 'No analysis available.', analysisLoading: false }) : null);
+                            setUrbanAnalysis(analysis || 'No analysis available.');
                             setAnalysisLoading(false);
-
-                            // NOTE: Gemini provides explanatory analysis only. Do not overwrite deterministic loss here.
-                            // Re-render popup React root (if present) with new analysis from state
-                            try {
-                                if (
-                                    popupRootRef.current &&
-                                    popupRef.current?.isOpen() &&
-                                    popupSessionRef.current === sessionId &&
-                                    document.body.contains(popupRef.current.getElement())
-                                ) {
-                                    popupRootRef.current.render(
-                                        <LocationPopup
-                                            placeName={placeName}
-                                            lat={lat}
-                                            lng={lng}
-                                            year={y}
-                                            baseYear={BASE_YEAR}
-                                            realTimeAQI={realTimeAQI}
-                                            finalAQI={finalAQI}
-                                            rainfall={rainfall}
-                                            rainProbability={rainProbability}
-                                            macroData={macroData}
-                                            impact={impact}
-                                            demographics={demographics}
-                                            analysis={analysis || 'No analysis available.'}
-                                            analysisLoading={false}
-                                            openWeatherKey={OPENWEATHER_KEY}
-                                            onSave={(name) => { if (window.saveLocation) window.saveLocation(name, lat, lng); }}
-                                        />
-                                    );
-                                }
-                            } catch (e) { console.warn("AI result render error:", e); }
                         }
                     } catch (err) {
                         if (lastRequestTimeRef.current === requestTime && popupSessionRef.current === sessionId) {
-                            console.error("AI Analysis Failed", err);
+                            console.error('AI Analysis Failed', err);
                             setUrbanAnalysis(null);
                             setAnalysisLoading(false);
-                            try {
-                                if (popupRootRef.current && popupRef.current?.isOpen() && popupSessionRef.current === sessionId) {
-                                    popupRootRef.current.render(
-                                        <LocationPopup
-                                            placeName={placeName}
-                                            lat={lat}
-                                            lng={lng}
-                                            year={y}
-                                            baseYear={BASE_YEAR}
-                                            realTimeAQI={realTimeAQI}
-                                            finalAQI={finalAQI}
-                                            rainfall={rainfall}
-                                            rainProbability={rainProbability}
-                                            macroData={macroData}
-                                            impact={impact}
-                                            demographics={demographics}
-                                            analysis={null}
-                                            analysisLoading={false}
-                                            openWeatherKey={OPENWEATHER_KEY}
-                                            onSave={(name) => { if (window.saveLocation) window.saveLocation(name, lat, lng); }}
-                                        />
-                                    );
-                                }
-                            } catch (e) { console.warn("AI error render skipped:", e); }
+                            setLocationData(prev => prev ? ({ ...prev, analysis: null, analysisLoading: false }) : null);
                         }
                     } finally {
                         if (lastRequestTimeRef.current === requestTime && popupSessionRef.current === sessionId) {
@@ -956,37 +918,8 @@ export default function MapView() {
                 })();
 
             } catch (fatalError) {
-                console.error("Fatal error in handleMapClick:", fatalError);
-                try {
-                    if (
-                        popupRootRef.current &&
-                        popupRef.current?.isOpen() &&
-                        popupSessionRef.current === sessionId
-                    ) {
-                        popupRootRef.current.render(
-                            <LocationPopup
-                                placeName="Error"
-                                lat={lat}
-                                lng={lng}
-                                year={y}
-                                baseYear={BASE_YEAR}
-                                realTimeAQI={null}
-                                finalAQI={null}
-                                rainfall={0}
-                                rainProbability={null}
-                                macroData={macroData}
-                                impact={null}
-                                demographics={null}
-                                analysis="Failed to load details"
-                                analysisLoading={false}
-                                openWeatherKey={OPENWEATHER_KEY}
-                                onSave={null}
-                            />
-                        );
-                    }
-                } catch (e) {
-                    console.warn("Error fallback render skipped:", e);
-                }
+                console.error('Fatal error in handleMapClick:', fatalError);
+                setLocationData(prev => prev ? ({ ...prev, placeName: 'Error', analysis: 'Failed to load details', analysisLoading: false }) : null);
             }
         };
 
@@ -1070,7 +1003,12 @@ export default function MapView() {
         const refreshAQIData = async () => {
             const fetchAllCitiesAQI = async () => {
                 try {
-                    const aqiPromises = MAJOR_INDIAN_CITIES.map(async (city) => {
+                const CHUNK_SIZE = 5;
+                const features = [];
+
+                for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
+                    const chunk = MAJOR_INDIAN_CITIES.slice(i, i + CHUNK_SIZE);
+                    const results = await Promise.all(chunk.map(async (city) => {
                         try {
                             const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
                             if (!r) return null;
@@ -1088,12 +1026,13 @@ export default function MapView() {
                         } catch (err) {
                             return null;
                         }
-                    });
+                    }));
 
-                    const results = await Promise.all(aqiPromises);
-                    const features = results.filter(f => f !== null);
-
-                    return { type: "FeatureCollection", features };
+                    features.push(...results.filter(Boolean));
+                    if (i + CHUNK_SIZE < MAJOR_INDIAN_CITIES.length) {
+                        await new Promise((resolve) => setTimeout(resolve, 200));
+                    }
+                }
                 } catch (err) {
                     console.error("Error refreshing AQI data:", err);
                     return null;
@@ -1125,12 +1064,12 @@ export default function MapView() {
         if (!map.getLayer("aqi-layer")) return;
 
         let hoverTimeout;
-        
+
         const debouncedHoverUpdate = (e) => {
             clearTimeout(hoverTimeout);
             hoverTimeout = setTimeout(() => {
                 if (!map.getLayer("aqi-layer") || !e.features || e.features.length === 0) return;
-                
+
                 const feature = e.features[0];
                 const props = feature.properties;
                 const coords = e.lngLat;
@@ -1207,6 +1146,7 @@ export default function MapView() {
         // Reset flood depth when disabled
         if (!floodMode || !layers.floodDepth) {
             floodDepthRef.current = FLOOD_ANIMATION_CONFIG.resetDepth;
+            floodFrameRef.current = 0;
             floodSource.setData({
                 type: "FeatureCollection",
                 features: []
@@ -1229,11 +1169,14 @@ export default function MapView() {
             floodDepthRef.current = FLOOD_ANIMATION_CONFIG.resetDepth;
         }
 
-        const animate = () => {
+        const animateFlood = () => {
             if (!mapRef.current || !floodSource) return;
 
-            const currentDepth = floodDepthRef.current + FLOOD_ANIMATION_CONFIG.depthIncrement;
-            floodDepthRef.current = Math.min(currentDepth, maxDepth);
+            const currentDepth = Math.min(
+                floodDepthRef.current + FLOOD_ANIMATION_CONFIG.depthIncrement,
+                maxDepth
+            );
+            floodDepthRef.current = currentDepth;
 
             floodSource.setData({
                 type: "FeatureCollection",
@@ -1255,21 +1198,24 @@ export default function MapView() {
                 ]
             });
 
-            // Continue animation if not at max depth
-            if (floodDepthRef.current < maxDepth) {
-                floodAnimRef.current = requestAnimationFrame(animate);
-            } else {
+            if (floodDepthRef.current >= maxDepth && floodAnimRef.current) {
+                window.clearInterval(floodAnimRef.current);
                 floodAnimRef.current = null;
             }
         };
 
-        // Start animation
-        floodAnimRef.current = requestAnimationFrame(animate);
+        // Start animation loop at a stable cadence
+        animateFlood();
+        floodAnimRef.current = window.setInterval(() => {
+            if (floodDepthRef.current < maxDepth) {
+                animateFlood();
+            }
+        }, 200);
 
         // Cleanup on unmount or dependency change
         return () => {
             if (floodAnimRef.current) {
-                cancelAnimationFrame(floodAnimRef.current);
+                window.clearInterval(floodAnimRef.current);
                 floodAnimRef.current = null;
             }
         };
@@ -1315,14 +1261,11 @@ export default function MapView() {
                         url: "https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=UQBNCVHquLf1PybiywBt",
                         tileSize: 256
                     });
-                    map.setTerrain({ source: "terrain", exaggeration: 1.4 });
+                    map.setTerrain({ source: "terrain", exaggeration: 1.0 });
                 } catch (err) {
                     console.error("Error adding terrain:", err);
                 }
-            }
 
-            // Re-add traffic layer if enabled
-            if (layers.traffic && TOMTOM_KEY) {
                 setTimeout(() => {
                     try {
                         if (!map.getSource("traffic")) {
@@ -1403,14 +1346,16 @@ export default function MapView() {
                     try {
                         // Re-add hospital layer
                         if (facilityData.hospitals && !map.getSource("hospitals")) {
-                            map.addSource("hospitals", { type: "geojson", data: {
-                                type: "FeatureCollection",
-                                features: facilityData.hospitals.map(h => ({
-                                    type: "Feature",
-                                    properties: h,
-                                    geometry: { type: "Point", coordinates: [h.lng, h.lat] }
-                                }))
-                            }});
+                            map.addSource("hospitals", {
+                                type: "geojson", data: {
+                                    type: "FeatureCollection",
+                                    features: facilityData.hospitals.map(h => ({
+                                        type: "Feature",
+                                        properties: h,
+                                        geometry: { type: "Point", coordinates: [h.lng, h.lat] }
+                                    }))
+                                }
+                            });
                             map.addLayer({
                                 id: "hospitals-layer",
                                 type: "circle",
@@ -1430,14 +1375,16 @@ export default function MapView() {
 
                         // Re-add police layer
                         if (facilityData.policeStations && !map.getSource("policeStations")) {
-                            map.addSource("policeStations", { type: "geojson", data: {
-                                type: "FeatureCollection",
-                                features: facilityData.policeStations.map(p => ({
-                                    type: "Feature",
-                                    properties: p,
-                                    geometry: { type: "Point", coordinates: [p.lng, p.lat] }
-                                }))
-                            }});
+                            map.addSource("policeStations", {
+                                type: "geojson", data: {
+                                    type: "FeatureCollection",
+                                    features: facilityData.policeStations.map(p => ({
+                                        type: "Feature",
+                                        properties: p,
+                                        geometry: { type: "Point", coordinates: [p.lng, p.lat] }
+                                    }))
+                                }
+                            });
                             map.addLayer({
                                 id: "police-layer",
                                 type: "circle",
@@ -1457,14 +1404,16 @@ export default function MapView() {
 
                         // Re-add fire layer
                         if (facilityData.fireStations && !map.getSource("fireStations")) {
-                            map.addSource("fireStations", { type: "geojson", data: {
-                                type: "FeatureCollection",
-                                features: facilityData.fireStations.map(f => ({
-                                    type: "Feature",
-                                    properties: f,
-                                    geometry: { type: "Point", coordinates: [f.lng, f.lat] }
-                                }))
-                            }});
+                            map.addSource("fireStations", {
+                                type: "geojson", data: {
+                                    type: "FeatureCollection",
+                                    features: facilityData.fireStations.map(f => ({
+                                        type: "Feature",
+                                        properties: f,
+                                        geometry: { type: "Point", coordinates: [f.lng, f.lat] }
+                                    }))
+                                }
+                            });
                             map.addLayer({
                                 id: "fire-layer",
                                 type: "circle",
@@ -1547,14 +1496,16 @@ export default function MapView() {
         // Add facility layers
         if (facilityData.hospitals) {
             if (!map.getSource("hospitals")) {
-                map.addSource("hospitals", { type: "geojson", data: {
-                    type: "FeatureCollection",
-                    features: facilityData.hospitals.map(h => ({
-                        type: "Feature",
-                        properties: h,
-                        geometry: { type: "Point", coordinates: [h.lng, h.lat] }
-                    }))
-                }});
+                map.addSource("hospitals", {
+                    type: "geojson", data: {
+                        type: "FeatureCollection",
+                        features: facilityData.hospitals.map(h => ({
+                            type: "Feature",
+                            properties: h,
+                            geometry: { type: "Point", coordinates: [h.lng, h.lat] }
+                        }))
+                    }
+                });
             }
             if (!map.getLayer("hospitals-layer")) {
                 map.addLayer({
@@ -1574,14 +1525,16 @@ export default function MapView() {
 
         if (facilityData.policeStations) {
             if (!map.getSource("policeStations")) {
-                map.addSource("policeStations", { type: "geojson", data: {
-                    type: "FeatureCollection",
-                    features: facilityData.policeStations.map(p => ({
-                        type: "Feature",
-                        properties: p,
-                        geometry: { type: "Point", coordinates: [p.lng, p.lat] }
-                    }))
-                }});
+                map.addSource("policeStations", {
+                    type: "geojson", data: {
+                        type: "FeatureCollection",
+                        features: facilityData.policeStations.map(p => ({
+                            type: "Feature",
+                            properties: p,
+                            geometry: { type: "Point", coordinates: [p.lng, p.lat] }
+                        }))
+                    }
+                });
             }
             if (!map.getLayer("police-layer")) {
                 map.addLayer({
@@ -1601,14 +1554,16 @@ export default function MapView() {
 
         if (facilityData.fireStations) {
             if (!map.getSource("fireStations")) {
-                map.addSource("fireStations", { type: "geojson", data: {
-                    type: "FeatureCollection",
-                    features: facilityData.fireStations.map(f => ({
-                        type: "Feature",
-                        properties: f,
-                        geometry: { type: "Point", coordinates: [f.lng, f.lat] }
-                    }))
-                }});
+                map.addSource("fireStations", {
+                    type: "geojson", data: {
+                        type: "FeatureCollection",
+                        features: facilityData.fireStations.map(f => ({
+                            type: "Feature",
+                            properties: f,
+                            geometry: { type: "Point", coordinates: [f.lng, f.lat] }
+                        }))
+                    }
+                });
             }
             if (!map.getLayer("fire-layer")) {
                 map.addLayer({
@@ -1629,10 +1584,10 @@ export default function MapView() {
 
         // Add hover interactions for facility layers
         const facilityLayersList = ["hospitals-layer", "police-layer", "fire-layer"];
-        
+
         facilityLayersList.forEach(layerId => {
             if (!map.getLayer(layerId)) return;
-            
+
             map.on('mousemove', layerId, (e) => {
                 map.getCanvas().style.cursor = 'pointer';
                 if (e.features.length > 0) {
@@ -1693,15 +1648,15 @@ export default function MapView() {
 
         const canvas = coverageSource.canvas;
         const ctx = canvas.getContext('2d');
-        let animationFrameId;
+        let intervalId = null;
 
-        const renderFrame = () => {
+        const renderCoverage = () => {
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             if (!layers.hospitals && !layers.policeStations && !layers.fireStations) {
                 coverageSource.setCoordinates(coverageSource.coordinates);
-                return; // Stop rendering if all layers are off
+                return;
             }
 
             // Get active facilities
@@ -1716,12 +1671,12 @@ export default function MapView() {
 
             const latToY = (lat) => ((bounds.getNorth() - lat) / latRange) * canvas.height;
             const lngToX = (lng) => ((lng - bounds.getWest()) / lngRange) * canvas.width;
-            
+
             // Calculate pulse based on time
             const now = performance.now();
-            const pulsePhase = (Math.sin(now / 800) + 1) / 2; // 0 to 1 smooth oscillation
-            const pulseScale = 1 + (pulsePhase * 0.15); // Scale between 1x and 1.15x
-            const pulseOpacity = 0.8 + (pulsePhase * 0.2); // Fluctuate opacity
+            const pulsePhase = (Math.sin(now / 800) + 1) / 2;
+            const pulseScale = 1 + (pulsePhase * 0.15);
+            const pulseOpacity = 0.8 + (pulsePhase * 0.2);
 
             // Draw coverage rings
             activeFacilities.forEach(facility => {
@@ -1729,23 +1684,18 @@ export default function MapView() {
                 const y = latToY(facility.lat);
 
                 if (facilityViewMode === 'coverage') {
-                    // Draw radial gradient rings with pulse animation
                     const baseRadii = [facility.coverageRadius * 20, facility.coverageRadius * 40, facility.coverageRadius * 60];
 
                     baseRadii.forEach((baseRadius, index) => {
-                        // Apply pulse mostly to outer rings
                         const radius = index === 0 ? baseRadius : baseRadius * (index === 2 ? pulseScale : 1 + (pulsePhase * 0.05));
-                        
-                        // Prevent drawing if radius is zero or negative somehow
                         if (radius <= 0) return;
 
                         const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                        
-                        // Base opacities for high, med, low coverage
                         const rawOpacity = index === 0 ? 0.8 : index === 1 ? 0.4 : 0.15;
                         const opacity = rawOpacity * (index > 0 ? pulseOpacity : 1);
 
-                        gradient.addColorStop(0, facility.color + Math.round(opacity * 255).toString(16).padStart(2, '0'));
+                        const alphaHex = Math.round(opacity * 255).toString(16).padStart(2, '0');
+                        gradient.addColorStop(0, facility.color + alphaHex);
                         gradient.addColorStop(0.7, facility.color + Math.round(opacity * 0.5 * 255).toString(16).padStart(2, '0'));
                         gradient.addColorStop(1, facility.color + '00');
 
@@ -1757,18 +1707,17 @@ export default function MapView() {
                 }
             });
 
-            // Trigger canvas update on map
             coverageSource.setCoordinates(coverageSource.coordinates);
-            
-            // Loop!
-            animationFrameId = requestAnimationFrame(renderFrame);
         };
 
-        // Start animation loop
-        renderFrame();
+        const shouldAnimate = layers.hospitals || layers.policeStations || layers.fireStations;
+        if (shouldAnimate) {
+            renderCoverage();
+            intervalId = window.setInterval(renderCoverage, 250);
+        }
 
         return () => {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            if (intervalId) window.clearInterval(intervalId);
         };
     }, [layers, facilityData, facilityViewMode]);
 
@@ -1889,30 +1838,41 @@ export default function MapView() {
             }
         };
 
+        let rightClickRaf = null;
+        let pendingCamera = null;
+
         const handleMouseMove = (e) => {
             if (isRightClickDragging && mapRef.current) {
                 e.preventDefault();
                 const deltaX = e.clientX - startPos.x;
                 const deltaY = e.clientY - startPos.y;
 
-                // Left/Right movement = Rotation (Bearing)
                 const bearingSensitivity = 0.5;
                 const newBearing = startPos.bearing + (deltaX * bearingSensitivity);
-
-                // Up/Down movement = Tilt (Pitch)
                 const pitchSensitivity = 0.3;
                 const newPitch = Math.max(0, Math.min(85, startPos.pitch - (deltaY * pitchSensitivity)));
 
-                mapRef.current.easeTo({
-                    bearing: newBearing,
-                    pitch: newPitch,
-                    duration: 0
-                });
+                pendingCamera = { bearing: newBearing, pitch: newPitch };
+                if (!rightClickRaf) {
+                    rightClickRaf = requestAnimationFrame(() => {
+                        if (mapRef.current && pendingCamera) {
+                            mapRef.current.easeTo({
+                                bearing: pendingCamera.bearing,
+                                pitch: pendingCamera.pitch,
+                                duration: 0,
+                                essential: true
+                            });
+                            cameraStateRef.current = pendingCamera;
+                        }
+                        rightClickRaf = null;
+                    });
+                }
+            }
+        };
 
-                setCameraState({
-                    bearing: newBearing,
-                    pitch: newPitch
-                });
+        const handleContextMenu = (e) => {
+            if (isRightClickDragging) {
+                e.preventDefault();
             }
         };
 
@@ -1922,7 +1882,11 @@ export default function MapView() {
                 e.stopPropagation();
                 isRightClickDragging = false;
                 container.style.cursor = '';
-                // Re-enable MapLibre's default controls if available
+                setCameraState(cameraStateRef.current);
+                if (rightClickRaf) {
+                    cancelAnimationFrame(rightClickRaf);
+                    rightClickRaf = null;
+                }
                 if (mapRef.current && mapRef.current.dragRotate && typeof mapRef.current.dragRotate.enable === 'function') {
                     mapRef.current.dragRotate.enable();
                 }
@@ -1932,7 +1896,7 @@ export default function MapView() {
         container.addEventListener('mousedown', handleRightMouseDown);
         window.addEventListener('mousemove', handleMouseMove);
         window.addEventListener('mouseup', handleMouseUp);
-        container.addEventListener('contextmenu', (e) => e.preventDefault()); // Prevent context menu
+        container.addEventListener('contextmenu', handleContextMenu); // Prevent context menu
 
         return () => {
             container.removeEventListener('mousedown', handleRightMouseDown);
@@ -1967,9 +1931,13 @@ export default function MapView() {
         const map = mapRef.current;
 
         const updateCameraState = () => {
-            setCameraState({
-                bearing: Math.round(map.getBearing()),
-                pitch: Math.round(map.getPitch())
+            if (cameraRafIdRef.current) return;
+            cameraRafIdRef.current = requestAnimationFrame(() => {
+                setCameraState({
+                    bearing: Math.round(map.getBearing()),
+                    pitch: Math.round(map.getPitch())
+                });
+                cameraRafIdRef.current = null;
             });
         };
 
@@ -1977,6 +1945,10 @@ export default function MapView() {
         map.on("pitch", updateCameraState);
 
         return () => {
+            if (cameraRafIdRef.current) {
+                cancelAnimationFrame(cameraRafIdRef.current);
+                cameraRafIdRef.current = null;
+            }
             map.off("rotate", updateCameraState);
             map.off("pitch", updateCameraState);
         };
@@ -2101,6 +2073,13 @@ export default function MapView() {
 
             <MapMenu layers={layers} setLayers={setLayers} mapStyle={mapStyle} setMapStyle={setMapStyle} mapRef={mapRef} />
 
+            {/* Terrain Intelligence Layer */}
+            <TerrainController
+                map={mapRef.current}
+                isActive={mapStyle === "terrain"}
+                year={year}
+            />
+
             <SearchBar mapRef={mapRef} onLocationSelect={handleLocationSelect} />
             <TimeSlider
                 year={year}
@@ -2123,8 +2102,8 @@ export default function MapView() {
                         width: 272,
                         background: "rgba(8, 12, 28, 0.88)",
                         border: "1px solid rgba(255,255,255,0.12)",
-                        backdropFilter: "blur(24px)",
-                        WebkitBackdropFilter: "blur(24px)",
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
                         borderRadius: 16,
                         boxShadow: "0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.07)",
                         padding: "16px",
@@ -2245,8 +2224,8 @@ export default function MapView() {
                         gap: 6,
                         background: "rgba(8, 12, 28, 0.78)",
                         border: "1px solid rgba(255,255,255,0.11)",
-                        backdropFilter: "blur(24px)",
-                        WebkitBackdropFilter: "blur(24px)",
+                        backdropFilter: "blur(12px)",
+                        WebkitBackdropFilter: "blur(12px)",
                         borderRadius: 18,
                         padding: "8px",
                         boxShadow: "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07)",
@@ -2381,8 +2360,8 @@ export default function MapView() {
                                     left: 0,
                                     background: "rgba(8,12,28,0.92)",
                                     border: "1px solid rgba(255,255,255,0.1)",
-                                    backdropFilter: "blur(20px)",
-                                    WebkitBackdropFilter: "blur(20px)",
+                                    backdropFilter: "blur(12px)",
+                                    WebkitBackdropFilter: "blur(12px)",
                                     padding: "12px 14px",
                                     borderRadius: 12,
                                     boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
@@ -2607,8 +2586,8 @@ export default function MapView() {
                 }}>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>
-                            {hoveredFacility.type === 'hospital' ? '🏥' : 
-                             hoveredFacility.type === 'police' ? '🚔' : '🔥'}
+                            {hoveredFacility.type === 'hospital' ? '🏥' :
+                                hoveredFacility.type === 'police' ? '🚔' : '🔥'}
                         </span>
                         {hoveredFacility.name || "Facility"}
                     </div>
