@@ -1,3 +1,9 @@
+// ================================================
+// SimulationEngine — Flood simulation state & scenarios
+// ✅ _notify() is now batched via requestAnimationFrame
+//    preventing cascading subscriber updates mid-frame
+// ================================================
+
 export class SimulationEngine {
   constructor() {
     this.state = {
@@ -9,15 +15,23 @@ export class SimulationEngine {
       timestamp: Date.now()
     };
     this.subscribers = new Set();
+    this._notifyPending = false;
   }
 
   _notify() {
-    this.subscribers.forEach((subscriber) => {
-      try {
-        subscriber(this.state);
-      } catch (error) {
-        console.warn('Simulation subscriber failed:', error);
-      }
+    // ── Batch: coalesce rapid state changes into one frame ──
+    if (this._notifyPending) return;
+    this._notifyPending = true;
+
+    requestAnimationFrame(() => {
+      this._notifyPending = false;
+      this.subscribers.forEach((subscriber) => {
+        try {
+          subscriber(this.state);
+        } catch (error) {
+          console.warn('Simulation subscriber failed:', error);
+        }
+      });
     });
   }
 

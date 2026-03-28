@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Performance optimizations */
+* {
+  box-sizing: border-box;
+  backface-visibility: hidden;
+}
+
 html,
 body,
 #root {
@@ -15,27 +21,27 @@ body,
   color: white;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  contain: layout style paint;
 }
 
 /* Hide scrollbars globally */
 html,
 body {
   -ms-overflow-style: none;
-  /* IE and Edge */
   scrollbar-width: none;
-  /* Firefox */
 }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   display: none;
-  /* Chrome, Safari, Opera */
 }
 
-/* ===== DARK THEME MAP POPUP ===== */
+/* Map popups */
 .maplibregl-popup {
   z-index: 1100;
-  /* below controls which we set higher */
+  contain: layout style paint;
 }
 
 .maplibregl-popup-content {
@@ -46,6 +52,27 @@ body::-webkit-scrollbar {
 
 .maplibregl-popup-tip {
   display: none !important;
+}
+
+/* Optimize animations */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Will-change for performance */
+.maplibregl-canvas-container {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* GPU acceleration hints */
+.layer-toggle-button {
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Ensure navigation and other controls sit above popups so they never get obscured */

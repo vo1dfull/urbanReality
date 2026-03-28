@@ -203,7 +203,7 @@ export default function FacilityListPanel({ facilityData, layers, mapRef }) {
         )}
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideInRight {
           from { opacity: 0; transform: translateX(20px); }
           to { opacity: 1; transform: translateX(0); }

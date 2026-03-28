@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useTerrain } from '../../hooks/map/useTerrain';
 
 export default function FloodSimulationLayer({
   map,
@@ -8,8 +7,6 @@ export default function FloodSimulationLayer({
   onLoadingChange,
   onSimulationStart
 }) {
-  const { getTerrainMetrics } = useTerrain();
-
   const [isSimulating, setIsSimulating] = useState(false);
   const [rainIntensity, setRainIntensity] = useState(50);
   const [waterLevel, setWaterLevel] = useState(1.0);
@@ -18,24 +15,31 @@ export default function FloodSimulationLayer({
 
   const simulationRef = useRef(null);
   const workerRef = useRef(null);
+  const isSimulatingRef = useRef(false); // ✅ Ref to avoid dependency in useEffect
+  const clickHandlerRef = useRef(null);
 
-  // Initialize flood layer + worker
+  // Keep ref in sync with state
+  useEffect(() => {
+    isSimulatingRef.current = isSimulating;
+  }, [isSimulating]);
+
+  // ── Worker + Layer Init (runs once when active) ──
   useEffect(() => {
     if (!map || !isActive) return;
 
     onLoadingChange(true);
 
     if (!workerRef.current) {
-      workerRef.current = new Worker(new URL('../../workers/floodWorker.js', import.meta.url), { type: 'module' });
+      workerRef.current = new Worker(
+        new URL('../workers/floodWorker.js', import.meta.url),
+        { type: 'module' }
+      );
       workerRef.current.onmessage = ({ data }) => {
         if (!map || !map.getSource('flood-zones')) return;
 
         const features = data.features.map((feature) => {
           const trace = feature.properties.risk === 'high' ? 1 : feature.properties.risk === 'medium' ? 0.6 : 0.35;
-          return {
-            ...feature,
-            properties: { ...feature.properties, trace }
-          };
+          return { ...feature, properties: { ...feature.properties, trace } };
         });
 
         setFloodRiskData({ type: 'FeatureCollection', features });
@@ -58,9 +62,7 @@ export default function FloodSimulationLayer({
           source: 'flood-zones',
           paint: {
             'fill-color': [
-              'interpolate',
-              ['linear'],
-              ['get', 'depth'],
+              'interpolate', ['linear'], ['get', 'depth'],
               0, 'rgba(0, 123, 255, 0.1)',
               0.5, 'rgba(0, 123, 255, 0.35)',
               1.0, 'rgba(3, 169, 244, 0.4)',
@@ -81,9 +83,7 @@ export default function FloodSimulationLayer({
             'heatmap-weight': ['interpolate', ['linear'], ['get', 'trace'], 0, 0, 1, 1],
             'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 5, 0.7, 15, 1.8],
             'heatmap-color': [
-              'interpolate',
-              ['linear'],
-              ['heatmap-density'],
+              'interpolate', ['linear'], ['heatmap-density'],
               0, 'rgba(0, 123, 255, 0)',
               0.1, 'rgba(16, 185, 129, 0.4)',
               0.4, 'rgba(249, 168, 37, 0.5)',
@@ -97,56 +97,53 @@ export default function FloodSimulationLayer({
         map.setLayoutProperty('flood-risk-heatmap', 'visibility', 'visible');
       }
 
-      // Click to start simulation
-      const handleMapClick = (e) => {
-        if (!isActive || isSimulating) return;
-
-        const center = [e.lngLat.lng, e.lngLat.lat];
-        setSimulationCenter(center);
-        startSimulation(center);
-      };
-
-      map.on('click', handleMapClick);
-
       onLoadingChange(false);
-
-      return () => {
-        map.off('click', handleMapClick);
-      };
-
     } catch (error) {
       console.error('Error initializing flood layer:', error);
       onLoadingChange(false);
     }
-  }, [map, isActive, onLoadingChange, isSimulating]);
 
-  const startSimulation = useCallback((center) => {
-    if (!map || isSimulating || !workerRef.current) return;
+    // ✅ Click handler uses ref — no re-attach when isSimulating changes
+    const handleMapClick = (e) => {
+      if (!isActive || isSimulatingRef.current) return;
+      const center = [e.lngLat.lng, e.lngLat.lat];
+      setSimulationCenter(center);
+    };
+
+    clickHandlerRef.current = handleMapClick;
+    map.on('click', handleMapClick);
+
+    return () => {
+      if (clickHandlerRef.current) {
+        map.off('click', clickHandlerRef.current);
+        clickHandlerRef.current = null;
+      }
+    };
+  }, [map, isActive, onLoadingChange]); // ✅ Removed isSimulating from deps
+
+  // ── Start simulation when center is set ──
+  useEffect(() => {
+    if (!simulationCenter || !map || !workerRef.current || isSimulating) return;
 
     setIsSimulating(true);
     onSimulationStart?.();
 
     const bounds = map.getBounds();
-    const mapBounds = {
-      west: bounds.getWest(),
-      east: bounds.getEast(),
-      south: bounds.getSouth(),
-      north: bounds.getNorth()
-    };
-
-    workerRef.current.postMessage({ center, rainIntensity, waterLevel, mapBounds });
-
-    const cancelFrame = requestAnimationFrame(() => {
-      if (!map?.getSource('flood-zones')?.setData) return;
-      map.getSource('flood-zones').setData({ type: 'FeatureCollection', features: floodRiskData?.features || [] });
+    workerRef.current.postMessage({
+      center: simulationCenter,
+      rainIntensity,
+      waterLevel,
+      mapBounds: {
+        west: bounds.getWest(),
+        east: bounds.getEast(),
+        south: bounds.getSouth(),
+        north: bounds.getNorth()
+      }
     });
-
-    simulationRef.current = cancelFrame;
-  }, [map, isSimulating, rainIntensity, waterLevel, onSimulationStart, floodRiskData]);
+  }, [simulationCenter]); // ✅ Only fires when center changes
 
   const stopSimulation = useCallback(() => {
     if (!map) return;
-
     setIsSimulating(false);
     setSimulationCenter(null);
 
@@ -160,24 +157,39 @@ export default function FloodSimulationLayer({
     }
   }, [map]);
 
-  // Update simulation when parameters change
+  // ── Re-run simulation when parameters change (only while active) ──
   useEffect(() => {
-    if (isSimulating && simulationCenter) {
-      stopSimulation();
-      setTimeout(() => startSimulation(simulationCenter), 100);
-    }
-  }, [rainIntensity, waterLevel, isSimulating, simulationCenter, startSimulation, stopSimulation]);
+    if (!isSimulating || !simulationCenter || !workerRef.current || !map) return;
 
-  // Cleanup
+    // ✅ Debounce parameter changes with RAF
+    const id = requestAnimationFrame(() => {
+      const bounds = map.getBounds();
+      workerRef.current.postMessage({
+        center: simulationCenter,
+        rainIntensity,
+        waterLevel,
+        mapBounds: {
+          west: bounds.getWest(),
+          east: bounds.getEast(),
+          south: bounds.getSouth(),
+          north: bounds.getNorth()
+        }
+      });
+    });
+
+    return () => cancelAnimationFrame(id);
+  }, [rainIntensity, waterLevel]); // ✅ Only re-posts when sliders change
+
+  // ── Cleanup on unmount ──
   useEffect(() => {
     return () => {
       if (!map) return;
       try {
-        stopSimulation();
         if (workerRef.current) {
           workerRef.current.terminate();
           workerRef.current = null;
         }
+        if (simulationRef.current) cancelAnimationFrame(simulationRef.current);
         if (map.getLayer('flood-fill')) map.removeLayer('flood-fill');
         if (map.getLayer('flood-risk-heatmap')) map.removeLayer('flood-risk-heatmap');
         if (map.getSource('flood-zones')) map.removeSource('flood-zones');
@@ -185,7 +197,7 @@ export default function FloodSimulationLayer({
         console.error('Error cleaning up flood layer:', error);
       }
     };
-  }, [map, stopSimulation]);
+  }, [map]);
 
   if (!isActive) return null;
 
@@ -203,75 +215,44 @@ export default function FloodSimulationLayer({
           backdropFilter: 'blur(8px)',
           border: '1px solid rgba(255,255,255,0.1)',
           minWidth: 250,
-          zIndex: 100
+          zIndex: 100,
+          willChange: 'transform',
+          transform: 'translateZ(0)',
         }}
       >
         <div style={{ marginBottom: 12 }}>
-          <div style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: '#f1f5f9',
-            marginBottom: 8
-          }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9', marginBottom: 8 }}>
             🌊 Flood Simulation
           </div>
-          <div style={{
-            fontSize: 12,
-            color: '#94a3b8',
-            marginBottom: 12
-          }}>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>
             Click on map to simulate flood at location
           </div>
         </div>
 
-        {/* Rain Intensity */}
         <div style={{ marginBottom: 12 }}>
-          <label style={{
-            display: 'block',
-            fontSize: 12,
-            color: '#e2e8f0',
-            marginBottom: 4
-          }}>
+          <label style={{ display: 'block', fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>
             Rain Intensity: {rainIntensity}mm/h
           </label>
           <input
-            type="range"
-            min="10"
-            max="200"
+            type="range" min="10" max="200"
             value={rainIntensity}
             onChange={(e) => setRainIntensity(Number(e.target.value))}
-            style={{
-              width: '100%',
-              accentColor: '#60a5fa'
-            }}
+            style={{ width: '100%', accentColor: '#60a5fa' }}
           />
         </div>
 
-        {/* Water Level */}
         <div style={{ marginBottom: 12 }}>
-          <label style={{
-            display: 'block',
-            fontSize: 12,
-            color: '#e2e8f0',
-            marginBottom: 4
-          }}>
+          <label style={{ display: 'block', fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>
             Water Level: {waterLevel.toFixed(1)}x
           </label>
           <input
-            type="range"
-            min="0.1"
-            max="3.0"
-            step="0.1"
+            type="range" min="0.1" max="3.0" step="0.1"
             value={waterLevel}
             onChange={(e) => setWaterLevel(Number(e.target.value))}
-            style={{
-              width: '100%',
-              accentColor: '#60a5fa'
-            }}
+            style={{ width: '100%', accentColor: '#60a5fa' }}
           />
         </div>
 
-        {/* Simulation Status */}
         {isSimulating && (
           <div style={{
             padding: 8,
@@ -280,44 +261,25 @@ export default function FloodSimulationLayer({
             borderRadius: 6,
             marginBottom: 8
           }}>
-            <div style={{
-              fontSize: 12,
-              color: '#22c55e',
-              fontWeight: 500
-            }}>
+            <div style={{ fontSize: 12, color: '#22c55e', fontWeight: 500 }}>
               ⚡ Simulation Active
             </div>
-            <div style={{
-              fontSize: 10,
-              color: '#94a3b8',
-              marginTop: 2
-            }}>
-              Click anywhere to stop
+            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+              Click stop to end simulation
             </div>
           </div>
         )}
 
-        {/* Stop Button */}
         {isSimulating && (
           <button
             onClick={stopSimulation}
             style={{
-              width: '100%',
-              padding: '8px',
+              width: '100%', padding: '8px',
               background: 'rgba(220, 53, 69, 0.8)',
-              border: 'none',
-              borderRadius: 6,
-              color: 'white',
-              fontSize: 12,
-              fontWeight: 500,
+              border: 'none', borderRadius: 6,
+              color: 'white', fontSize: 12, fontWeight: 500,
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = 'rgba(220, 53, 69, 1)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'rgba(220, 53, 69, 0.8)';
+              transition: 'all 180ms cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             Stop Simulation
@@ -325,31 +287,22 @@ export default function FloodSimulationLayer({
         )}
       </div>
 
-      {/* Instructions */}
       {!isSimulating && (
         <div
           style={{
-            position: 'absolute',
-            bottom: 100,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            position: 'absolute', bottom: 100, left: '50%',
+            transform: 'translateX(-50%) translateZ(0)',
             background: 'rgba(2, 6, 23, 0.9)',
-            padding: '12px 20px',
-            borderRadius: 8,
-            color: 'white',
-            fontSize: 14,
+            padding: '12px 20px', borderRadius: 8,
+            color: 'white', fontSize: 14,
             backdropFilter: 'blur(8px)',
             border: '1px solid rgba(255,255,255,0.1)',
             zIndex: 100,
             animation: 'fadeIn 0.5s ease'
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>
-            🌊 Flood Simulation Ready
-          </div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>
-            Click on any location to start flood simulation
-          </div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>🌊 Flood Simulation Ready</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>Click on any location to start</div>
         </div>
       )}
     </>

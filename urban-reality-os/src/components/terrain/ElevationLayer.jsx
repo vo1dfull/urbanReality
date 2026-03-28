@@ -1,169 +1,55 @@
-import { useEffect, useState, useRef } from 'react';
-import { useTerrain } from '../../hooks/map/useTerrain';
+import { useEffect } from 'react';
+import useMapStore from '../../store/useMapStore';
+import InteractionEngine from '../../engines/InteractionEngine';
+import LayerEngine from '../../engines/LayerEngine';
+import { terrainEngine } from '../../engines/TerrainEngine';
 
-const ELEVATION_COLORS = [
-  [0, '#2d5016'],      // Deep green (low elevation)
-  [100, '#4a7c59'],    // Green
-  [300, '#7cb342'],    // Light green
-  [600, '#c0ca33'],    // Yellow-green
-  [1000, '#fdd835'],   // Yellow
-  [1500, '#fb8c00'],   // Orange
-  [2000, '#f4511e'],   // Red-orange
-  [2500, '#d32f2f'],   // Red
-  [3000, '#8d6e63']    // Brown (high elevation)
-];
+export default function ElevationLayer({ map, isActive, year, onLoadingChange }) {
+  const mode = useMapStore((s) => s.terrainMode);
+  const setMode = useMapStore((s) => s.setTerrainMode);
+  const hoveredPoint = useMapStore((s) => s.terrainHoveredPoint);
+  const setHoveredPoint = useMapStore((s) => s.setTerrainHoveredPoint);
 
-const SLOPE_COLORS = [
-  [0, '#2e7d32'],      // Green (flat)
-  [5, '#66bb6a'],      // Light green
-  [15, '#ffee58'],     // Yellow
-  [30, '#ff9800'],     // Orange
-  [45, '#f44336'],     // Red
-  [60, '#8d6e63']      // Brown (steep)
-];
-
-export default function ElevationLayer({ map, isActive, onLoadingChange }) {
-  const { getTerrainMetrics } = useTerrain();
-  const [mode, setMode] = useState('elevation'); // 'elevation' or 'slope'
-  const [hoveredPoint, setHoveredPoint] = useState(null);
-  const hoverPopupRef = useRef(null);
-
+  // Setup hover interaction using engine
   useEffect(() => {
-    if (!map || !isActive) return;
-
-    onLoadingChange(true);
-
-    try {
-      // Add elevation source if not exists
-      if (!map.getSource('elevation-data')) {
-        map.addSource('elevation-data', {
-          type: 'vector',
-          url: 'https://api.maptiler.com/tiles/contours/tiles.json?key=UQBNCVHquLf1PybiywBt'
-        });
-      }
-
-      // Add elevation layer
-      if (!map.getLayer('elevation-fill')) {
-        map.addLayer({
-          id: 'elevation-fill',
-          type: 'fill',
-          source: 'elevation-data',
-          'source-layer': 'contour',
-          paint: {
-            'fill-color': [
-              'interpolate',
-              ['linear'],
-              ['get', 'ele'],
-              ...ELEVATION_COLORS.flat()
-            ],
-            'fill-opacity': 0.6
-          }
-        });
-      }
-
-      // Add slope layer (initially hidden)
-      if (!map.getLayer('slope-fill')) {
-        map.addLayer({
-          id: 'slope-fill',
-          type: 'fill',
-          source: 'elevation-data',
-          'source-layer': 'contour',
-          paint: {
-            'fill-color': [
-              'interpolate',
-              ['linear'],
-              ['get', 'slope'],
-              ...SLOPE_COLORS.flat()
-            ],
-            'fill-opacity': 0.6
-          }
-        });
-        map.setLayoutProperty('slope-fill', 'visibility', 'none');
-      }
-
-      // Add hover interaction
-      const handleMouseMove = (e) => {
-        if (!isActive) return;
-
-        const features = map.queryRenderedFeatures(e.point, {
-          layers: ['elevation-fill', 'slope-fill']
-        });
-
-        if (features.length > 0) {
-          const coords = e.lngLat;
-          const metrics = getTerrainMetrics(map, coords);
-
-          setHoveredPoint({
-            lng: coords.lng,
-            lat: coords.lat,
-            elevation: Math.round(metrics.elevation),
-            slope: Math.round(metrics.slope * 100) / 100,
-            screenX: e.point.x,
-            screenY: e.point.y
-          });
-        } else {
-          setHoveredPoint(null);
-        }
-      };
-
-      const handleMouseLeave = () => {
-        setHoveredPoint(null);
-      };
-
-      map.on('mousemove', handleMouseMove);
-      map.on('mouseleave', 'elevation-fill', handleMouseLeave);
-      map.on('mouseleave', 'slope-fill', handleMouseLeave);
-
-      onLoadingChange(false);
-
-      return () => {
-        map.off('mousemove', handleMouseMove);
-        map.off('mouseleave', 'elevation-fill', handleMouseLeave);
-        map.off('mouseleave', 'slope-fill', handleMouseLeave);
-      };
-
-    } catch (error) {
-      console.error('Error initializing elevation layer:', error);
-      onLoadingChange(false);
+    if (!isActive || !map) {
+      setHoveredPoint(null);
+      return;
     }
-  }, [map, isActive, getTerrainMetrics, onLoadingChange]);
 
-  // Toggle between elevation and slope
-  useEffect(() => {
-    if (!map || !isActive) return;
+    const handleMouseMove = (e) => {
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: ['elevation-fill', 'slope-fill']
+      });
 
-    try {
-      if (mode === 'elevation') {
-        map.setLayoutProperty('elevation-fill', 'visibility', 'visible');
-        map.setLayoutProperty('slope-fill', 'visibility', 'none');
+      if (features.length > 0) {
+        const metrics = terrainEngine.getTerrainMetrics(map, e.lngLat);
+        setHoveredPoint({
+          lng: e.lngLat.lng,
+          lat: e.lngLat.lat,
+          elevation: Math.round(metrics.elevation),
+          slope: Math.round(metrics.slope * 100) / 100,
+          screenX: e.point.x,
+          screenY: e.point.y
+        });
       } else {
-        map.setLayoutProperty('elevation-fill', 'visibility', 'none');
-        map.setLayoutProperty('slope-fill', 'visibility', 'visible');
-      }
-    } catch (error) {
-      console.error('Error toggling elevation mode:', error);
-    }
-  }, [map, isActive, mode]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (!map) return;
-      try {
-        if (map.getLayer('elevation-fill')) {
-          map.removeLayer('elevation-fill');
-        }
-        if (map.getLayer('slope-fill')) {
-          map.removeLayer('slope-fill');
-        }
-        if (map.getSource('elevation-data')) {
-          map.removeSource('elevation-data');
-        }
-      } catch (error) {
-        console.error('Error cleaning up elevation layer:', error);
+        setHoveredPoint(null);
       }
     };
-  }, [map]);
+
+    const handleMouseLeave = () => setHoveredPoint(null);
+
+    const moveKey = InteractionEngine.attachEvent(map, 'mousemove', null, handleMouseMove);
+    const leaveKeyEle = InteractionEngine.attachEvent(map, 'mouseleave', 'elevation-fill', handleMouseLeave);
+    const leaveKeySlope = InteractionEngine.attachEvent(map, 'mouseleave', 'slope-fill', handleMouseLeave);
+
+    return () => {
+      InteractionEngine.detachEvent(map, moveKey);
+      InteractionEngine.detachEvent(map, leaveKeyEle);
+      InteractionEngine.detachEvent(map, leaveKeySlope);
+      setHoveredPoint(null);
+    };
+  }, [map, isActive]);
 
   if (!isActive) return null;
 
@@ -222,7 +108,6 @@ export default function ElevationLayer({ map, isActive, onLoadingChange }) {
       {/* Hover Tooltip */}
       {hoveredPoint && (
         <div
-          ref={hoverPopupRef}
           style={{
             position: 'absolute',
             left: hoveredPoint.screenX + 10,

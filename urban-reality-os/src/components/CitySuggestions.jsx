@@ -129,11 +129,11 @@ export default function CitySuggestions({ map, visible }) {
     }
 
     // ---- Toggle visibility ----
-    map.setLayoutProperty(
-      "ai-suggestions-layer",
-      "visibility",
-      visible ? "visible" : "none"
-    );
+    const targetVisibility = visible ? "visible" : "none";
+    const currentVisibility = map.getLayoutProperty("ai-suggestions-layer", "visibility");
+    if (currentVisibility !== targetVisibility) {
+      map.setLayoutProperty("ai-suggestions-layer", "visibility", targetVisibility);
+    }
   }, [map, visible]);
 
   return null;

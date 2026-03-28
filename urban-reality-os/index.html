@@ -2,11 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Map Project</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="description" content="Urban Reality OS - Real-time city analytics and simulation platform" />
+    <meta name="theme-color" content="#020617" />
+    
+    <title>Urban Reality OS</title>
+
+    <!-- Resource hints for external APIs -->
+    <link rel="dns-prefetch" href="https://api.maptiler.com" />
+    <link rel="dns-prefetch" href="https://api.tomtom.com" />
+    <link rel="dns-prefetch" href="https://api.openweathermap.org" />
+    <link rel="preconnect" href="https://api.maptiler.com" crossorigin />
+    <link rel="preconnect" href="https://api.tomtom.com" crossorigin />
+
+    <!-- Optimize performance -->
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%20100%20100%22%3E%3Ctext%20y=%22.9em%22%20font-size=%2290%22%3E🗺️%3C/text%3E%3C/svg%3E" />
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin: 0; padding: 0; overflow: hidden;">
+    <div id="root" style="width: 100%; height: 100vh; position: fixed;"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

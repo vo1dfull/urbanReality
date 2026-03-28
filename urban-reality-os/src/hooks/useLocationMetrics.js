@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import FrameController from "../core/FrameController";
 
 /* ---------- MOCK FALLBACK (NEVER FAILS) ---------- */
 const MOCK_DATA = {
@@ -27,6 +28,28 @@ function smoothNumber(prev, next, factor = 0.15) {
   return prev + (next - prev) * factor;
 }
 
+/* ---------- CONVERGENCE CHECK ---------- */
+const CONVERGE_THRESHOLD = 0.1;
+
+function hasConverged(current, target) {
+  if (!current || !target) return false;
+
+  const checks = [
+    [current.aqi?.value, target.aqi?.value],
+    [current.terrain?.elevation, target.terrain?.elevation],
+    [current.terrain?.slope, target.terrain?.slope],
+    [current.terrain?.floodRisk, target.terrain?.floodRisk],
+    [current.population?.total, target.population?.total],
+    [current.population?.density, target.population?.density],
+    [current.population?.growthRate, target.population?.growthRate],
+  ];
+
+  return checks.every(([a, b]) => {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return true;
+    return Math.abs(a - b) < CONVERGE_THRESHOLD;
+  });
+}
+
 export function useLocationMetrics({
   coords,
   fetchAQI,
@@ -34,7 +57,7 @@ export function useLocationMetrics({
   fetchPopulation
 }) {
   const [data, setData] = useState(MOCK_DATA);
-  const rafRef = useRef(null);
+  const taskIdRef = useRef(null);
 
   useEffect(() => {
     if (!coords) return;
@@ -57,42 +80,43 @@ export function useLocationMetrics({
             populationRes.status === "fulfilled" ? populationRes.value : MOCK_DATA.population
         };
 
-        /* ---------- SMOOTH ANIMATION LOOP ---------- */
         const animate = () => {
           if (cancelled) return;
 
-          setData((prev) => ({
-            aqi: {
-              ...nextData.aqi,
-              value: smoothNumber(prev.aqi?.value, nextData.aqi.value)
-            },
-            terrain: {
-              elevation: smoothNumber(
-                prev.terrain?.elevation,
-                nextData.terrain.elevation
-              ),
-              slope: smoothNumber(prev.terrain?.slope, nextData.terrain.slope),
-              floodRisk: smoothNumber(
-                prev.terrain?.floodRisk,
-                nextData.terrain.floodRisk
-              )
-            },
-            population: {
-              total: smoothNumber(prev.population?.total, nextData.population.total),
-              density: smoothNumber(prev.population?.density, nextData.population.density),
-              growthRate: smoothNumber(
-                prev.population?.growthRate,
-                nextData.population.growthRate
-              )
+          setData((prev) => {
+            if (hasConverged(prev, nextData)) {
+              if (taskIdRef.current !== null) {
+                FrameController.remove(taskIdRef.current);
+                taskIdRef.current = null;
+              }
+              return nextData;
             }
-          }));
 
-          rafRef.current = requestAnimationFrame(animate);
+            return {
+              aqi: {
+                ...nextData.aqi,
+                value: smoothNumber(prev.aqi?.value, nextData.aqi.value)
+              },
+              terrain: {
+                elevation: smoothNumber(prev.terrain?.elevation, nextData.terrain.elevation),
+                slope: smoothNumber(prev.terrain?.slope, nextData.terrain.slope),
+                floodRisk: smoothNumber(prev.terrain?.floodRisk, nextData.terrain.floodRisk)
+              },
+              population: {
+                total: smoothNumber(prev.population?.total, nextData.population.total),
+                density: smoothNumber(prev.population?.density, nextData.population.density),
+                growthRate: smoothNumber(prev.population?.growthRate, nextData.population.growthRate)
+              }
+            };
+          });
         };
 
-        // start the loop
-        if (rafRef.current) cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(animate);
+        if (taskIdRef.current !== null) {
+          FrameController.remove(taskIdRef.current);
+          taskIdRef.current = null;
+        }
+
+        taskIdRef.current = FrameController.add(animate, 16);
       } catch (e) {
         setData(MOCK_DATA);
       }
@@ -102,7 +126,10 @@ export function useLocationMetrics({
 
     return () => {
       cancelled = true;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (taskIdRef.current !== null) {
+        FrameController.remove(taskIdRef.current);
+        taskIdRef.current = null;
+      }
     };
   }, [coords, fetchAQI, fetchTerrain, fetchPopulation]);
 

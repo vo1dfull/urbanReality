@@ -11,6 +11,8 @@ class TerrainEngine {
     this.worker = null;
     this.requestId = 0;
     this.pendingRequests = new Map();
+    this._lastSampleTime = 0;
+    this._lastSampleCache = new Map(); // lngLat key → elevation
   }
 
   init(map) {
@@ -80,8 +82,25 @@ class TerrainEngine {
 
   _queryElevation(map, lngLat) {
     if (!map || !lngLat || typeof map.queryTerrainElevation !== 'function') return 0;
+
+    // ── Throttle: return cached if queried within 50ms ──
+    const key = `${lngLat.lng?.toFixed?.(5) ?? lngLat.lng},${lngLat.lat?.toFixed?.(5) ?? lngLat.lat}`;
+    const now = performance.now();
+    if (now - this._lastSampleTime < 50 && this._lastSampleCache.has(key)) {
+      return this._lastSampleCache.get(key);
+    }
+
     try {
-      return map.queryTerrainElevation(lngLat, { exaggerated: false }) ?? 0;
+      const elevation = map.queryTerrainElevation(lngLat, { exaggerated: false }) ?? 0;
+      this._lastSampleTime = now;
+      this._lastSampleCache.set(key, elevation);
+
+      // Cap sample cache size
+      if (this._lastSampleCache.size > 500) {
+        this._lastSampleCache.clear();
+      }
+
+      return elevation;
     } catch (error) {
       return 0;
     }

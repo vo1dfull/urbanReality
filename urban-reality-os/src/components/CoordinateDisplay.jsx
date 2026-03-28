@@ -60,7 +60,7 @@ export default function CoordinateDisplay({ mapRef }) {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideIn {
           from { opacity: 0; transform: translateX(-20px); }
           to { opacity: 1; transform: translateX(0); }

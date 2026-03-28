@@ -109,6 +109,48 @@ const useMapStore = create((set, get) => ({
   // ── Macro Data ──
   macroData: null,
   setMacroData: (data) => set({ macroData: data }),
+
+  // ── Terrain Slice ──
+  terrainSubLayers: {
+    elevation: false,
+    flood: false,
+    suitability: false,
+    heat: false,
+    green: false,
+    road: false,
+  },
+  terrainMode: 'elevation', // 'elevation' or 'slope'
+  terrainHoveredPoint: null,
+  
+  setTerrainSubLayers: (updater) =>
+    set((state) => ({
+      terrainSubLayers:
+        typeof updater === 'function'
+          ? updater(state.terrainSubLayers)
+          : updater,
+    })),
+  toggleTerrainSubLayer: (key) =>
+    set((state) => ({
+      terrainSubLayers: {
+        ...state.terrainSubLayers,
+        [key]: !state.terrainSubLayers[key],
+      },
+    })),
+  setTerrainMode: (mode) => set({ terrainMode: mode }),
+  setTerrainHoveredPoint: (point) => set({ terrainHoveredPoint: point }),
+
+  // ── Simulation Slice ──
+  simulationState: {
+    running: false,
+    progress: 0,
+    metrics: { risk: 0, damage: 0, affected: 0 },
+    year: INITIAL_YEAR,
+  },
+  setSimulationState: (updater) =>
+    set((state) => ({
+      simulationState:
+        typeof updater === 'function' ? updater(state.simulationState) : updater,
+    })),
 }));
 
 export default useMapStore;

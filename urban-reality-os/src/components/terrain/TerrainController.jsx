@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ElevationLayer from './ElevationLayer';
 import FloodSimulationLayer from './FloodSimulationLayer';
 import SuitabilityLayer from './SuitabilityLayer';
 import HeatLayer from './HeatLayer';
 import GreenCoverLayer from './GreenCoverLayer';
 import RoadPlannerLayer from './RoadPlannerLayer';
-import { useTerrainSystem } from '../../hooks/useTerrainSystem';
-import { useSimulationEngine } from '../../hooks/useSimulationEngine';
+import useMapStore from '../../store/useMapStore';
 
 const SUB_LAYERS = [
   { id: 'elevation', label: 'Elevation Intelligence', icon: '🏔️' },
@@ -19,19 +18,11 @@ const SUB_LAYERS = [
 
 export default function TerrainController({ map, isActive, year }) {
   const {
-    activeSubLayers,
-    setActiveSubLayer,
-    setLayerState,
-    layerState,
-    openPanel,
-    setOpenPanel
-  } = useTerrainSystem();
+    terrainSubLayers,
+    toggleTerrainSubLayer
+  } = useMapStore();
 
-  const {
-    simulationState,
-    setSimulationParameters,
-    setFloodTrigger
-  } = useSimulationEngine();
+  const [openPanel, setOpenPanel] = useState(true);
 
   // Cinematic activation transition + camera tilt
   useEffect(() => {
@@ -52,12 +43,6 @@ export default function TerrainController({ map, isActive, year }) {
       }, 550);
     }
   }, [isActive, map]);
-
-  const handleLayerToggle = (id) => {
-    setActiveSubLayer(id, !activeSubLayers.has(id));
-  };
-
-  const activeLayers = useMemo(() => [...activeSubLayers], [activeSubLayers]);
 
   if (!isActive) return null;
 
@@ -107,11 +92,11 @@ export default function TerrainController({ map, isActive, year }) {
         transition: 'max-height 480ms cubic-bezier(0.23,1,0.32,1)'
       }}>
         {SUB_LAYERS.map((layer) => {
-          const active = activeSubLayers.has(layer.id);
+          const active = terrainSubLayers[layer.id];
           return (
             <button
               key={layer.id}
-              onClick={() => handleLayerToggle(layer.id)}
+              onClick={() => toggleTerrainSubLayer(layer.id)}
               style={{
                 width: '100%',
                 border: 'none',
@@ -144,47 +129,33 @@ export default function TerrainController({ map, isActive, year }) {
       {/* Active module renders*/}
       <ElevationLayer
         map={map}
-        isActive={activeLayers.includes('elevation')}
+        isActive={terrainSubLayers.elevation}
         year={year}
-        onLoadingChange={(loading) => setLayerState('elevation', { loading })}
       />
 
       <FloodSimulationLayer
         map={map}
-        isActive={activeLayers.includes('flood')}
-        year={year}
-        simulationState={simulationState}
-        onControlChanged={setSimulationParameters}
-        triggerFlood={setFloodTrigger}
-        onLoadingChange={(loading) => setLayerState('flood', { loading })}
+        isActive={terrainSubLayers.flood}
       />
 
       <SuitabilityLayer
         map={map}
-        isActive={activeLayers.includes('suitability')}
-        year={year}
-        onLoadingChange={(loading) => setLayerState('suitability', { loading })}
+        isActive={terrainSubLayers.suitability}
       />
 
       <HeatLayer
         map={map}
-        isActive={activeLayers.includes('heat')}
-        year={year}
-        onLoadingChange={(loading) => setLayerState('heat', { loading })}
+        isActive={terrainSubLayers.heat}
       />
 
       <GreenCoverLayer
         map={map}
-        isActive={activeLayers.includes('green')}
-        year={year}
-        onLoadingChange={(loading) => setLayerState('green', { loading })}
+        isActive={terrainSubLayers.green}
       />
 
       <RoadPlannerLayer
         map={map}
-        isActive={activeLayers.includes('road')}
-        year={year}
-        onLoadingChange={(loading) => setLayerState('road', { loading })}
+        isActive={terrainSubLayers.road}
       />
     </div>
   );
