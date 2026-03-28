@@ -6,6 +6,7 @@ import HeatLayer from './HeatLayer';
 import GreenCoverLayer from './GreenCoverLayer';
 import RoadPlannerLayer from './RoadPlannerLayer';
 import useMapStore from '../../store/useMapStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const SUB_LAYERS = [
   { id: 'elevation', label: 'Elevation Intelligence', icon: '🏔️' },
@@ -17,10 +18,8 @@ const SUB_LAYERS = [
 ];
 
 export default function TerrainController({ map, isActive, year }) {
-  const {
-    terrainSubLayers,
-    toggleTerrainSubLayer
-  } = useMapStore();
+  const terrainSubLayers = useMapStore(useShallow((s) => s.terrainSubLayers));
+  const toggleTerrainSubLayer = useMapStore((s) => s.toggleTerrainSubLayer);
 
   const [openPanel, setOpenPanel] = useState(true);
 

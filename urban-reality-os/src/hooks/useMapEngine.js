@@ -19,10 +19,7 @@ export default function useMapEngine() {
   const setMapReady = useMapStore((s) => s.setMapReady);
   const setLoading = useMapStore((s) => s.setLoading);
   const setError = useMapStore((s) => s.setError);
-  const setAqiGeo = useMapStore((s) => s.setAqiGeo);
-  const setFloodData = useMapStore((s) => s.setFloodData);
-  const setFacilityData = useMapStore((s) => s.setFacilityData);
-  const setCityDemo = useMapStore((s) => s.setCityDemo);
+  const setDataReady = useMapStore((s) => s.setDataReady);
   const setMacroData = useMapStore((s) => s.setMacroData);
 
   useEffect(() => {
@@ -73,25 +70,30 @@ export default function useMapEngine() {
 
         if (!isMounted) return;
 
-        if (aqiData) setAqiGeo(aqiData);
-        if (staticData.floodData) setFloodData(staticData.floodData);
-        if (staticData.facilityData) setFacilityData(staticData.facilityData);
-        if (staticData.cityDemo) setCityDemo(staticData.cityDemo);
+        if (aqiData) DataEngine.setAqiGeo(aqiData);
+        if (staticData.floodData) DataEngine.setFloodData(staticData.floodData);
+        if (staticData.facilityData) DataEngine.setFacilityData(staticData.facilityData);
+        if (staticData.cityDemo) DataEngine.setCityDemo(staticData.cityDemo);
         if (macroData) setMacroData(macroData);
 
         const currentMap = MapEngine.getMap();
         if (currentMap) {
+          const storeState = useMapStore.getState();
           LayerEngine.initAllLayers(currentMap, {
-            ...useMapStore.getState(),
             aqiGeo: aqiData,
             floodData: staticData.floodData,
             facilityData: staticData.facilityData,
+            layers: storeState.layers,
+            terrainSubLayers: storeState.terrainSubLayers,
+            terrainMode: storeState.terrainMode,
+            year: storeState.year,
           });
 
           if (staticData.facilityData) {
             FacilityEngine.initCoverageCanvas(currentMap);
           }
         }
+        setDataReady(true);
       } catch (err) {
         console.error('[useMapEngine] Error initializing map:', err);
         if (isMounted) {

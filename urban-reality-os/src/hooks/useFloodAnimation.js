@@ -13,7 +13,6 @@ import {
   BASE_YEAR,
   MAX_YEAR,
   FLOOD_ANIMATION_CONFIG,
-  FLOOD_DEPTH_POLYGON,
 } from '../constants/mapConstants';
 
 export default function useFloodAnimation() {
@@ -24,6 +23,7 @@ export default function useFloodAnimation() {
   const taskIdRef = useRef(null);
   const floodDepthRef = useRef(0);
   const rainfallRef = useRef(0);
+  const geometryInitRef = useRef(false);
 
   useEffect(() => {
     const map = MapEngine.getMap();
@@ -31,9 +31,6 @@ export default function useFloodAnimation() {
 
     const floodPlugin = LayerEngine.getPlugin('flood');
     if (!floodPlugin) return;
-
-    const floodSource = floodPlugin.getDepthSource(map);
-    if (!floodSource) return;
 
     // Remove previous task from global loop
     if (taskIdRef.current !== null) {
@@ -44,8 +41,15 @@ export default function useFloodAnimation() {
     // Reset + clear when disabled
     if (!floodMode || !floodDepthEnabled) {
       floodDepthRef.current = FLOOD_ANIMATION_CONFIG.resetDepth;
-      floodSource.setData({ type: 'FeatureCollection', features: [] });
+      // Clear feature state instead of replacing geometry
+      try { map.removeFeatureState({ source: 'flood-depth' }); } catch (_) {}
       return;
+    }
+
+    // Upload geometry ONCE (idempotent)
+    if (!geometryInitRef.current) {
+      floodPlugin.initDepthGeometry(map);
+      geometryInitRef.current = true;
     }
 
     // Compute target max depth
@@ -61,7 +65,7 @@ export default function useFloodAnimation() {
 
     // Register with FrameController — runs at ~5fps (200ms interval)
     const taskFn = () => {
-      if (!MapEngine.getMap() || !floodSource) return;
+      if (!MapEngine.getMap()) return;
 
       // Stop when max reached
       if (floodDepthRef.current >= maxDepth) {
@@ -81,14 +85,11 @@ export default function useFloodAnimation() {
       // Threshold guard
       if (nextDepth - prevDepth > 0.05) {
         floodDepthRef.current = nextDepth;
-        floodSource.setData({
-          type: 'FeatureCollection',
-          features: [{
-            type: 'Feature',
-            properties: { depth: floodDepthRef.current },
-            geometry: { type: 'Polygon', coordinates: [FLOOD_DEPTH_POLYGON] },
-          }],
-        });
+        // Lightweight GPU-side update — no geometry re-upload
+        map.setFeatureState(
+          { source: 'flood-depth', id: 'flood-polygon-1' },
+          { depth: floodDepthRef.current }
+        );
       }
     };
 

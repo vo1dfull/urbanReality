@@ -20,7 +20,6 @@ export default function useLayerSync() {
   const year = useMapStore((s) => s.year);
   const loading = useMapStore((s) => s.loading);
   const mapStyle = useMapStore((s) => s.mapStyle);
-  const setAqiGeo = useMapStore((s) => s.setAqiGeo);
 
   const styleRef = useRef(null);
   const isInitialLoad = useRef(true);
@@ -109,7 +108,7 @@ export default function useLayerSync() {
 
         const nextDigest = computeAqiDigest(aqiData);
         if (nextDigest !== aqiDigestRef.current) {
-          setAqiGeo(aqiData);
+          DataEngine.setAqiGeo(aqiData);
           aqiDigestRef.current = nextDigest;
         }
       }
@@ -133,7 +132,7 @@ export default function useLayerSync() {
     const map = MapEngine.getMap();
     if (!map) return;
 
-    const { facilityData, facilityViewMode } = useMapStore.getState();
+    const facilityData = DataEngine.getFacilityData();
     if (!facilityData) return;
 
     const shouldAnimate = layers.hospitals || layers.policeStations || layers.fireStations;

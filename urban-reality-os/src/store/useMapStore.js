@@ -29,10 +29,7 @@ const useMapStore = create((set, get) => ({
     policeStations: false,
     fireStations: false,
   },
-  aqiGeo: null,
-  floodData: null,
-  facilityData: null,
-  cityDemo: null,
+  dataReady: false,
 
   setLayers: (updater) =>
     set((state) => ({
@@ -42,10 +39,7 @@ const useMapStore = create((set, get) => ({
     set((state) => ({
       layers: { ...state.layers, [key]: !state.layers[key] },
     })),
-  setAqiGeo: (data) => set({ aqiGeo: data }),
-  setFloodData: (data) => set({ floodData: data }),
-  setFacilityData: (data) => set({ facilityData: data }),
-  setCityDemo: (data) => set({ cityDemo: data }),
+  setDataReady: (ready) => set({ dataReady: ready }),
 
   // ── Location Slice ──
   activeLocation: null,

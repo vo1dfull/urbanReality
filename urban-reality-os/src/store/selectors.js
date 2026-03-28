@@ -29,7 +29,6 @@ export const useFloodState = () =>
   useMapStore(
     useShallow((s) => ({
       floodMode: s.floodMode,
-      floodData: s.floodData,
     }))
   );
 
@@ -51,7 +50,6 @@ export const useLocationState = () =>
 export const useFacilityState = () =>
   useMapStore(
     useShallow((s) => ({
-      facilityData: s.facilityData,
       facilityCheckOpen: s.facilityCheckOpen,
       facilityViewMode: s.facilityViewMode,
     }))
@@ -82,7 +80,6 @@ export const useTerrainState = () =>
     useShallow((s) => ({
       terrainSubLayers: s.terrainSubLayers,
       terrainMode: s.terrainMode,
-      terrainHoveredPoint: s.terrainHoveredPoint,
     }))
   );
 

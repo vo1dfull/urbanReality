@@ -3,6 +3,7 @@ import useMapStore from '../../store/useMapStore';
 import InteractionEngine from '../../engines/InteractionEngine';
 import LayerEngine from '../../engines/LayerEngine';
 import { terrainEngine } from '../../engines/TerrainEngine';
+import { throttle } from '../../utils/cache';
 
 export default function ElevationLayer({ map, isActive, year, onLoadingChange }) {
   const mode = useMapStore((s) => s.terrainMode);
@@ -17,7 +18,7 @@ export default function ElevationLayer({ map, isActive, year, onLoadingChange })
       return;
     }
 
-    const handleMouseMove = (e) => {
+    const handleMouseMove = throttle((e) => {
       const features = map.queryRenderedFeatures(e.point, {
         layers: ['elevation-fill', 'slope-fill']
       });
@@ -35,7 +36,7 @@ export default function ElevationLayer({ map, isActive, year, onLoadingChange })
       } else {
         setHoveredPoint(null);
       }
-    };
+    }, 100);
 
     const handleMouseLeave = () => setHoveredPoint(null);
 

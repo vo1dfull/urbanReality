@@ -134,7 +134,7 @@ export default function useInteractions() {
         );
 
         let nearestVal = null;
-        const aqiGeo = useMapStore.getState().aqiGeo;
+        const aqiGeo = DataEngine.getAqiGeo();
         if (!realTimeAQI && aqiGeo?.features?.length) {
           let bestDist = Infinity;
           for (const f of aqiGeo.features) {

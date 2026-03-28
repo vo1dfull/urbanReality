@@ -13,7 +13,22 @@ class DataEngine {
   constructor() {
     this._abortControllers = new Map();
     this._macroDataCache = null;
+    // Non-reactive map data storage (kept out of Zustand)
+    this._aqiGeo = null;
+    this._floodData = null;
+    this._facilityData = null;
+    this._cityDemo = null;
   }
+
+  // ── Non-reactive data getters/setters ──
+  getAqiGeo() { return this._aqiGeo; }
+  setAqiGeo(data) { this._aqiGeo = data; }
+  getFloodData() { return this._floodData; }
+  setFloodData(data) { this._floodData = data; }
+  getFacilityData() { return this._facilityData; }
+  setFacilityData(data) { this._facilityData = data; }
+  getCityDemo() { return this._cityDemo; }
+  setCityDemo(data) { this._cityDemo = data; }
 
   // ── AQI ──
 

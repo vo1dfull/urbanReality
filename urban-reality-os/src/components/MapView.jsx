@@ -29,6 +29,7 @@ import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
 // Engines
 import MapEngine from '../engines/MapEngine';
 import InteractionEngine from '../engines/InteractionEngine';
+import DataEngine from '../engines/DataEngine';
 
 // UI Components
 import TerrainController from './terrain/TerrainController';
@@ -57,7 +58,9 @@ export default function MapView() {
   const { loading, error, mapReady, mapStyle } = useMapState();
   const layers = useLayers();
   const { floodMode } = useFloodState();
-  const { facilityData, facilityCheckOpen, facilityViewMode } = useFacilityState();
+  const { facilityCheckOpen, facilityViewMode } = useFacilityState();
+  const dataReady = useMapStore((s) => s.dataReady);
+  const facilityData = dataReady ? DataEngine.getFacilityData() : null;
   const { showLayersMenu, showSuggestions } = useUIToggles();
 
   // ── Individual setters (stable refs — won't cause re-renders) ──

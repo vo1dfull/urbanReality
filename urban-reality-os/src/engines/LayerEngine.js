@@ -3,6 +3,7 @@
 // Pure JS — no React dependency
 // ================================================
 import LayerRegistry from '../layers/LayerRegistry';
+import DataEngine from './DataEngine';
 import AqiLayerPlugin from '../layers/AqiLayerPlugin';
 import FloodLayerPlugin from '../layers/FloodLayerPlugin';
 import TrafficLayerPlugin from '../layers/TrafficLayerPlugin';
@@ -42,7 +43,10 @@ class LayerEngine {
    * @param {object} storeState — current Zustand state snapshot
    */
   initAllLayers(map, storeState) {
-    const { aqiGeo, floodData, facilityData, layers } = storeState;
+    const { layers } = storeState;
+    const aqiGeo = storeState.aqiGeo ?? DataEngine.getAqiGeo();
+    const floodData = storeState.floodData ?? DataEngine.getFloodData();
+    const facilityData = storeState.facilityData ?? DataEngine.getFacilityData();
 
     const dataMap = {
       aqi: { aqiGeo, visible: layers.aqi },
@@ -71,7 +75,10 @@ class LayerEngine {
    * @param {object} storeState
    */
   recoverAllLayers(map, storeState) {
-    const { aqiGeo, floodData, facilityData, layers } = storeState;
+    const { layers } = storeState;
+    const aqiGeo = storeState.aqiGeo ?? DataEngine.getAqiGeo();
+    const floodData = storeState.floodData ?? DataEngine.getFloodData();
+    const facilityData = storeState.facilityData ?? DataEngine.getFacilityData();
 
     const dataMap = {
       aqi: { aqiGeo, visible: layers.aqi },
