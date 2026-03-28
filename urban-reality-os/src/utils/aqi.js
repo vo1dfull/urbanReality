@@ -3,11 +3,14 @@
 // Converts PM2.5 → US AQI (EPA standard)
 // ============================================
 
-export async function fetchRealtimeAQI(lat, lng, API_KEY) {
+export async function fetchRealtimeAQI(lat, lng, API_KEY, signal) {
   if (!API_KEY || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort(), { once: true });
+  }
 
   try {
     const res = await fetch(

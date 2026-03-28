@@ -121,6 +121,7 @@ export default function MapView() {
     const [mapStyle, setMapStyle] = useState("default");
     const [aqiGeo, setAqiGeo] = useState(null);
     const [loadingAQI, setLoadingAQI] = useState(false);
+    const [floodData, setFloodData] = useState(null);
     const [macroData, setMacroData] = useState(null);
     const [demographics, setDemographics] = useState(null);
     const [activeLocation, setActiveLocation] = useState(null);
@@ -135,21 +136,26 @@ export default function MapView() {
     const [cameraState, setCameraState] = useState({ bearing: MAP_CONFIG.bearing, pitch: MAP_CONFIG.pitch });
     const [floodMode, setFloodMode] = useState(false);
     const cameraStateRef = useRef({ bearing: MAP_CONFIG.bearing, pitch: MAP_CONFIG.pitch });
+    const aqiGeoRef = useRef(null);
+    const clickAbortControllerRef = useRef(null);
     const cameraRafIdRef = useRef(null);
     const yearDebounceRef = useRef(null);
     const floodFrameRef = useRef(0);
     const popupRef = useRef(null);
     const popupRootRef = useRef(null);
+    const trafficSourceAddedRef = useRef(false);
+    const trafficLayerAddedRef = useRef(false);
 
     // Sync macroData to ref for usage in callbacks
     useEffect(() => { macroDataRef.current = macroData; }, [macroData]);
 
-    const fetchAllCitiesAQI = async () => {
+    const fetchAllCitiesAQI = useCallback(async () => {
         if (!OPENWEATHER_KEY) {
             console.warn("OpenWeather API key not available");
             return null;
         }
 
+        setLoadingAQI(true);
         const CHUNK_SIZE = 5;
         const features = [];
 
@@ -183,7 +189,137 @@ export default function MapView() {
         }
 
         return { type: "FeatureCollection", features };
-    };
+    }, []);
+
+    const ensureTrafficLayer = useCallback((map, isVisible) => {
+        if (!map) return;
+
+        try {
+            if (!map.getSource("traffic")) {
+                map.addSource("traffic", {
+                    type: "raster",
+                    tiles: [
+                        `https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`
+                    ],
+                    tileSize: 256
+                });
+                trafficSourceAddedRef.current = true;
+            }
+
+            if (!map.getLayer("traffic-layer")) {
+                map.addLayer({
+                    id: "traffic-layer",
+                    type: "raster",
+                    source: "traffic",
+                    paint: {
+                        "raster-opacity": 1.0,
+                        "raster-fade-duration": 300
+                    },
+                    layout: {
+                        visibility: isVisible ? "visible" : "none"
+                    }
+                });
+                trafficLayerAddedRef.current = true;
+
+                try {
+                    if (map.getLayer('aqi-layer')) {
+                        map.moveLayer('traffic-layer', 'aqi-layer');
+                    } else if (map.getLayer('flood-layer')) {
+                        map.moveLayer('traffic-layer', 'flood-layer');
+                    }
+                } catch (e) {
+                    console.warn('Could not reposition traffic layer:', e);
+                }
+            } else {
+                map.setLayoutProperty("traffic-layer", "visibility", isVisible ? "visible" : "none");
+            }
+        } catch (err) {
+            console.error("Error ensuring traffic layer:", err);
+        }
+    }, []);
+
+    // Helper function to remove traffic layer safely
+    const removeTrafficLayer = useCallback((map) => {
+        if (!map) return;
+
+        try {
+            if (map.getLayer("traffic-layer")) {
+                map.removeLayer("traffic-layer");
+                trafficLayerAddedRef.current = false;
+            }
+            if (map.getSource("traffic")) {
+                map.removeSource("traffic");
+                trafficSourceAddedRef.current = false;
+            }
+        } catch (err) {
+            console.warn("Error removing traffic layer:", err);
+        }
+    }, []);
+
+    const ensureFloodLayers = useCallback((map) => {
+        if (!map || !floodData) return;
+
+        try {
+            if (!map.getSource("flood")) {
+                map.addSource("flood", { type: "geojson", data: floodData });
+            }
+            if (!map.getLayer("flood-layer")) {
+                map.addLayer({
+                    id: "flood-layer",
+                    type: "fill",
+                    source: "flood",
+                    paint: {
+                        "fill-color": "#2563eb",
+                        "fill-opacity": 0.45
+                    },
+                    layout: {
+                        visibility: layers.flood ? "visible" : "none"
+                    }
+                });
+            } else {
+                map.setLayoutProperty("flood-layer", "visibility", layers.flood ? "visible" : "none");
+            }
+
+            if (!map.getSource("flood-depth")) {
+                map.addSource("flood-depth", {
+                    type: "geojson",
+                    data: { type: "FeatureCollection", features: [] }
+                });
+            }
+            if (!map.getLayer("flood-depth-layer")) {
+                map.addLayer({
+                    id: "flood-depth-layer",
+                    type: "fill",
+                    source: "flood-depth",
+                    paint: {
+                        "fill-color": [
+                            "interpolate",
+                            ["linear"],
+                            ["get", "depth"],
+                            0, "#bfdbfe",
+                            1, "#60a5fa",
+                            2, "#2563eb",
+                            3, "#1e3a8a"
+                        ],
+                        "fill-opacity": [
+                            "interpolate",
+                            ["linear"],
+                            ["get", "depth"],
+                            0, 0.2,
+                            3, 0.75
+                        ]
+                    },
+                    layout: {
+                        visibility: layers.floodDepth ? "visible" : "none"
+                    }
+                });
+            } else {
+                map.setLayoutProperty("flood-depth-layer", "visibility", layers.floodDepth ? "visible" : "none");
+            }
+        } catch (err) {
+            console.warn("Error restoring flood layers:", err);
+        }
+    }, [floodData, layers.flood, layers.floodDepth]);
 
     // Keyboard shortcut: F → toggle Facility Check panel
     useEffect(() => {
@@ -375,57 +511,7 @@ export default function MapView() {
                 map.setTerrain({ source: "terrain", exaggeration: 1.0 });
 
                 /* ===== AQI (REAL-TIME FROM OPENWEATHER API) ===== */
-                const fetchAllCitiesAQI = async () => {
-                    if (!OPENWEATHER_KEY) {
-                        console.warn("OpenWeather API key not available");
-                        return null;
-                    }
-
-                    try {
-                        setLoadingAQI(true);
-                        const CHUNK_SIZE = 5;
-                        const features = [];
-
-                        for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
-                            const chunk = MAJOR_INDIAN_CITIES.slice(i, i + CHUNK_SIZE);
-                            const results = await Promise.all(chunk.map(async (city) => {
-                                try {
-                                    const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
-                                    if (!r) return null;
-                                    return {
-                                        type: "Feature",
-                                        properties: {
-                                            aqi: r.aqi,
-                                            city: city.name,
-                                            level: r.category || null,
-                                            pm25: r.pm25 ?? null,
-                                            pm10: r.pm10 ?? null
-                                        },
-                                        geometry: { type: "Point", coordinates: [city.lng, city.lat] }
-                                    };
-                                } catch (err) {
-                                    console.warn(`Failed to fetch AQI for ${city.name}:`, err);
-                                    return null;
-                                }
-                            }));
-
-                            features.push(...results.filter(Boolean));
-                            if (i + CHUNK_SIZE < MAJOR_INDIAN_CITIES.length) {
-                                await new Promise((resolve) => setTimeout(resolve, 200));
-                            }
-                        }
-
-                        return {
-                            type: "FeatureCollection",
-                            features
-                        };
-                    } catch (err) {
-                        console.error("Error fetching AQI data:", err);
-                        return null;
-                    } finally {
-                        setLoadingAQI(false);
-                    }
-                };
+                /* Use the shared fetchAllCitiesAQI helper here. */
 
                 /* ===== AQI LAYER INIT ===== */
                 const aqiData = await fetchAllCitiesAQI();
@@ -475,6 +561,7 @@ export default function MapView() {
                                 "fill-opacity": 0.45
                             }
                         });
+                        setFloodData(floodData);
                     }
                 } catch (err) {
                     console.error("Error loading flood data:", err);
@@ -541,44 +628,41 @@ export default function MapView() {
                 try {
                     if (isMounted && TOMTOM_KEY) {
                         // Add TomTom Traffic Flow Source
-                        map.addSource("traffic", {
-                            type: "raster",
-                            // style=relative shows speed relative to free-flow (Green/Orange/Red)
-                            // style=absolute shows absolute speed
-                            tiles: [
-                                `https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`
-                            ],
-                            tileSize: 256
-                        });
+                        if (!map.getSource("traffic")) {
+                            map.addSource("traffic", {
+                                type: "raster",
+                                tiles: [
+                                    `https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`
+                                ],
+                                tileSize: 256
+                            });
+                            trafficSourceAddedRef.current = true;
 
-                        // Add Raster Layer
-                        // Traffic layer is controlled via the Google Maps-style layers menu
-                        map.addLayer({
-                            id: "traffic-layer",
-                            type: "raster",
-                            source: "traffic",
-                            paint: {
-                                "raster-opacity": 1.0,
-                                "raster-fade-duration": 300
-                            },
-                            layout: {
-                                visibility: layers.traffic ? "visible" : "none" // Respect initial state
-                            }
-                        });
+                            // Add Raster Layer
+                            map.addLayer({
+                                id: "traffic-layer",
+                                type: "raster",
+                                source: "traffic",
+                                paint: {
+                                    "raster-opacity": 1.0,
+                                    "raster-fade-duration": 300
+                                },
+                                layout: {
+                                    visibility: layers.traffic ? "visible" : "none"
+                                }
+                            });
+                            trafficLayerAddedRef.current = true;
 
-                        // Ensure traffic layer does not sit above UI-focused layers (place it below AQI/flood)
-                        try {
-                            if (map.getLayer('aqi-layer')) {
-                                map.moveLayer('traffic-layer', 'aqi-layer');
-                            } else if (map.getLayer('flood-layer')) {
-                                map.moveLayer('traffic-layer', 'flood-layer');
-                            } else if (map.getStyle() && map.getStyle().layers && map.getStyle().layers.length) {
-                                // move to bottom-most drawable layer to avoid UI overlap
-                                const bottomLayerId = map.getStyle().layers[0].id;
-                                map.moveLayer('traffic-layer', bottomLayerId);
+                            // Position below AQI/flood layers
+                            try {
+                                if (map.getLayer('aqi-layer')) {
+                                    map.moveLayer('traffic-layer', 'aqi-layer');
+                                } else if (map.getLayer('flood-layer')) {
+                                    map.moveLayer('traffic-layer', 'flood-layer');
+                                }
+                            } catch (moveErr) {
+                                console.warn('Could not reposition traffic layer:', moveErr);
                             }
-                        } catch (moveErr) {
-                            console.warn('Could not reposition traffic layer:', moveErr);
                         }
                     }
                 } catch (err) {
@@ -692,6 +776,12 @@ export default function MapView() {
             const requestTime = Date.now();
             lastRequestTimeRef.current = requestTime;
 
+            // Abort any previous click requests so old network responses cannot overwrite current state
+            clickAbortControllerRef.current?.abort();
+            const controller = new AbortController();
+            clickAbortControllerRef.current = controller;
+            const signal = controller.signal;
+
             // ── Show loading state immediately via ContextEngine ──
             setLocationData({
                 placeName: 'Analyzing…',
@@ -724,8 +814,9 @@ export default function MapView() {
                     // AQI Data (centralized helper)
                     (async () => {
                         try {
-                            return await fetchRealtimeAQI(lat, lng, OPENWEATHER_KEY);
+                            return await fetchRealtimeAQI(lat, lng, OPENWEATHER_KEY, signal);
                         } catch (e) {
+                            if (e.name === 'AbortError') return null;
                             console.warn("AQI fetch failed:", e);
                             return null;
                         }
@@ -735,10 +826,11 @@ export default function MapView() {
                     (async () => {
                         try {
                             return await Promise.race([
-                                fetchRainfall(lat, lng),
+                                fetchRainfall(lat, lng, signal),
                                 new Promise((_, r) => setTimeout(() => r(new Error('Rain Timeout')), 4000))
                             ]);
                         } catch (e) {
+                            if (e.name === 'AbortError') return { rain: 0, probability: 0 };
                             console.warn("Rain fetch failed:", e);
                             return { rain: 0, probability: 0 };
                         }
@@ -749,12 +841,15 @@ export default function MapView() {
                         if (!TOMTOM_KEY) return null;
                         try {
                             const res = await Promise.race([
-                                fetch(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?key=${TOMTOM_KEY}&point=${lat},${lng}`),
+                                fetch(`https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?key=${TOMTOM_KEY}&point=${lat},${lng}`, { signal }),
                                 new Promise((_, r) => setTimeout(() => r(new Error('Traffic Timeout')), 4000))
                             ]);
                             if (res.ok) return await res.json();
                             return null;
-                        } catch (e) { return null; }
+                        } catch (e) {
+                            if (e.name === 'AbortError') return null;
+                            return null;
+                        }
                     })()
                 ]);
 
@@ -976,20 +1071,6 @@ export default function MapView() {
         return () => { delete window.saveLocation; };
     }, []);
 
-    // Load saved locations from local storage
-    useEffect(() => {
-        if (!mapRef.current) return;
-        try {
-            const savedLocations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
-            savedLocations.forEach(loc => {
-                try {
-                    new maplibregl.Marker({ color: '#f97316' }).setLngLat([loc.lng, loc.lat]).addTo(mapRef.current);
-                } catch (e) { }
-            });
-        } catch (e) {
-            console.warn('Could not load saved locations', e);
-        }
-    }, []);
 
     /* ================= YEAR SYNC ================= */
     useEffect(() => {
@@ -1001,46 +1082,8 @@ export default function MapView() {
         if (!mapRef.current || !OPENWEATHER_KEY || !layers.aqi) return;
 
         const refreshAQIData = async () => {
-            const fetchAllCitiesAQI = async () => {
-                try {
-                const CHUNK_SIZE = 5;
-                const features = [];
-
-                for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
-                    const chunk = MAJOR_INDIAN_CITIES.slice(i, i + CHUNK_SIZE);
-                    const results = await Promise.all(chunk.map(async (city) => {
-                        try {
-                            const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
-                            if (!r) return null;
-                            return {
-                                type: "Feature",
-                                properties: {
-                                    aqi: r.aqi,
-                                    city: city.name,
-                                    level: r.category || null,
-                                    pm25: r.pm25 ?? null,
-                                    pm10: r.pm10 ?? null
-                                },
-                                geometry: { type: "Point", coordinates: [city.lng, city.lat] }
-                            };
-                        } catch (err) {
-                            return null;
-                        }
-                    }));
-
-                    features.push(...results.filter(Boolean));
-                    if (i + CHUNK_SIZE < MAJOR_INDIAN_CITIES.length) {
-                        await new Promise((resolve) => setTimeout(resolve, 200));
-                    }
-                }
-                } catch (err) {
-                    console.error("Error refreshing AQI data:", err);
-                    return null;
-                }
-            };
-
             const aqiData = await fetchAllCitiesAQI();
-            if (aqiData && aqiData.features.length > 0 && mapRef.current) {
+            if (aqiData && aqiData.features?.length > 0 && mapRef.current) {
                 const aqiSource = mapRef.current.getSource("aqi");
                 if (aqiSource) {
                     aqiSource.setData(aqiData);
@@ -1054,7 +1097,7 @@ export default function MapView() {
         const interval = setInterval(refreshAQIData, 300000);
 
         return () => clearInterval(interval);
-    }, [layers.aqi]);
+    }, [layers.aqi, fetchAllCitiesAQI]);
 
     /* ================= AQI LAYER HOVER SYNC ================= */
     useEffect(() => {
@@ -1253,53 +1296,26 @@ export default function MapView() {
 
         // Re-add layers after style change
         map.once("style.load", () => {
-            // Re-add terrain if needed
-            if (mapStyle === "terrain" || mapStyle === "satellite") {
-                try {
-                    map.addSource("terrain", {
-                        type: "raster-dem",
-                        url: "https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=UQBNCVHquLf1PybiywBt",
-                        tileSize: 256
-                    });
-                    map.setTerrain({ source: "terrain", exaggeration: 1.0 });
-                } catch (err) {
-                    console.error("Error adding terrain:", err);
+            map.once("idle", () => {
+                // Re-add terrain if needed
+                if (mapStyle === "terrain" || mapStyle === "satellite") {
+                    try {
+                        map.addSource("terrain", {
+                            type: "raster-dem",
+                            url: "https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=UQBNCVHquLf1PybiywBt",
+                            tileSize: 256
+                        });
+                        map.setTerrain({ source: "terrain", exaggeration: 1.0 });
+                    } catch (err) {
+                        console.error("Error adding terrain:", err);
+                    }
                 }
 
-                setTimeout(() => {
-                    try {
-                        if (!map.getSource("traffic")) {
-                            map.addSource("traffic", {
-                                type: "raster",
-                                tiles: [
-                                    `https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`
-                                ],
-                                tileSize: 256
-                            });
-                            map.addLayer({
-                                id: "traffic-layer",
-                                type: "raster",
-                                source: "traffic",
-                                paint: {
-                                    "raster-opacity": 1.0,
-                                    "raster-fade-duration": 300
-                                },
-                                layout: {
-                                    visibility: layers.traffic ? "visible" : "none"
-                                }
-                            });
-                        } else {
-                            map.setLayoutProperty("traffic-layer", "visibility", layers.traffic ? "visible" : "none");
-                        }
-                    } catch (err) {
-                        console.error("Error re-adding traffic layer:", err);
-                    }
-                }, 300);
-            }
+                // Always re-add traffic layer regardless of style
+                ensureTrafficLayer(map, layers.traffic);
 
-            // Re-add AQI layer if we have cached geo data
-            if (aqiGeo) {
-                setTimeout(() => {
+                // Re-add AQI layer if we have cached geo data
+                if (aqiGeo) {
                     try {
                         if (!map.getSource("aqi")) {
                             map.addSource("aqi", { type: "geojson", data: aqiGeo });
@@ -1336,15 +1352,11 @@ export default function MapView() {
                     } catch (err) {
                         console.error("Error re-adding AQI layer:", err);
                     }
-                }, 300);
-            }
+                }
 
-            // Re-add other custom layers if needed
-            // Re-add facility layers if facility data exists
-            if (facilityData) {
-                setTimeout(() => {
+                // Re-add other custom layers if needed
+                if (facilityData) {
                     try {
-                        // Re-add hospital layer
                         if (facilityData.hospitals && !map.getSource("hospitals")) {
                             map.addSource("hospitals", {
                                 type: "geojson", data: {
@@ -1373,7 +1385,6 @@ export default function MapView() {
                             });
                         }
 
-                        // Re-add police layer
                         if (facilityData.policeStations && !map.getSource("policeStations")) {
                             map.addSource("policeStations", {
                                 type: "geojson", data: {
@@ -1402,7 +1413,6 @@ export default function MapView() {
                             });
                         }
 
-                        // Re-add fire layer
                         if (facilityData.fireStations && !map.getSource("fireStations")) {
                             map.addSource("fireStations", {
                                 type: "geojson", data: {
@@ -1431,7 +1441,6 @@ export default function MapView() {
                             });
                         }
 
-                        // Re-add coverage layer
                         if (!map.getSource("facility-coverage")) {
                             const coverageCanvas = document.createElement('canvas');
                             coverageCanvas.width = 1024;
@@ -1441,10 +1450,10 @@ export default function MapView() {
                                 type: "canvas",
                                 canvas: coverageCanvas,
                                 coordinates: [
-                                    [76.8, 28.8], // top-left
-                                    [77.4, 28.8], // top-right
-                                    [77.4, 28.4], // bottom-right
-                                    [76.8, 28.4]  // bottom-left
+                                    [76.8, 28.8],
+                                    [77.4, 28.8],
+                                    [77.4, 28.4],
+                                    [76.8, 28.4]
                                 ],
                                 animate: true
                             });
@@ -1462,10 +1471,12 @@ export default function MapView() {
                     } catch (err) {
                         console.error("Error re-adding facility layers:", err);
                     }
-                }, 300);
-            }
+                }
+
+                ensureFloodLayers(map);
+            });
         });
-    }, [mapStyle, loading, layers.traffic, layers.aqi, aqiGeo, facilityData, layers.hospitals, layers.policeStations, layers.fireStations]);
+    }, [mapStyle, loading, layers.traffic, layers.aqi, aqiGeo, facilityData, layers.hospitals, layers.policeStations, layers.fireStations, ensureTrafficLayer]);
 
     /* ================= LAYER TOGGLES ================= */
     useEffect(() => {
@@ -1473,19 +1484,26 @@ export default function MapView() {
         const map = mapRef.current;
 
         const toggle = (id, visible) => {
-            if (map.getLayer(id)) {
-                map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+            try {
+                if (map.getLayer(id)) {
+                    map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+                }
+            } catch (err) {
+                console.warn(`Error toggling layer ${id}:`, err);
             }
         };
 
+        // Handle each layer with robust error handling
         toggle("aqi-layer", layers.aqi);
         toggle("flood-layer", layers.flood);
-        toggle("traffic-layer", layers.traffic);
         toggle("flood-depth-layer", layers.floodDepth);
         toggle("hospitals-layer", layers.hospitals);
         toggle("police-layer", layers.policeStations);
         toggle("fire-layer", layers.fireStations);
-    }, [layers, loading]);
+
+        // Traffic layer has special handling to ensure it always works
+        ensureTrafficLayer(map, layers.traffic);
+    }, [layers, loading, ensureTrafficLayer]);
 
     /* ================= ADD FACILITY LAYERS ================= */
     useEffect(() => {
@@ -1585,25 +1603,27 @@ export default function MapView() {
         // Add hover interactions for facility layers
         const facilityLayersList = ["hospitals-layer", "police-layer", "fire-layer"];
 
+        const handleFacilityMouseMove = (e) => {
+            map.getCanvas().style.cursor = 'pointer';
+            if (e.features && e.features.length > 0) {
+                const feature = e.features[0];
+                setHoveredFacility({
+                    ...feature.properties,
+                    x: e.originalEvent.clientX,
+                    y: e.originalEvent.clientY
+                });
+            }
+        };
+
+        const handleFacilityMouseLeave = () => {
+            map.getCanvas().style.cursor = '';
+            setHoveredFacility(null);
+        };
+
         facilityLayersList.forEach(layerId => {
             if (!map.getLayer(layerId)) return;
-
-            map.on('mousemove', layerId, (e) => {
-                map.getCanvas().style.cursor = 'pointer';
-                if (e.features.length > 0) {
-                    const feature = e.features[0];
-                    setHoveredFacility({
-                        ...feature.properties,
-                        x: e.originalEvent.clientX,
-                        y: e.originalEvent.clientY
-                    });
-                }
-            });
-
-            map.on('mouseleave', layerId, () => {
-                map.getCanvas().style.cursor = '';
-                setHoveredFacility(null);
-            });
+            map.on('mousemove', layerId, handleFacilityMouseMove);
+            map.on('mouseleave', layerId, handleFacilityMouseLeave);
         });
 
         // Add coverage visualization layer
@@ -1635,6 +1655,15 @@ export default function MapView() {
                 }
             }, "hospitals-layer"); // Place below facility markers
         }
+
+        return () => {
+            const facilityLayersList = ["hospitals-layer", "police-layer", "fire-layer"];
+            facilityLayersList.forEach(layerId => {
+                if (!map.getLayer(layerId)) return;
+                map.off('mousemove', layerId, handleFacilityMouseMove);
+                map.off('mouseleave', layerId, handleFacilityMouseLeave);
+            });
+        };
     }, [facilityData, loading]);
 
     /* ================= FACILITY COVERAGE VISUALIZATION ================= */
@@ -1710,14 +1739,20 @@ export default function MapView() {
             coverageSource.setCoordinates(coverageSource.coordinates);
         };
 
+        const updateCoverage = () => {
+            renderCoverage();
+        };
+
         const shouldAnimate = layers.hospitals || layers.policeStations || layers.fireStations;
         if (shouldAnimate) {
             renderCoverage();
-            intervalId = window.setInterval(renderCoverage, 250);
+            map.on('move', updateCoverage);
+            map.on('zoom', updateCoverage);
         }
 
         return () => {
-            if (intervalId) window.clearInterval(intervalId);
+            map.off('move', updateCoverage);
+            map.off('zoom', updateCoverage);
         };
     }, [layers, facilityData, facilityViewMode]);
 

@@ -12,7 +12,7 @@ const HEAT_COLORS = [
 ];
 
 export default function HeatLayer({ map, isActive, year, onLoadingChange }) {
-  const { getTerrainMetrics } = useTerrain();
+  const { getTerrainMetrics, prefetchTerrainGrid } = useTerrain();
   const [heatData, setHeatData] = useState(null);
   const [greenZones, setGreenZones] = useState(new Set());
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -28,31 +28,21 @@ export default function HeatLayer({ map, isActive, year, onLoadingChange }) {
   };
 
   const calculateHeatIndex = (lng, lat) => {
-    const { elevation, slope } = getTerrainMetrics(map, { lng, lat });
+    const terrainMetrics = getTerrainMetrics(map, { lng, lat });
     const buildingDensity = getBuildingDensity(lng, lat);
+    const { elevation, slope } = terrainMetrics;
 
-    // Green cover reduction (trees cool the area)
     const greenZoneKey = `${Math.round(lng * 1000)},${Math.round(lat * 1000)}`;
     const hasGreenZone = greenZones.has(greenZoneKey);
-    const greenCover = hasGreenZone ? 0.8 : 0.2; // Trees significantly reduce heat
+    const greenCover = hasGreenZone ? 0.8 : 0.2;
 
-    // Base temperature (Delhi average)
-    let temperature = 30; // Base temperature in Celsius
-
-    // Urban heat island effect
-    temperature += buildingDensity * 8; // Buildings trap heat
-
-    // Elevation effect (higher = cooler)
+    let temperature = 30;
+    temperature += buildingDensity * 8;
     temperature -= elevation * 0.005;
-
-    // Slope effect (steeper = more ventilation = cooler)
     temperature -= slope * 0.1;
-
-    // Green cover effect
     temperature -= greenCover * 5;
 
-    // Time-based variation (simulate seasonal changes)
-    const yearOffset = (year - 2025) * 0.3; // Climate change effect
+    const yearOffset = (year - 2025) * 0.3;
     temperature += yearOffset;
 
     return Math.max(15, Math.min(50, temperature));
@@ -64,10 +54,13 @@ export default function HeatLayer({ map, isActive, year, onLoadingChange }) {
     onLoadingChange(true);
 
     try {
+      // Prefetch terrain metrics in the current map extent
+      prefetchTerrainGrid(map, map.getBounds(), 0.002, { year });
+
       // Generate heat map data
       const bounds = map.getBounds();
       const features = [];
-      const step = 0.0005; // Fine grid for heat map
+      const step = 0.002; // Coarse grid for larger coverage without freezing
 
       for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += step) {
         for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += step) {

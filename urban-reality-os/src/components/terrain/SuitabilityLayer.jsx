@@ -28,7 +28,7 @@ const SUITABILITY_COLORS = [
 ];
 
 export default function SuitabilityLayer({ map, isActive, onLoadingChange }) {
-  const { getTerrainMetrics } = useTerrain();
+  const { getTerrainMetrics, prefetchTerrainGrid } = useTerrain();
   const [suitabilityType, setSuitabilityType] = useState('housing');
   const [hoveredPoint, setHoveredPoint] = useState(null);
   const hoverPopupRef = useRef(null);
@@ -109,9 +109,10 @@ export default function SuitabilityLayer({ map, isActive, onLoadingChange }) {
 
     try {
       // Create suitability grid
+      prefetchTerrainGrid(map, map.getBounds(), 0.003);
       const bounds = map.getBounds();
       const features = [];
-      const step = 0.001; // ~100m grid
+      const step = 0.003; // Coarser grid for scalable suitability rendering
 
       for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += step) {
         for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += step) {

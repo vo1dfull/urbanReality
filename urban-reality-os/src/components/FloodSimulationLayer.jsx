@@ -134,9 +134,7 @@ export default function FloodSimulationLayer({
       north: bounds.getNorth()
     };
 
-    const terrainMetrics = getTerrainMetrics(map, { lng: center[0], lat: center[1] });
-
-    workerRef.current.postMessage({ center, rainIntensity, waterLevel, mapBounds, terrainMetrics });
+    workerRef.current.postMessage({ center, rainIntensity, waterLevel, mapBounds });
 
     const cancelFrame = requestAnimationFrame(() => {
       if (!map?.getSource('flood-zones')?.setData) return;

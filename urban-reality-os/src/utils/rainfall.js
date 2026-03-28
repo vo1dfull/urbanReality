@@ -1,7 +1,10 @@
-export async function fetchRainfall(lat, lng) {
+export async function fetchRainfall(lat, lng, signal) {
     try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
+        if (signal) {
+            signal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
 
         const res = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=rain,precipitation_probability&forecast_days=1`,
