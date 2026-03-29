@@ -81,14 +81,10 @@ export default function MapView() {
   const setFacilityViewMode = useMapStore((s) => s.setFacilityViewMode);
   const setFloodMode = useMapStore((s) => s.setFloodMode);
 
-<<<<<<< Updated upstream
   // ── Notification ──
   const notification = useNotification();
 
-  // ── Stable mapRef (set once on mount) ──
-=======
   // ── Stable mapRef — updates when map becomes ready ──
->>>>>>> Stashed changes
   const mapRef = useRef(null);
   useEffect(() => {
     mapRef.current = MapEngine.getMap();

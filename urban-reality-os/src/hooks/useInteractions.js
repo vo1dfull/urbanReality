@@ -56,10 +56,7 @@ export function destroyImpactWorker() {
 
 export default function useInteractions() {
   const loading = useMapStore((s) => s.loading);
-<<<<<<< Updated upstream
-=======
   // 🔥 REMOVED: const layers = useMapStore((s) => s.layers); — caused re-render on every layer toggle
->>>>>>> Stashed changes
   const lastAQIRef = useRef(null);
   const yearRef = useRef(useMapStore.getState().year);
   const isMountedRef = useRef(true);
@@ -268,35 +265,21 @@ export default function useInteractions() {
   // ── AQI Layer Hover — 🔥 200ms throttle (was 100ms) ──
   useEffect(() => {
     if (loading) return;
-<<<<<<< Updated upstream
-    const aqiEnabled = useMapStore.getState().layers.aqi;
-    if (!aqiEnabled) return;
-
-=======
     // Read AQI state directly — no subscription needed
     const aqiEnabled = useMapStore.getState().layers.aqi;
     if (!aqiEnabled) return;
->>>>>>> Stashed changes
     const map = MapEngine.getMap();
     if (!map || !map.getLayer('aqi-layer')) return;
 
     let cursorIsPointer = false;
-<<<<<<< Updated upstream
-    const canvas = map.getCanvas(); // 🔥 Cache canvas reference
-=======
     const canvas = map.getCanvas(); // cache
->>>>>>> Stashed changes
 
     const handleAQIMouseMove = throttle(() => {
       if (!cursorIsPointer) {
         canvas.style.cursor = 'pointer';
         cursorIsPointer = true;
       }
-<<<<<<< Updated upstream
     }, 200);
-=======
-    }, 150);
->>>>>>> Stashed changes
 
     const handleMouseLeave = () => {
       if (cursorIsPointer) {
@@ -312,11 +295,7 @@ export default function useInteractions() {
       map.off('mousemove', 'aqi-layer', handleAQIMouseMove);
       map.off('mouseleave', 'aqi-layer', handleMouseLeave);
     };
-<<<<<<< Updated upstream
-  }, [loading]);
-=======
   }, [loading]); // No layers.aqi dep — reads from getState()
->>>>>>> Stashed changes
 
   // ── Facility Layer Hover — 🔥 500ms throttle (was 300ms) ──
   useEffect(() => {
@@ -332,12 +311,7 @@ export default function useInteractions() {
     const canvas = map.getCanvas();
 
     let cursorSet = false;
-<<<<<<< Updated upstream
     let lastHoveredId = null;
-=======
-    let lastHoveredId = null; // local dedup — no store access
-    const canvas = map.getCanvas(); // cache
->>>>>>> Stashed changes
 
     const handleFacilityMouseMove = throttle((e) => {
       if (!cursorSet) {
@@ -348,11 +322,7 @@ export default function useInteractions() {
       if (e.features?.length) {
         const newProps = e.features[0].properties;
 
-<<<<<<< Updated upstream
-        // 🔥 String comparison is faster than getState()
-=======
         // Local string check — faster than getState()
->>>>>>> Stashed changes
         if (lastHoveredId === newProps.id) return;
         lastHoveredId = newProps.id;
 
@@ -370,11 +340,7 @@ export default function useInteractions() {
         // 🔥 Deferred emit
         eventBus.emitDeferred(EVENTS.FACILITY_HOVERED, newProps.id);
       }
-<<<<<<< Updated upstream
     }, 500);
-=======
-    }, 200);
->>>>>>> Stashed changes
 
     const handleFacilityMouseLeave = () => {
       if (cursorSet) {
