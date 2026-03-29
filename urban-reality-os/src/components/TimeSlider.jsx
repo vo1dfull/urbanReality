@@ -1,4 +1,10 @@
-export default function TimeSlider({ year, setYear }) {
+import useMapStore from '../store/useMapStore';
+import { BASE_YEAR, MAX_YEAR } from '../constants/mapConstants';
+
+export default function TimeSlider() {
+  const year = useMapStore((s) => s.year);
+  const setYear = useMapStore((s) => s.setYear);
+
   return (
     <div
       style={{
@@ -22,8 +28,8 @@ export default function TimeSlider({ year, setYear }) {
 
       <input
         type="range"
-        min="2025"
-        max="2040"
+        min={BASE_YEAR}
+        max={MAX_YEAR}
         step="1"
         value={year}
         onChange={e => setYear(Number(e.target.value))}
@@ -38,10 +44,10 @@ export default function TimeSlider({ year, setYear }) {
           opacity: 0.7
         }}
       >
-        <span>2025</span>
+        <span>{BASE_YEAR}</span>
         <span>2030</span>
         <span>2035</span>
-        <span>2040</span>
+        <span>{MAX_YEAR}</span>
       </div>
     </div>
   );

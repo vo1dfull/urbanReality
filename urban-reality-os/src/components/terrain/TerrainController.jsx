@@ -17,7 +17,7 @@ const SUB_LAYERS = [
   { id: 'road', label: 'Infrastructure Planner', icon: '🛣️' }
 ];
 
-export default function TerrainController({ map, isActive, year }) {
+export default function TerrainController({ map, isActive }) {
   const terrainSubLayers = useMapStore(useShallow((s) => s.terrainSubLayers));
   const toggleTerrainSubLayer = useMapStore((s) => s.toggleTerrainSubLayer);
 

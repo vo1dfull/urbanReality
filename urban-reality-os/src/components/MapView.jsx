@@ -3,7 +3,7 @@
 // ✅ Uses grouped selectors (store/selectors.js) → far fewer re-renders
 // ✅ UI split: MapCanvas, PanelRoot, OverlayRoot rendered separately
 // ================================================
-import { useCallback, useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useEffect, memo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -67,8 +67,6 @@ export default function MapView() {
   const setError = useMapStore((s) => s.setError);
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const setLayers = useMapStore((s) => s.setLayers);
-  const year = useMapStore((s) => s.year);
-  const setYear = useMapStore((s) => s.setYear);
   const impactData = useMapStore((s) => s.impactData);
   const demographics = useMapStore((s) => s.demographics);
   const urbanAnalysis = useMapStore((s) => s.urbanAnalysis);
@@ -134,8 +132,6 @@ export default function MapView() {
         setMapStyle={setMapStyle}
         layers={layers}
         setLayers={setLayers}
-        year={year}
-        setYear={setYear}
         mapRef={mapRef}
         facilityCheckOpen={facilityCheckOpen}
         setFacilityCheckOpen={setFacilityCheckOpen}
@@ -157,20 +153,19 @@ export default function MapView() {
       />
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
-      <OverlayRoot mapStyle={mapStyle} year={year} mapRef={mapRef} />
+      <OverlayRoot mapStyle={mapStyle} mapRef={mapRef} />
     </>
   );
 }
 
 // ══════════════════════════════════════════════════
 // PanelRoot — All UI panels in one isolated subtree
-// Re-renders independently from the map canvas
+// ✅ React.memo prevents re-renders from parent state changes
 // ══════════════════════════════════════════════════
-function PanelRoot({
+const PanelRoot = memo(function PanelRoot({
   loading, error, setError,
   mapStyle, setMapStyle,
   layers, setLayers,
-  year, setYear,
   mapRef,
   facilityCheckOpen, setFacilityCheckOpen,
   showLayersMenu, setShowLayersMenu,
@@ -220,9 +215,9 @@ function PanelRoot({
       )}
 
       <MapMenu layers={layers} setLayers={setLayers} mapStyle={mapStyle} setMapStyle={setMapStyle} mapRef={mapRef} />
-      <TerrainController map={mapRef.current} isActive={mapStyle === 'terrain'} year={year} />
+      <TerrainController map={mapRef.current} isActive={mapStyle === 'terrain'} />
       <SearchBar mapRef={mapRef} onLocationSelect={onLocationSelect} />
-      <TimeSlider year={year} setYear={setYear} baseYear={BASE_YEAR} minYear={BASE_YEAR} maxYear={MAX_YEAR} />
+      <TimeSlider />
 
       {/* ── Bottom-Left Layer Bar ── */}
       <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 20 }}>
@@ -441,62 +436,65 @@ function PanelRoot({
       <FacilityListPanel facilityData={facilityData} layers={layers} mapRef={mapRef} />
     </>
   );
-}
+});
 
 // ══════════════════════════════════════════════════
 // OverlayRoot — Top-layer tooltips and popups
-// Re-renders only when hover/popup state changes
+// ✅ FIXED: Direct DOM manipulation eliminates 120fps re-renders
 // ══════════════════════════════════════════════════
-function OverlayRoot({ mapStyle, year, mapRef }) {
+function OverlayRoot({ mapStyle, mapRef }) {
   const hoveredFacility = useMapStore(s => s.hoveredFacility);
-  const [pos, setPos] = useState({ x: -1000, y: -1000 });
-
-  useEffect(() => {
-    if (hoveredFacility) {
-      setPos({ x: hoveredFacility.startX, y: hoveredFacility.startY });
-    }
-  }, [hoveredFacility]);
+  const tooltipRef = useRef(null);
 
   useEffect(() => {
     if (!hoveredFacility) return;
-    const move = (e) => setPos({ x: e.clientX, y: e.clientY });
-    window.addEventListener('mousemove', move);
+
+    const move = (e) => {
+      // Directly update the DOM element. DO NOT trigger a React re-render.
+      if (tooltipRef.current) {
+        tooltipRef.current.style.transform = `translate3d(${e.clientX + 15}px, ${e.clientY + 15}px, 0)`;
+      }
+    };
+
+    // Use passive listener for better scroll/mouse performance
+    window.addEventListener('mousemove', move, { passive: true });
+
+    // Set initial position based on the facility data
+    if (tooltipRef.current && hoveredFacility.startX) {
+      tooltipRef.current.style.transform = `translate3d(${hoveredFacility.startX + 15}px, ${hoveredFacility.startY + 15}px, 0)`;
+    }
+
     return () => window.removeEventListener('mousemove', move);
   }, [hoveredFacility]);
 
+  if (!hoveredFacility) return null;
+
   return (
-    <>
-      {hoveredFacility && (
-        <div style={{
-          position: 'fixed', left: pos.x + 15, top: pos.y + 15,
-          background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
-          padding: '12px 16px', color: '#f8fafc', zIndex: 1000,
-          pointerEvents: 'none', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-          willChange: 'transform',
-          transform: 'translateZ(0)',
-        }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>{hoveredFacility.type === 'hospital' ? '🏥' : hoveredFacility.type === 'police' ? '🚔' : '🔥'}</span>
-            {hoveredFacility.name || 'Facility'}
-          </div>
-          <div style={{ fontSize: 12, color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ opacity: 0.8 }}>Response Time:</span>
-              <span style={{ color: '#60a5fa', fontWeight: 600 }}>{hoveredFacility.responseTime || '5'} min</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ opacity: 0.8 }}>Coverage Radius:</span>
-              <span style={{ color: '#34d399', fontWeight: 600 }}>{hoveredFacility.coverageRadius || '2'} km</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ opacity: 0.8 }}>Available Units:</span>
-              <span style={{ color: '#fbbf24', fontWeight: 600 }}>{hoveredFacility.availableUnits || '3'}</span>
-            </div>
-          </div>
+    <div
+      ref={tooltipRef}
+      style={{
+        position: 'fixed', left: 0, top: 0,
+        background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+        padding: '12px 16px', color: '#f8fafc', zIndex: 1000,
+        pointerEvents: 'none', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        willChange: 'transform',
+      }}>
+      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span>{hoveredFacility.type === 'hospital' ? '🏥' : hoveredFacility.type === 'police' ? '🚔' : '🔥'}</span>
+        {hoveredFacility.name || 'Facility'}
+      </div>
+      <div style={{ fontSize: 12, color: '#cbd5e1', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ opacity: 0.8 }}>Response Time:</span>
+          <span style={{ color: '#60a5fa', fontWeight: 600 }}>{hoveredFacility.responseTime || '5'} min</span>
         </div>
-      )}
-    </>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ opacity: 0.8 }}>Coverage Radius:</span>
+          <span style={{ color: '#34d399', fontWeight: 600 }}>{hoveredFacility.coverageRadius || '2'} km</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
