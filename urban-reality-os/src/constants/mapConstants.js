@@ -40,6 +40,7 @@ export const STYLE_URLS = {
     'https://api.maptiler.com/maps/topo-v2/style.json?key=UQBNCVHquLf1PybiywBt',
 };
 
+export const TERRAIN_SOURCE_ID = 'urbanRealityTerrain';
 export const TERRAIN_SOURCE_URL =
   'https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=UQBNCVHquLf1PybiywBt';
 

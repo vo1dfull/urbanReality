@@ -3,7 +3,7 @@
 // Pure JS — no React dependency
 // ================================================
 import maplibregl from 'maplibre-gl';
-import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL } from '../constants/mapConstants';
+import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL, TERRAIN_SOURCE_ID } from '../constants/mapConstants';
 import { throttle } from '../utils/cache';
 
 class MapEngine {
@@ -69,16 +69,34 @@ class MapEngine {
   addTerrain() {
     if (!this._map) return;
     try {
-      if (!this._map.getSource('terrain')) {
-        this._map.addSource('terrain', {
+      const existingSource = this._map.getSource(TERRAIN_SOURCE_ID);
+      if (existingSource && existingSource.type !== 'raster-dem') {
+        try {
+          this._map.removeSource(TERRAIN_SOURCE_ID);
+        } catch (removalError) {
+          console.warn('[MapEngine] removeTerrainSource failed:', removalError);
+        }
+      }
+
+      if (!this._map.getSource(TERRAIN_SOURCE_ID)) {
+        this._map.addSource(TERRAIN_SOURCE_ID, {
           type: 'raster-dem',
           url: TERRAIN_SOURCE_URL,
           tileSize: 256,
         });
       }
-      this._map.setTerrain({ source: 'terrain', exaggeration: 1.0 });
+      this._map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.4 });
     } catch (err) {
       console.warn('[MapEngine] addTerrain error:', err);
+    }
+  }
+
+  removeTerrain() {
+    if (!this._map) return;
+    try {
+      this._map.setTerrain(null);
+    } catch (err) {
+      console.warn('[MapEngine] removeTerrain error:', err);
     }
   }
 
@@ -113,9 +131,10 @@ class MapEngine {
 
     this._map.once('style.load', () => {
       this._map.once('idle', () => {
-        // Re-add terrain for terrain/satellite styles
         if (styleName === 'terrain' || styleName === 'satellite') {
           this.addTerrain();
+        } else {
+          this.removeTerrain();
         }
         if (onRecovery) onRecovery(this._map, styleName);
       });

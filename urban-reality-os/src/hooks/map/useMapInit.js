@@ -1,18 +1,19 @@
 import { useCallback } from "react";
 import maplibregl from "maplibre-gl";
+import { TERRAIN_SOURCE_ID } from '../../constants/mapConstants';
 
 export function useMapInit() {
 
     const ensureHillshade = useCallback((map) => {
         if (!map) return;
         try {
-            if (!map.getSource("terrain")) return;
+            if (!map.getSource(TERRAIN_SOURCE_ID)) return;
             if (map.getLayer("terrain-hillshade")) return;
 
             map.addLayer({
                 id: "terrain-hillshade",
                 type: "hillshade",
-                source: "terrain",
+                source: TERRAIN_SOURCE_ID,
                 paint: {
                     "hillshade-exaggeration": 0.6,
                     "hillshade-shadow-color": "#3d3d3d",
@@ -74,8 +75,8 @@ export function useMapInit() {
         if (!map) return;
         try {
             // Restore Terrain
-            if (map.getSource("terrain")) {
-                map.setTerrain({ source: "terrain", exaggeration: 1.4 });
+            if (map.getSource(TERRAIN_SOURCE_ID)) {
+                map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.4 });
             }
 
             ensureHillshade(map);
