@@ -130,7 +130,6 @@ export default function TerrainController({ map, isActive }) {
       <ElevationLayer
         map={map}
         isActive={terrainSubLayers.elevation}
-        year={year}
       />
 
       <FloodSimulationLayer

@@ -80,7 +80,13 @@ export default function useLayerSync() {
       const state = useMapStore.getState();
       LayerEngine.recoverAllLayers(recoveredMap, state);
 
+<<<<<<< Updated upstream
       if (state.facilityData || DataEngine.getFacilityData()) {
+=======
+      // Re-init facility coverage canvas
+      const facilityData = state.facilityData || DataEngine.getFacilityData();
+      if (facilityData) {
+>>>>>>> Stashed changes
         FacilityEngine.destroy(recoveredMap);
         FacilityEngine.initCoverageCanvas(recoveredMap);
       }

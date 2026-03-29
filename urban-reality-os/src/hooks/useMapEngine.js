@@ -1,11 +1,17 @@
 // ================================================
 // useMapEngine — Map initialization & data loading hook
+<<<<<<< Updated upstream
 // Bridges MapEngine + DataEngine + LayerEngine → Zustand
 // ✅ Fixed: alert() replaced with store notification
 // ✅ Fixed: Impact worker cleanup
 // ✅ Added: Retry logic with exponential backoff
 // ✅ Added: Graceful degradation (offline fallback)
 // ✅ Added: Adaptive quality integration
+=======
+// 🔥 FAST: Map becomes interactive immediately after style loads
+// 🔥 FAST: Data fetching happens in background (non-blocking)
+// 🔥 FAST: No 20s timeout — uses fast event-based loading
+>>>>>>> Stashed changes
 // ================================================
 import { useEffect, useRef } from 'react';
 import useMapStore from '../store/useMapStore';
@@ -47,6 +53,7 @@ export default function useMapEngine() {
     const popup = MapEngine.createPopup();
     InteractionEngine.initPopup(popup);
 
+<<<<<<< Updated upstream
     const loadMapData = async (retryCount = 0) => {
       try {
         setLoading(true);
@@ -79,13 +86,41 @@ export default function useMapEngine() {
         log.info('Map loaded successfully');
 
         // Fetch heavier datasets in the background
+=======
+    // ── PHASE 1: Make map interactive ASAP ──
+    map.once('load', () => {
+      if (!isMounted) return;
+
+      // Terrain can be added immediately — tiles load async
+      MapEngine.addTerrain();
+
+      // Mark map as ready — removes loading overlay
+      setMapReady(true);
+      setLoading(false);
+
+      // ── PHASE 2: Load data in background (non-blocking) ──
+      loadBackgroundData(isMounted);
+    });
+
+    // Handle map load errors
+    map.once('error', (e) => {
+      if (!isMounted) return;
+      console.error('[useMapEngine] Map error:', e);
+      setError('Map failed to load. Please refresh.');
+      setLoading(false);
+    });
+
+    async function loadBackgroundData(mounted) {
+      try {
+        // Fire all fetches in parallel — don't await sequentially
+>>>>>>> Stashed changes
         const [aqiData, staticData, macroData] = await Promise.all([
-          DataEngine.fetchAllCitiesAQI(),
-          DataEngine.fetchStaticData(),
-          DataEngine.fetchWorldBankData(),
+          DataEngine.fetchAllCitiesAQI().catch(() => null),
+          DataEngine.fetchStaticData().catch(() => ({ floodData: null, facilityData: null, cityDemo: null })),
+          DataEngine.fetchWorldBankData().catch(() => null),
         ]);
 
-        if (!isMounted) return;
+        if (!mounted || !isMounted) return;
 
         if (aqiData) DataEngine.setAqiGeo(aqiData);
         if (staticData.floodData) DataEngine.setFloodData(staticData.floodData);
@@ -125,6 +160,7 @@ export default function useMapEngine() {
         });
 
       } catch (err) {
+<<<<<<< Updated upstream
         log.error('Error initializing map:', err);
 
         // Retry logic
@@ -146,12 +182,14 @@ export default function useMapEngine() {
           setError(errorMsg);
           setLoading(false);
         }
+=======
+        console.error('[useMapEngine] Background data error:', err);
+        // Map is still usable even if data fails
+>>>>>>> Stashed changes
       }
-    };
+    }
 
-    loadMapData();
-
-    // ── Visibility change: pause map work when tab is hidden ──
+    // ── Visibility change ──
     const handleVisibilityChange = () => {
       const currentMap = MapEngine.getMap();
       if (!currentMap) return;
@@ -163,20 +201,33 @@ export default function useMapEngine() {
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+<<<<<<< Updated upstream
     // Load saved location markers
     try {
       const savedLocations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
       map.once('load', () => {
         if (!isMounted) return;
+=======
+    // Load saved location markers (deferred)
+    map.once('load', () => {
+      if (!isMounted) return;
+      try {
+        const savedLocations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
+>>>>>>> Stashed changes
         savedLocations.forEach((loc) => {
           new maplibregl.Marker({ color: '#f97316' })
             .setLngLat([loc.lng, loc.lat])
             .addTo(map);
         });
+<<<<<<< Updated upstream
       });
     } catch (e) {
       log.warn('Could not load saved locations', e);
     }
+=======
+      } catch (_) {}
+    });
+>>>>>>> Stashed changes
 
     // ✅ Fixed: saveLocation uses store notification instead of alert()
     window.saveLocation = async (name, lat, lng) => {
@@ -184,9 +235,19 @@ export default function useMapEngine() {
         const savedLocations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
         savedLocations.push({ name: name || 'Pinned Location', lat, lng, timestamp: Date.now() });
         localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
+<<<<<<< Updated upstream
         useMapStore.getState().setNotification('📍 Location saved locally');
         // Auto-clear notification after 3 seconds
         setTimeout(() => useMapStore.getState().clearNotification(), 3000);
+=======
+
+        // Use notification instead of alert
+        const store = useMapStore.getState();
+        if (store.setNotification) {
+          store.setNotification('Location saved!');
+        }
+
+>>>>>>> Stashed changes
         const currentMap = MapEngine.getMap();
         if (currentMap) {
           new maplibregl.Marker({ color: '#f59e0b' })
@@ -195,9 +256,13 @@ export default function useMapEngine() {
         }
         return true;
       } catch (err) {
+<<<<<<< Updated upstream
         log.error('saveLocation error', err);
         useMapStore.getState().setNotification('❌ Could not save location');
         setTimeout(() => useMapStore.getState().clearNotification(), 3000);
+=======
+        console.error('saveLocation error', err);
+>>>>>>> Stashed changes
         return false;
       }
     };

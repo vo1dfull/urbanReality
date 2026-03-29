@@ -1,0 +1,52 @@
+﻿[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 96 modules transformed.
+rendering chunks...
+[2mdist/[22m[32massets/terrainWorker-Ca9_16Yz.js  [39m[1m[2m    0.60 kB[22m[1m[22m
+[2mdist/[22m[32massets/impactWorker-KHTyaPRn.js   [39m[1m[2m    0.70 kB[22m[1m[22m
+[2mdist/[22m[32massets/floodWorker-BSpp8JSy.js    [39m[1m[2m    0.71 kB[22m[1m[22m
+[2mdist/[22m[32mindex.html                        [39m[1m[2m    1.58 kB[22m[1m[22m
+[2mdist/[22m[35massets/MapView-CZuhCl9S.css       [39m[1m[2m   69.36 kB[22m[1m[22m
+[2mdist/[22m[36massets/ui-DKHf7RDx.js             [39m[1m[2m    0.67 kB[22m[1m[22m
+[2mdist/[22m[36massets/vendor-CwjbRSPs.js         [39m[1m[2m   11.58 kB[22m[1m[22m
+[2mdist/[22m[36massets/MapView-D-u0Morw.js        [39m[1m[2m  133.29 kB[22m[1m[22m
+[2mdist/[22m[36massets/index-D3L365vS.js          [39m[1m[2m  186.37 kB[22m[1m[22m
+[2mdist/[22m[36massets/maplibre-92ERBWSs.js       [39m[1m[33m1,012.77 kB[39m[22m
+[32mΓ£ô built in 5.77s[39m
+npx : [33m
+At line:1 char:1
++ npx vite build 2>&1 
+| Out-File -FilePath 
+"build_output.txt" 
+-Encoding ...
++ ~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo    
+          : 
+NotSpecified: (    
+[33m:String) [], Remo 
+   teException
+    + 
+FullyQualifiedError   
+ Id : 
+NativeCommandErr    or
+ 
+(!) Some chunks are 
+larger than 600 kB 
+after minification. 
+Consider:
+- Using dynamic 
+import() to 
+code-split the 
+application
+- Use build.rollupOpti
+ons.output.manualChunk
+s to improve 
+chunking: https://roll
+upjs.org/configuration
+-options/#output-manua
+lchunks
+- Adjust chunk size 
+limit for this 
+warning via build.chun
+kSizeWarningLimit.[39
+m

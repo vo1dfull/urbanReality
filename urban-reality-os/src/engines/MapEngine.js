@@ -1,9 +1,14 @@
 // ================================================
 // MapEngine — Map initialization, lifecycle, style switching
 // Pure JS — no React dependency
+<<<<<<< Updated upstream
 // ✅ Robust style switch with isStyleLoaded polling
 // ✅ Stats for debug panel
 // ✅ Adaptive quality support
+=======
+// 🔥 FAST: Style switch fires recovery on style.load (no idle wait)
+// 🔥 FAST: Terrain added via polling (no idle event dependency)
+>>>>>>> Stashed changes
 // ================================================
 import maplibregl from 'maplibre-gl';
 import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL, TERRAIN_SOURCE_ID } from '../constants/mapConstants';
@@ -21,7 +26,10 @@ class MapEngine {
     this._map = null;
     this._popup = null;
     this._currentStyle = 'default';
+<<<<<<< Updated upstream
     this._destroyed = false;
+=======
+>>>>>>> Stashed changes
   }
 
   /**
@@ -50,7 +58,6 @@ class MapEngine {
       maxTileCacheSize: 50,
       trackResize: true,
       preserveDrawingBuffer: false,
-      failIfMajorPerformanceCaveat: true,
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
@@ -114,6 +121,13 @@ class MapEngine {
     }
   }
 
+  removeTerrain() {
+    if (!this._map) return;
+    try {
+      this._map.setTerrain(null);
+    } catch (_) {}
+  }
+
   /**
    * Create the reusable popup instance.
    * @returns {maplibregl.Popup}
@@ -129,10 +143,17 @@ class MapEngine {
   }
 
   /**
+<<<<<<< Updated upstream
    * Switch the map style with robust recovery.
    * Uses polling fallback if 'idle' event doesn't fire.
    * @param {string} styleName
    * @param {Function} onRecovery
+=======
+   * Switch the map style with FAST recovery.
+   * 🔥 Fires onRecovery immediately on style.load — does NOT wait for idle.
+   * 🔥 Uses polling fallback (100ms intervals) if isStyleLoaded is false.
+   * This is the key optimization: idle can take 5-10s, isStyleLoaded is instant.
+>>>>>>> Stashed changes
    */
   switchStyle(styleName, onRecovery) {
     if (!this._map) return;
@@ -146,6 +167,7 @@ class MapEngine {
     this._map.setStyle(targetStyle);
 
     this._map.once('style.load', () => {
+<<<<<<< Updated upstream
       // Poll for style readiness instead of relying solely on 'idle'
       let pollCount = 0;
       const checkReady = () => {
@@ -179,6 +201,22 @@ class MapEngine {
         if (onRecovery) onRecovery(this._map, styleName);
         log.info(`Style switch complete (idle): ${styleName}`);
       });
+=======
+      // Immediately add terrain (don't wait for idle)
+      if (styleName === 'terrain' || styleName === 'satellite') {
+        this.addTerrain();
+      } else {
+        this.removeTerrain();
+      }
+
+      // Fire recovery immediately — layers can be added as soon as style is loaded
+      if (onRecovery) {
+        // Small delay to let MapLibre process the style internals
+        requestAnimationFrame(() => {
+          if (this._map) onRecovery(this._map, styleName);
+        });
+      }
+>>>>>>> Stashed changes
     });
   }
 
@@ -186,10 +224,6 @@ class MapEngine {
     return this._currentStyle;
   }
 
-  /**
-   * Get the map instance (safe getter).
-   * @returns {maplibregl.Map | null}
-   */
   getMap() {
     return this._map;
   }
@@ -199,6 +233,7 @@ class MapEngine {
   }
 
   /**
+<<<<<<< Updated upstream
    * Get map debug stats.
    * @returns {{zoom: number, center: [number,number], pitch: number, bearing: number, style: string} | null}
    */
@@ -248,7 +283,28 @@ class MapEngine {
 
   /**
    * Clean up and destroy the map.
+=======
+   * Get map debug stats (used by DebugPanel).
+>>>>>>> Stashed changes
    */
+  getStats() {
+    if (!this._map) return null;
+    try {
+      return {
+        zoom: Math.round(this._map.getZoom() * 100) / 100,
+        center: [
+          Math.round(this._map.getCenter().lng * 1000) / 1000,
+          Math.round(this._map.getCenter().lat * 1000) / 1000,
+        ],
+        pitch: Math.round(this._map.getPitch()),
+        bearing: Math.round(this._map.getBearing()),
+        style: this._currentStyle,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   destroy() {
     this._destroyed = true;
     if (this._popup) {
@@ -265,10 +321,13 @@ class MapEngine {
 
   /**
    * Attach a throttled event handler to the map.
+<<<<<<< Updated upstream
    * @param {string} event
    * @param {Function} handler
    * @param {number} limit
    * @returns {Function}
+=======
+>>>>>>> Stashed changes
    */
   onThrottled(event, handler, limit = 50) {
     const throttled = throttle(handler, limit);
@@ -279,5 +338,4 @@ class MapEngine {
   }
 }
 
-// Singleton — one MapEngine per app
 export default new MapEngine();
