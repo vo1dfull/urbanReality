@@ -128,8 +128,13 @@ export default function MapView() {
   // ── Render ──
   return (
     <>
-      {/* ── MAP CANVAS (bottom layer) ── */}
-      <div ref={mapContainerRef} style={{ width: '100%', height: '100%', position: 'fixed', top: 0, left: 0, background: '#020617' }} />
+      {/* ── MAP CANVAS (bottom layer) — 🔥 CSS containment prevents layout thrashing ── */}
+      <div ref={mapContainerRef} style={{
+        width: '100%', height: '100%', position: 'fixed', top: 0, left: 0,
+        background: '#020617',
+        contain: 'strict',            /* 🔥 Prevents layout/paint from propagating */
+        willChange: 'transform',      /* 🔥 Forces GPU compositing layer */
+      }} />
 
       {/* ── PANEL ROOT (mid layer — isolated from map re-renders) ── */}
       <PanelRoot

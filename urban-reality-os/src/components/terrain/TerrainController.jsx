@@ -20,6 +20,7 @@ const SUB_LAYERS = [
 export default function TerrainController({ map, isActive }) {
   const terrainSubLayers = useMapStore(useShallow((s) => s.terrainSubLayers));
   const toggleTerrainSubLayer = useMapStore((s) => s.toggleTerrainSubLayer);
+  const year = useMapStore((s) => s.year);
 
   const [openPanel, setOpenPanel] = useState(true);
 

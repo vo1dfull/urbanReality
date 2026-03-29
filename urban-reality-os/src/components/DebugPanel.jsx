@@ -39,7 +39,8 @@ const DebugPanel = memo(function DebugPanel() {
     };
 
     updateStats();
-    const interval = setInterval(updateStats, 1000);
+    // 🔥 PERF: 2.5s polling (was 1s) — debug panel doesn't need 1fps updates
+    const interval = setInterval(updateStats, 2500);
     return () => clearInterval(interval);
   }, [debugMode]);
 

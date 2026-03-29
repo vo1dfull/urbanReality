@@ -22,14 +22,14 @@ const MOCK_DATA = {
 };
 
 /* ---------- SMOOTH INTERPOLATION ---------- */
-function smoothNumber(prev, next, factor = 0.15) {
+function smoothNumber(prev, next, factor = 0.25) { // 🔥 0.25 converges faster than 0.15
   if (!Number.isFinite(prev)) return next;
   if (!Number.isFinite(next)) return prev;
   return prev + (next - prev) * factor;
 }
 
 /* ---------- CONVERGENCE CHECK ---------- */
-const CONVERGE_THRESHOLD = 0.1;
+const CONVERGE_THRESHOLD = 0.5; // 🔥 Higher threshold = converges sooner = fewer frames
 
 function hasConverged(current, target) {
   if (!current || !target) return false;
@@ -132,8 +132,8 @@ export function useLocationMetrics({
           taskIdRef.current = null;
         }
 
-        // ✅ Run at ~30fps instead of 60fps — halves React state updates
-        taskIdRef.current = FrameController.add(animate, 32, 'location-metrics');
+        // 🔥 PERF: ~20fps (was ~30fps), idle priority = auto-throttled under load
+        taskIdRef.current = FrameController.add(animate, 50, 'location-metrics', 'idle');
       } catch (e) {
         setData(MOCK_DATA);
       }

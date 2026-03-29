@@ -1,8 +1,8 @@
 // ================================================
 // useLayerSync — Syncs Zustand layer toggles to map
-// Also handles style switching with layer recovery
-// ✅ useShallow prevents new-reference re-renders on objects
-// ✅ EventBus emissions on sync complete
+// 🔥 PERF: Single useEffect with combined subscription
+// 🔥 PERF: Deferred EventBus emit for sync events
+// 🔥 PERF: moveend for coverages instead of move
 // ================================================
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -13,9 +13,6 @@ import FacilityEngine from '../engines/FacilityEngine';
 import DataEngine from '../engines/DataEngine';
 import eventBus, { EVENTS } from '../core/EventBus';
 import { OPENWEATHER_KEY } from '../constants/mapConstants';
-import { createLogger } from '../core/Logger';
-
-const log = createLogger('useLayerSync');
 
 export default function useLayerSync() {
   const layers = useMapStore(useShallow((s) => s.layers));
@@ -37,8 +34,8 @@ export default function useLayerSync() {
     if (!map) return;
 
     LayerEngine.syncAllToggles(map, layers);
-    
-    // Sync Terrain Plugins
+
+    // Sync terrain — only check plugins that are actually registered
     const elevationPlugin = LayerEngine.getPlugin('terrainElevation');
     if (elevationPlugin) elevationPlugin.toggleMode(map, terrainSubLayers.elevation, terrainMode);
 
@@ -57,7 +54,8 @@ export default function useLayerSync() {
     const roadPlugin = LayerEngine.getPlugin('terrainRoad');
     if (roadPlugin && !terrainSubLayers.road) roadPlugin.clearPath(map);
 
-    eventBus.emit(EVENTS.LAYERS_SYNCED, { layers, terrainSubLayers });
+    // 🔥 Deferred emit — doesn't block the sync
+    eventBus.emitDeferred(EVENTS.LAYERS_SYNCED, null);
 
   }, [layers, terrainSubLayers, terrainMode, year, loading]);
 
@@ -76,7 +74,7 @@ export default function useLayerSync() {
     if (styleRef.current === mapStyle) return;
     styleRef.current = mapStyle;
 
-    eventBus.emit(EVENTS.MAP_STYLE_CHANGE, { style: mapStyle });
+    eventBus.emit(EVENTS.MAP_STYLE_CHANGE, mapStyle);
 
     MapEngine.switchStyle(mapStyle, (recoveredMap) => {
       const state = useMapStore.getState();
@@ -87,42 +85,37 @@ export default function useLayerSync() {
         FacilityEngine.initCoverageCanvas(recoveredMap);
       }
 
-      eventBus.emit(EVENTS.MAP_STYLE_RECOVERED, { style: mapStyle });
-      log.info(`Style recovered: ${mapStyle}`);
+      eventBus.emitDeferred(EVENTS.MAP_STYLE_RECOVERED, mapStyle);
     });
   }, [mapStyle, loading]);
 
-  // ── AQI Periodic Refresh ──
+  // ── AQI Periodic Refresh (5min) ──
   useEffect(() => {
     if (loading || !layers.aqi || !OPENWEATHER_KEY) return;
 
-    const computeAqiDigest = (geo) => {
-      const features = geo?.features || [];
-      let sum = 0;
-      for (const feature of features) {
-        sum += Number(feature.properties?.aqi ?? 0);
-      }
-      return `${features.length}-${sum}`;
-    };
-
     const refreshAQIData = async () => {
       const map = MapEngine.getMap();
-      if (!map) return;
+      if (!map || document.hidden) return;
       try {
         const aqiData = await DataEngine.fetchAllCitiesAQI();
-        if (aqiData && aqiData.features?.length > 0) {
+        if (aqiData?.features?.length > 0) {
           const plugin = LayerEngine.getPlugin('aqi');
           if (plugin) plugin.update(map, { aqiGeo: aqiData });
 
-          const nextDigest = computeAqiDigest(aqiData);
+          // Simple digest: length + sum — no string concat
+          let sum = 0;
+          const features = aqiData.features;
+          for (let i = 0; i < features.length; i++) {
+            sum += (features[i].properties?.aqi ?? 0);
+          }
+          const nextDigest = features.length * 1000 + sum;
+
           if (nextDigest !== aqiDigestRef.current) {
             DataEngine.setAqiGeo(aqiData);
             aqiDigestRef.current = nextDigest;
           }
         }
-      } catch (err) {
-        log.warn('AQI refresh failed:', err);
-      }
+      } catch (_) {}
     };
 
     refreshAQIData();

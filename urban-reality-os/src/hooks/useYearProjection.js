@@ -86,9 +86,8 @@ export default function useYearProjection() {
     const task = () => {
       const { impactData, demographics } = computeProjection(activeLocation, year);
 
-      const store = useMapStore.getState();
-      store.setImpactData(impactData);
-      store.setDemographics(demographics);
+      // 🔥 PERF: Single batchSet instead of 2 separate updates
+      useMapStore.getState().batchSet({ impactData, demographics });
 
       if (taskIdRef.current !== null) {
         FrameController.remove(taskIdRef.current);
@@ -96,7 +95,8 @@ export default function useYearProjection() {
       }
     };
 
-    taskIdRef.current = FrameController.add(task, 16, 'year-projection');
+    // 🔥 PERF: Run as idle priority — projection is not critical
+    taskIdRef.current = FrameController.add(task, 50, 'year-projection', 'idle');
 
     return () => {
       if (taskIdRef.current !== null) {
