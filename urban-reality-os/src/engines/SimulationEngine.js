@@ -1,7 +1,8 @@
 // ================================================
 // SimulationEngine — Flood simulation state & scenarios
-// ✅ _notify() is now batched via requestAnimationFrame
-//    preventing cascading subscriber updates mid-frame
+// ✅ _notify() batched via requestAnimationFrame
+// ✅ RAF ID tracked for cleanup
+// ✅ destroy() method for clean shutdown
 // ================================================
 
 export class SimulationEngine {
@@ -16,22 +17,26 @@ export class SimulationEngine {
     };
     this.subscribers = new Set();
     this._notifyPending = false;
+    this._notifyRafId = null;
+    this._destroyed = false;
   }
 
   _notify() {
-    // ── Batch: coalesce rapid state changes into one frame ──
-    if (this._notifyPending) return;
+    if (this._notifyPending || this._destroyed) return;
     this._notifyPending = true;
 
-    requestAnimationFrame(() => {
+    this._notifyRafId = requestAnimationFrame(() => {
       this._notifyPending = false;
-      this.subscribers.forEach((subscriber) => {
+      this._notifyRafId = null;
+      if (this._destroyed) return;
+
+      for (const subscriber of this.subscribers) {
         try {
           subscriber(this.state);
         } catch (error) {
           console.warn('Simulation subscriber failed:', error);
         }
-      });
+      }
     });
   }
 
@@ -43,16 +48,19 @@ export class SimulationEngine {
   }
 
   setSimulationParameters(params) {
+    if (this._destroyed) return;
     this.state = { ...this.state, ...params, timestamp: Date.now() };
     this._notify();
   }
 
   setFloodTrigger(location) {
+    if (this._destroyed) return;
     this.state = { ...this.state, active: true, location, timestamp: Date.now() };
     this._notify();
   }
 
   resetSimulation() {
+    if (this._destroyed) return;
     this.state = { ...this.state, active: false, location: null, timestamp: Date.now() };
     this._notify();
   }
@@ -68,6 +76,30 @@ export class SimulationEngine {
       pollutionIndex: Math.min(100, 40 + 10 * populationFactor + 8 * (1 - infrastructureQuality)),
       trafficStress: Math.min(1, 0.2 * populationFactor + 0.3 * (1 - infrastructureQuality))
     };
+  }
+
+  /**
+   * Get debug stats.
+   */
+  getStats() {
+    return {
+      subscriberCount: this.subscribers.size,
+      active: this.state.active,
+      notifyPending: this._notifyPending,
+    };
+  }
+
+  /**
+   * Clean shutdown — cancel pending RAF, clear subscribers.
+   */
+  destroy() {
+    this._destroyed = true;
+    if (this._notifyRafId !== null) {
+      cancelAnimationFrame(this._notifyRafId);
+      this._notifyRafId = null;
+    }
+    this._notifyPending = false;
+    this.subscribers.clear();
   }
 }
 

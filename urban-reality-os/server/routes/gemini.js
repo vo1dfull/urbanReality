@@ -7,13 +7,20 @@ if (!API_KEY) {
 
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
 
+function formatFallbackValue(data, key, defaultValue) {
+  return data?.[key] ?? defaultValue;
+}
+
 export async function analyze(req, res) {
   try {
     const { prompt, data, year, metrics } = req.body;
+    const offlinePeople = formatFallbackValue(data, 'people', formatFallbackValue(data, 'population', 'Unknown'));
+    const offlineLoss = formatFallbackValue(data, 'loss', 0);
+    const offlineRisk = formatFallbackValue(data, 'risk', 'Unknown');
 
     if (!genAI) {
       return res.json({
-        analysis: `Urban analysis (Offline). Metrics: AQI ${metrics?.aqi || 'N/A'}, Traffic ${Math.round((metrics?.traffic || 0) * 100)}%, Flood Depth ${metrics?.floodDepth || 0}m. Population: ${data?.people || 'Unknown'}. Economic impact estimated based on local models.`
+        analysis: `Urban analysis (Offline). Metrics: AQI ${metrics?.aqi ?? 'N/A'}, Traffic ${Math.round((metrics?.traffic ?? 0) * 100)}%, Flood Depth ${metrics?.floodDepth ?? 0}m. Population: ${offlinePeople} people. Economic impact estimated based on local models. Baseline loss: ₹${offlineLoss} Cr. Risk level: ${offlineRisk}.`
       });
     }
 

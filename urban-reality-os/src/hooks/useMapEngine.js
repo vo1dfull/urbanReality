@@ -1,6 +1,11 @@
 // ================================================
 // useMapEngine — Map initialization & data loading hook
 // Bridges MapEngine + DataEngine + LayerEngine → Zustand
+// ✅ Fixed: alert() replaced with store notification
+// ✅ Fixed: Impact worker cleanup
+// ✅ Added: Retry logic with exponential backoff
+// ✅ Added: Graceful degradation (offline fallback)
+// ✅ Added: Adaptive quality integration
 // ================================================
 import { useEffect, useRef } from 'react';
 import useMapStore from '../store/useMapStore';
@@ -9,13 +14,22 @@ import DataEngine from '../engines/DataEngine';
 import LayerEngine from '../engines/LayerEngine';
 import FacilityEngine from '../engines/FacilityEngine';
 import InteractionEngine from '../engines/InteractionEngine';
+import FrameController from '../core/FrameController';
+import eventBus, { EVENTS } from '../core/EventBus';
+import { destroyImpactWorker } from './useInteractions';
+import { createLogger } from '../core/Logger';
 import maplibregl from 'maplibre-gl';
+
+const log = createLogger('useMapEngine');
+
+/** @type {number} Max initialization retries */
+const MAX_INIT_RETRIES = 3;
+const RETRY_DELAY = 2000;
 
 export default function useMapEngine() {
   const mapContainerRef = useRef(null);
   const initializedRef = useRef(false);
 
-  const setMapInstance = useMapStore((s) => s.setMapInstance);
   const setMapReady = useMapStore((s) => s.setMapReady);
   const setLoading = useMapStore((s) => s.setLoading);
   const setError = useMapStore((s) => s.setError);
@@ -28,17 +42,17 @@ export default function useMapEngine() {
     let isMounted = true;
 
     const map = MapEngine.init(mapContainerRef.current);
-    setMapInstance(map);
 
     // Create popup
     const popup = MapEngine.createPopup();
     InteractionEngine.initPopup(popup);
 
-    const loadMapData = async () => {
+    const loadMapData = async (retryCount = 0) => {
       try {
         setLoading(true);
         setError(null);
 
+        // Wait for map load with timeout
         await new Promise((resolve, reject) => {
           const timeoutId = setTimeout(() => {
             reject(new Error('Map load timed out after 20 seconds'));
@@ -60,6 +74,9 @@ export default function useMapEngine() {
         MapEngine.addTerrain();
         setMapReady(true);
         setLoading(false);
+
+        eventBus.emit(EVENTS.MAP_READY, { style: MapEngine.getCurrentStyle() });
+        log.info('Map loaded successfully');
 
         // Fetch heavier datasets in the background
         const [aqiData, staticData, macroData] = await Promise.all([
@@ -94,10 +111,39 @@ export default function useMapEngine() {
           }
         }
         setDataReady(true);
+        log.info('All data loaded');
+
+        // ── Adaptive quality: subscribe to FPS updates ──
+        FrameController.onFPS(({ fps, isLow }) => {
+          if (!isMounted) return;
+          const currentQuality = useMapStore.getState().qualityLevel;
+          if (isLow && currentQuality !== 'low') {
+            log.warn(`Low FPS detected (${fps}), reducing quality`);
+            useMapStore.getState().setQualityLevel('medium');
+            MapEngine.applyQuality('medium');
+          }
+        });
+
       } catch (err) {
-        console.error('[useMapEngine] Error initializing map:', err);
+        log.error('Error initializing map:', err);
+
+        // Retry logic
+        if (retryCount < MAX_INIT_RETRIES && isMounted) {
+          log.info(`Retrying initialization (${retryCount + 1}/${MAX_INIT_RETRIES})...`);
+          setError(`Loading failed. Retrying... (${retryCount + 1}/${MAX_INIT_RETRIES})`);
+          await new Promise(r => setTimeout(r, RETRY_DELAY * Math.pow(2, retryCount)));
+          if (isMounted) {
+            return loadMapData(retryCount + 1);
+          }
+        }
+
         if (isMounted) {
-          setError('Failed to initialize map data. Please refresh the page.');
+          // Check if offline
+          const isOffline = !navigator.onLine;
+          const errorMsg = isOffline
+            ? 'No internet connection. Map data cannot be loaded. Please check your connection and refresh.'
+            : 'Failed to initialize map data. Please refresh the page.';
+          setError(errorMsg);
           setLoading(false);
         }
       }
@@ -110,10 +156,8 @@ export default function useMapEngine() {
       const currentMap = MapEngine.getMap();
       if (!currentMap) return;
       if (document.hidden) {
-        // Freeze MapLibre's render loop: prevents GPU/CPU burn on inactive tabs
         currentMap.stop();
       } else {
-        // Resume rendering when tab becomes active again
         requestAnimationFrame(() => currentMap.triggerRepaint());
       }
     };
@@ -122,7 +166,6 @@ export default function useMapEngine() {
     // Load saved location markers
     try {
       const savedLocations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
-      // Defer marker addition until map is loaded
       map.once('load', () => {
         if (!isMounted) return;
         savedLocations.forEach((loc) => {
@@ -132,16 +175,18 @@ export default function useMapEngine() {
         });
       });
     } catch (e) {
-      console.warn('[useMapEngine] Could not load saved locations', e);
+      log.warn('Could not load saved locations', e);
     }
 
-    // Expose saveLocation globally
+    // ✅ Fixed: saveLocation uses store notification instead of alert()
     window.saveLocation = async (name, lat, lng) => {
       try {
         const savedLocations = JSON.parse(localStorage.getItem('savedLocations') || '[]');
         savedLocations.push({ name: name || 'Pinned Location', lat, lng, timestamp: Date.now() });
         localStorage.setItem('savedLocations', JSON.stringify(savedLocations));
-        alert('Location saved locally');
+        useMapStore.getState().setNotification('📍 Location saved locally');
+        // Auto-clear notification after 3 seconds
+        setTimeout(() => useMapStore.getState().clearNotification(), 3000);
         const currentMap = MapEngine.getMap();
         if (currentMap) {
           new maplibregl.Marker({ color: '#f59e0b' })
@@ -150,8 +195,9 @@ export default function useMapEngine() {
         }
         return true;
       } catch (err) {
-        console.error('saveLocation error', err);
-        alert('Could not save location');
+        log.error('saveLocation error', err);
+        useMapStore.getState().setNotification('❌ Could not save location');
+        setTimeout(() => useMapStore.getState().clearNotification(), 3000);
         return false;
       }
     };
@@ -161,13 +207,14 @@ export default function useMapEngine() {
       isMounted = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       delete window.saveLocation;
+      destroyImpactWorker(); // ✅ Fix: clean up worker
       InteractionEngine.destroy();
       FacilityEngine.destroy(MapEngine.getMap());
       LayerEngine.destroyAll(MapEngine.getMap());
       MapEngine.destroy();
-      setMapInstance(null);
       setMapReady(false);
       initializedRef.current = false;
+      eventBus.emit(EVENTS.MAP_DESTROYED);
     };
   }, []);
 

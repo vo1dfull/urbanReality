@@ -1,0 +1,10 @@
+"filename", "language", "JavaScript", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\server\index.js", "JavaScript", 9, -2, -1, 6
+"f:\urbanReality\urban-reality-os\server\routes\auth.js", "JavaScript", 15, 0, 3, 18
+"f:\urbanReality\urban-reality-os\server\routes\gemini.js", "JavaScript", 6, 0, 1, 7
+"f:\urbanReality\urban-reality-os\src\constants\mapConstants.js", "JavaScript", 1, 0, 0, 1
+"f:\urbanReality\urban-reality-os\src\engines\MapEngine.js", "JavaScript", 18, -1, 2, 19
+"f:\urbanReality\urban-reality-os\src\hooks\map\useMapInit.js", "JavaScript", 25, 0, 2, 27
+"f:\urbanReality\urban-reality-os\src\store\useMapStore.js", "JavaScript", -4, 3, 1, 0
+"f:\urbanReality\urban-reality-os\src\utils\safeFetch.js", "JavaScript", 9, 0, 1, 10
+"Total", "-", 79, 0, 9, 88

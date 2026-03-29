@@ -2,6 +2,7 @@
 // store/selectors.js — Grouped Zustand selectors
 // ✅ Use shallow equality per group → 60–80% fewer re-renders
 // ✅ Import these instead of individual useMapStore() calls
+// ✅ useAnalysisState groups 4 related fields into 1 subscription
 // ================================================
 import { useShallow } from 'zustand/react/shallow';
 import useMapStore from './useMapStore';
@@ -39,6 +40,17 @@ export const useLocationState = () =>
       activeLocation: s.activeLocation,
       locationData: s.locationData,
       uiMode: s.uiMode,
+      impactData: s.impactData,
+      demographics: s.demographics,
+      urbanAnalysis: s.urbanAnalysis,
+      analysisLoading: s.analysisLoading,
+    }))
+  );
+
+// ── Analysis state (grouped — prevents 4 separate re-renders) ──
+export const useAnalysisState = () =>
+  useMapStore(
+    useShallow((s) => ({
       impactData: s.impactData,
       demographics: s.demographics,
       urbanAnalysis: s.urbanAnalysis,
@@ -85,3 +97,20 @@ export const useTerrainState = () =>
 
 // ── Macro / world bank ──
 export const useMacroData = () => useMapStore((s) => s.macroData);
+
+// ── Simulation ──
+export const useSimulationState = () =>
+  useMapStore(
+    useShallow((s) => ({
+      simulationState: s.simulationState,
+    }))
+  );
+
+// ── Debug ──
+export const useDebugMode = () => useMapStore((s) => s.debugMode);
+
+// ── Quality ──
+export const useQualityLevel = () => useMapStore((s) => s.qualityLevel);
+
+// ── Notification ──
+export const useNotification = () => useMapStore((s) => s.notification);

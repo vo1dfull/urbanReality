@@ -1,37 +1,37 @@
-"filename", "language", "JavaScript", "JSON", "JavaScript JSX", "Markdown", "XML", "PostCSS", "HTML", "comment", "blank", "total"
-"f:\urbanReality\package-lock.json", "JSON", 0, 1957, 0, 0, 0, 0, 0, 0, 1, 1958
-"f:\urbanReality\package.json", "JSON", 0, 20, 0, 0, 0, 0, 0, 0, 1, 21
+"filename", "language", "JavaScript", "XML", "JavaScript JSX", "JSON", "Markdown", "PostCSS", "HTML", "comment", "blank", "total"
+"f:\urbanReality\package-lock.json", "JSON", 0, 0, 0, 1957, 0, 0, 0, 0, 1, 1958
+"f:\urbanReality\package.json", "JSON", 0, 0, 0, 20, 0, 0, 0, 0, 1, 21
 "f:\urbanReality\tailwind.config.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 1, 6
-"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\details.md", "Markdown", 0, 0, 0, 62, 0, 0, 0, 0, 6, 68
-"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\diff-details.md", "Markdown", 0, 0, 0, 9, 0, 0, 0, 0, 6, 15
-"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\diff.md", "Markdown", 0, 0, 0, 12, 0, 0, 0, 0, 7, 19
-"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\results.json", "JSON", 0, 1, 0, 0, 0, 0, 0, 0, 0, 1
-"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\results.md", "Markdown", 0, 0, 0, 40, 0, 0, 0, 0, 7, 47
-"f:\urbanReality\urban-reality-os\README.md", "Markdown", 0, 0, 0, 27, 0, 0, 0, 0, 17, 44
-"f:\urbanReality\urban-reality-os\backend\README.md", "Markdown", 0, 0, 0, 20, 0, 0, 0, 0, 12, 32
+"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\details.md", "Markdown", 0, 0, 0, 0, 62, 0, 0, 0, 6, 68
+"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\diff-details.md", "Markdown", 0, 0, 0, 0, 9, 0, 0, 0, 6, 15
+"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\diff.md", "Markdown", 0, 0, 0, 0, 12, 0, 0, 0, 7, 19
+"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\results.json", "JSON", 0, 0, 0, 1, 0, 0, 0, 0, 0, 1
+"f:\urbanReality\urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12\results.md", "Markdown", 0, 0, 0, 0, 40, 0, 0, 0, 7, 47
+"f:\urbanReality\urban-reality-os\README.md", "Markdown", 0, 0, 0, 0, 27, 0, 0, 0, 17, 44
+"f:\urbanReality\urban-reality-os\backend\README.md", "Markdown", 0, 0, 0, 0, 20, 0, 0, 0, 12, 32
 "f:\urbanReality\urban-reality-os\backend\config\db.js", "JavaScript", 15, 0, 0, 0, 0, 0, 0, 0, 3, 18
 "f:\urbanReality\urban-reality-os\backend\middleware\authMiddleware.js", "JavaScript", 16, 0, 0, 0, 0, 0, 0, 0, 3, 19
 "f:\urbanReality\urban-reality-os\backend\models\User.js", "JavaScript", 20, 0, 0, 0, 0, 0, 0, 0, 3, 23
-"f:\urbanReality\urban-reality-os\backend\package-lock.json", "JSON", 0, 2376, 0, 0, 0, 0, 0, 0, 1, 2377
-"f:\urbanReality\urban-reality-os\backend\package.json", "JSON", 0, 21, 0, 0, 0, 0, 0, 0, 1, 22
+"f:\urbanReality\urban-reality-os\backend\package-lock.json", "JSON", 0, 0, 0, 2376, 0, 0, 0, 0, 1, 2377
+"f:\urbanReality\urban-reality-os\backend\package.json", "JSON", 0, 0, 0, 21, 0, 0, 0, 0, 1, 22
 "f:\urbanReality\urban-reality-os\backend\routes\authRoutes.js", "JavaScript", 56, 0, 0, 0, 0, 0, 0, 3, 17, 76
 "f:\urbanReality\urban-reality-os\backend\routes\userRoutes.js", "JavaScript", 83, 0, 0, 0, 0, 0, 0, 4, 11, 98
 "f:\urbanReality\urban-reality-os\backend\server.js", "JavaScript", 31, 0, 0, 0, 0, 0, 0, 1, 8, 40
 "f:\urbanReality\urban-reality-os\eslint.config.js", "JavaScript", 28, 0, 0, 0, 0, 0, 0, 0, 2, 30
 "f:\urbanReality\urban-reality-os\index.html", "HTML", 0, 0, 0, 0, 0, 0, 21, 2, 4, 27
-"f:\urbanReality\urban-reality-os\package-lock.json", "JSON", 0, 4446, 0, 0, 0, 0, 0, 0, 1, 4447
-"f:\urbanReality\urban-reality-os\package.json", "JSON", 0, 35, 0, 0, 0, 0, 0, 0, 1, 36
-"f:\urbanReality\urban-reality-os\public\data\aqi.json", "JSON", 0, 29, 0, 0, 0, 0, 0, 0, 1, 30
-"f:\urbanReality\urban-reality-os\public\data\demographics.json", "JSON", 0, 5, 0, 0, 0, 0, 0, 0, 1, 6
-"f:\urbanReality\urban-reality-os\public\data\facilities.json", "JSON", 0, 179, 0, 0, 0, 0, 0, 0, 0, 179
-"f:\urbanReality\urban-reality-os\public\data\flood.json", "JSON", 0, 21, 0, 0, 0, 0, 0, 0, 1, 22
-"f:\urbanReality\urban-reality-os\public\data\traffic.json", "JSON", 0, 29, 0, 0, 0, 0, 0, 0, 1, 30
-"f:\urbanReality\urban-reality-os\public\vite.svg", "XML", 0, 0, 0, 0, 1, 0, 0, 0, 0, 1
-"f:\urbanReality\urban-reality-os\server\index.js", "JavaScript", 59, 0, 0, 0, 0, 0, 0, 6, 15, 80
+"f:\urbanReality\urban-reality-os\package-lock.json", "JSON", 0, 0, 0, 4446, 0, 0, 0, 0, 1, 4447
+"f:\urbanReality\urban-reality-os\package.json", "JSON", 0, 0, 0, 35, 0, 0, 0, 0, 1, 36
+"f:\urbanReality\urban-reality-os\public\data\aqi.json", "JSON", 0, 0, 0, 29, 0, 0, 0, 0, 1, 30
+"f:\urbanReality\urban-reality-os\public\data\demographics.json", "JSON", 0, 0, 0, 5, 0, 0, 0, 0, 1, 6
+"f:\urbanReality\urban-reality-os\public\data\facilities.json", "JSON", 0, 0, 0, 179, 0, 0, 0, 0, 0, 179
+"f:\urbanReality\urban-reality-os\public\data\flood.json", "JSON", 0, 0, 0, 21, 0, 0, 0, 0, 1, 22
+"f:\urbanReality\urban-reality-os\public\data\traffic.json", "JSON", 0, 0, 0, 29, 0, 0, 0, 0, 1, 30
+"f:\urbanReality\urban-reality-os\public\vite.svg", "XML", 0, 1, 0, 0, 0, 0, 0, 0, 0, 1
+"f:\urbanReality\urban-reality-os\server\index.js", "JavaScript", 68, 0, 0, 0, 0, 0, 0, 4, 14, 86
 "f:\urbanReality\urban-reality-os\server\models\User.js", "JavaScript", 10, 0, 0, 0, 0, 0, 0, 0, 3, 13
-"f:\urbanReality\urban-reality-os\server\package.json", "JSON", 0, 16, 0, 0, 0, 0, 0, 0, 1, 17
-"f:\urbanReality\urban-reality-os\server\routes\auth.js", "JavaScript", 64, 0, 0, 0, 0, 0, 0, 3, 15, 82
-"f:\urbanReality\urban-reality-os\server\routes\gemini.js", "JavaScript", 49, 0, 0, 0, 0, 0, 0, 0, 11, 60
+"f:\urbanReality\urban-reality-os\server\package.json", "JSON", 0, 0, 0, 16, 0, 0, 0, 0, 1, 17
+"f:\urbanReality\urban-reality-os\server\routes\auth.js", "JavaScript", 79, 0, 0, 0, 0, 0, 0, 3, 18, 100
+"f:\urbanReality\urban-reality-os\server\routes\gemini.js", "JavaScript", 55, 0, 0, 0, 0, 0, 0, 0, 12, 67
 "f:\urbanReality\urban-reality-os\src\App.jsx", "JavaScript JSX", 0, 0, 4, 0, 0, 0, 0, 0, 2, 6
 "f:\urbanReality\urban-reality-os\src\components\AuthModal.jsx", "JavaScript JSX", 0, 0, 147, 0, 0, 0, 0, 1, 16, 164
 "f:\urbanReality\urban-reality-os\src\components\BottomLayers.jsx", "JavaScript JSX", 0, 0, 120, 0, 0, 0, 0, 4, 8, 132
@@ -45,73 +45,74 @@
 "f:\urbanReality\urban-reality-os\src\components\EconomicPanel.jsx", "JavaScript JSX", 0, 0, 84, 0, 0, 0, 0, 3, 7, 94
 "f:\urbanReality\urban-reality-os\src\components\FacilityListPanel.jsx", "JavaScript JSX", 0, 0, 212, 0, 0, 0, 0, 2, 18, 232
 "f:\urbanReality\urban-reality-os\src\components\FacilityStatsPanel.jsx", "JavaScript JSX", 0, 0, 110, 0, 0, 0, 0, 4, 17, 131
-"f:\urbanReality\urban-reality-os\src\components\FloodSimulationLayer.jsx", "JavaScript JSX", 0, 0, 311, 0, 0, 0, 0, 10, 36, 357
+"f:\urbanReality\urban-reality-os\src\components\FloodSimulationLayer.jsx", "JavaScript JSX", 0, 0, 270, 0, 0, 0, 0, 8, 32, 310
 "f:\urbanReality\urban-reality-os\src\components\InfoPanel.jsx", "JavaScript JSX", 0, 0, 57, 0, 0, 0, 0, 5, 9, 71
 "f:\urbanReality\urban-reality-os\src\components\InsightPanel.jsx", "JavaScript JSX", 0, 0, 58, 0, 0, 0, 0, 0, 3, 61
 "f:\urbanReality\urban-reality-os\src\components\LayerToggle.jsx", "JavaScript JSX", 0, 0, 215, 0, 0, 0, 0, 3, 10, 228
 "f:\urbanReality\urban-reality-os\src\components\LocationPanel.jsx", "JavaScript JSX", 0, 0, 137, 0, 0, 0, 0, 4, 17, 158
 "f:\urbanReality\urban-reality-os\src\components\LocationPopup.jsx", "JavaScript JSX", 0, 0, 181, 0, 0, 0, 0, 9, 24, 214
 "f:\urbanReality\urban-reality-os\src\components\MapMenu.jsx", "JavaScript JSX", 0, 0, 163, 0, 0, 0, 0, 5, 11, 179
-"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 0, 462, 0, 0, 0, 0, 31, 41, 534
+"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 0, 519, 0, 0, 0, 0, 40, 42, 601
 "f:\urbanReality\urban-reality-os\src\components\MetricBar.jsx", "JavaScript JSX", 0, 0, 16, 0, 0, 0, 0, 0, 4, 20
 "f:\urbanReality\urban-reality-os\src\components\MetrixHover.jsx", "JavaScript JSX", 0, 0, 0, 0, 0, 0, 0, 0, 1, 1
 "f:\urbanReality\urban-reality-os\src\components\ResponsiveLocationPanel.jsx", "JavaScript JSX", 0, 0, 52, 0, 0, 0, 0, 7, 9, 68
 "f:\urbanReality\urban-reality-os\src\components\SearchBar.jsx", "JavaScript JSX", 0, 0, 300, 0, 0, 0, 0, 12, 24, 336
 "f:\urbanReality\urban-reality-os\src\components\TerrainPanel.jsx", "JavaScript JSX", 0, 0, 139, 0, 0, 0, 0, 5, 9, 153
-"f:\urbanReality\urban-reality-os\src\components\TimeSlider.jsx", "JavaScript JSX", 0, 0, 46, 0, 0, 0, 0, 0, 3, 49
+"f:\urbanReality\urban-reality-os\src\components\TimeSlider.jsx", "JavaScript JSX", 0, 0, 50, 0, 0, 0, 0, 0, 5, 55
 "f:\urbanReality\urban-reality-os\src\components\TimelineBar.jsx", "JavaScript JSX", 0, 0, 71, 0, 0, 0, 0, 5, 13, 89
-"f:\urbanReality\urban-reality-os\src\components\terrain\ElevationLayer.jsx", "JavaScript JSX", 0, 0, 229, 0, 0, 0, 0, 8, 23, 260
-"f:\urbanReality\urban-reality-os\src\components\terrain\FloodSimulationLayer.jsx", "JavaScript JSX", 0, 0, 312, 0, 0, 0, 0, 10, 37, 359
-"f:\urbanReality\urban-reality-os\src\components\terrain\GreenCoverLayer.jsx", "JavaScript JSX", 0, 0, 339, 0, 0, 0, 0, 25, 46, 410
-"f:\urbanReality\urban-reality-os\src\components\terrain\HeatLayer.jsx", "JavaScript JSX", 0, 0, 359, 0, 0, 0, 0, 16, 40, 415
-"f:\urbanReality\urban-reality-os\src\components\terrain\RoadPlannerLayer.jsx", "JavaScript JSX", 0, 0, 485, 0, 0, 0, 0, 18, 60, 563
-"f:\urbanReality\urban-reality-os\src\components\terrain\SuitabilityLayer.jsx", "JavaScript JSX", 0, 0, 351, 0, 0, 0, 0, 14, 38, 403
-"f:\urbanReality\urban-reality-os\src\components\terrain\TerrainController.jsx", "JavaScript JSX", 0, 0, 172, 0, 0, 0, 0, 2, 17, 191
+"f:\urbanReality\urban-reality-os\src\components\terrain\ElevationLayer.jsx", "JavaScript JSX", 0, 0, 133, 0, 0, 0, 0, 3, 10, 146
+"f:\urbanReality\urban-reality-os\src\components\terrain\FloodSimulationLayer.jsx", "JavaScript JSX", 0, 0, 140, 0, 0, 0, 0, 4, 16, 160
+"f:\urbanReality\urban-reality-os\src\components\terrain\GreenCoverLayer.jsx", "JavaScript JSX", 0, 0, 135, 0, 0, 0, 0, 0, 15, 150
+"f:\urbanReality\urban-reality-os\src\components\terrain\HeatLayer.jsx", "JavaScript JSX", 0, 0, 141, 0, 0, 0, 0, 0, 15, 156
+"f:\urbanReality\urban-reality-os\src\components\terrain\RoadPlannerLayer.jsx", "JavaScript JSX", 0, 0, 229, 0, 0, 0, 0, 0, 24, 253
+"f:\urbanReality\urban-reality-os\src\components\terrain\SuitabilityLayer.jsx", "JavaScript JSX", 0, 0, 131, 0, 0, 0, 0, 0, 13, 144
+"f:\urbanReality\urban-reality-os\src\components\terrain\TerrainController.jsx", "JavaScript JSX", 0, 0, 144, 0, 0, 0, 0, 2, 15, 161
 "f:\urbanReality\urban-reality-os\src\components\terrain\TerrainLayer.jsx", "JavaScript JSX", 0, 0, 231, 0, 0, 0, 0, 3, 13, 247
 "f:\urbanReality\urban-reality-os\src\config\performance.js", "JavaScript", 42, 0, 0, 0, 0, 0, 0, 9, 9, 60
-"f:\urbanReality\urban-reality-os\src\constants\mapConstants.js", "JavaScript", 84, 0, 0, 0, 0, 0, 0, 3, 12, 99
+"f:\urbanReality\urban-reality-os\src\constants\mapConstants.js", "JavaScript", 85, 0, 0, 0, 0, 0, 0, 3, 12, 100
 "f:\urbanReality\urban-reality-os\src\context\AuthContext.jsx", "JavaScript JSX", 0, 0, 41, 0, 0, 0, 0, 1, 8, 50
+"f:\urbanReality\urban-reality-os\src\core\CacheEngine.js", "JavaScript", 60, 0, 0, 0, 0, 0, 0, 41, 14, 115
+"f:\urbanReality\urban-reality-os\src\core\EventBus.js", "JavaScript", 58, 0, 0, 0, 0, 0, 0, 8, 9, 75
+"f:\urbanReality\urban-reality-os\src\core\FrameController.js", "JavaScript", 64, 0, 0, 0, 0, 0, 0, 29, 14, 107
 "f:\urbanReality\urban-reality-os\src\engines\CityBrain.js", "JavaScript", 29, 0, 0, 0, 0, 0, 0, 0, 7, 36
-"f:\urbanReality\urban-reality-os\src\engines\DataEngine.js", "JavaScript", 179, 0, 0, 0, 0, 0, 0, 52, 32, 263
-"f:\urbanReality\urban-reality-os\src\engines\FacilityEngine.js", "JavaScript", 155, 0, 0, 0, 0, 0, 0, 32, 30, 217
+"f:\urbanReality\urban-reality-os\src\engines\DataEngine.js", "JavaScript", 196, 0, 0, 0, 0, 0, 0, 58, 30, 284
+"f:\urbanReality\urban-reality-os\src\engines\FacilityEngine.js", "JavaScript", 150, 0, 0, 0, 0, 0, 0, 13, 31, 194
 "f:\urbanReality\urban-reality-os\src\engines\InteractionEngine.js", "JavaScript", 133, 0, 0, 0, 0, 0, 0, 62, 23, 218
-"f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js", "JavaScript", 75, 0, 0, 0, 0, 0, 0, 38, 18, 131
-"f:\urbanReality\urban-reality-os\src\engines\MapEngine.js", "JavaScript", 103, 0, 0, 0, 0, 0, 0, 42, 18, 163
-"f:\urbanReality\urban-reality-os\src\engines\SimulationEngine.js", "JavaScript", 52, 0, 0, 0, 0, 0, 0, 0, 9, 61
-"f:\urbanReality\urban-reality-os\src\engines\TerrainEngine.js", "JavaScript", 173, 0, 0, 0, 0, 0, 0, 0, 27, 200
+"f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js", "JavaScript", 106, 0, 0, 0, 0, 0, 0, 39, 19, 164
+"f:\urbanReality\urban-reality-os\src\engines\MapEngine.js", "JavaScript", 131, 0, 0, 0, 0, 0, 0, 48, 21, 200
+"f:\urbanReality\urban-reality-os\src\engines\SimulationEngine.js", "JavaScript", 58, 0, 0, 0, 0, 0, 0, 6, 11, 75
+"f:\urbanReality\urban-reality-os\src\engines\TerrainEngine.js", "JavaScript", 186, 0, 0, 0, 0, 0, 0, 2, 31, 219
 "f:\urbanReality\urban-reality-os\src\hooks\map\useCinematic.js", "JavaScript", 52, 0, 0, 0, 0, 0, 0, 5, 11, 68
 "f:\urbanReality\urban-reality-os\src\hooks\map\useDataFetching.js", "JavaScript", 69, 0, 0, 0, 0, 0, 0, 0, 9, 78
-"f:\urbanReality\urban-reality-os\src\hooks\map\useFlood.js", "JavaScript", 86, 0, 0, 0, 0, 0, 0, 1, 20, 107
-"f:\urbanReality\urban-reality-os\src\hooks\map\useMapInit.js", "JavaScript", 95, 0, 0, 0, 0, 0, 0, 2, 14, 111
+"f:\urbanReality\urban-reality-os\src\hooks\map\useMapInit.js", "JavaScript", 120, 0, 0, 0, 0, 0, 0, 2, 16, 138
 "f:\urbanReality\urban-reality-os\src\hooks\map\useMapLibreEvents.jsx", "JavaScript JSX", 0, 0, 189, 0, 0, 0, 0, 20, 30, 239
-"f:\urbanReality\urban-reality-os\src\hooks\map\useSimulation.js", "JavaScript", 41, 0, 0, 0, 0, 0, 0, 1, 8, 50
-"f:\urbanReality\urban-reality-os\src\hooks\map\useTerrain.js", "JavaScript", 31, 0, 0, 0, 0, 0, 0, 0, 6, 37
-"f:\urbanReality\urban-reality-os\src\hooks\map\useTerrainLayers.js", "JavaScript", 37, 0, 0, 0, 0, 0, 0, 0, 7, 44
-"f:\urbanReality\urban-reality-os\src\hooks\useCameraControls.js", "JavaScript", 166, 0, 0, 0, 0, 0, 0, 9, 24, 199
-"f:\urbanReality\urban-reality-os\src\hooks\useFloodAnimation.js", "JavaScript", 81, 0, 0, 0, 0, 0, 0, 11, 17, 109
-"f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js", "JavaScript", 253, 0, 0, 0, 0, 0, 0, 16, 40, 309
+"f:\urbanReality\urban-reality-os\src\hooks\useCameraControls.js", "JavaScript", 170, 0, 0, 0, 0, 0, 0, 10, 26, 206
+"f:\urbanReality\urban-reality-os\src\hooks\useFloodAnimation.js", "JavaScript", 76, 0, 0, 0, 0, 0, 0, 15, 17, 108
+"f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js", "JavaScript", 293, 0, 0, 0, 0, 0, 0, 21, 47, 361
 "f:\urbanReality\urban-reality-os\src\hooks\useKeyboardShortcuts.js", "JavaScript", 21, 0, 0, 0, 0, 0, 0, 4, 5, 30
-"f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js", "JavaScript", 85, 0, 0, 0, 0, 0, 0, 12, 20, 117
-"f:\urbanReality\urban-reality-os\src\hooks\useLocationMetrics.js", "JavaScript", 93, 0, 0, 0, 0, 0, 0, 4, 16, 113
-"f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js", "JavaScript", 115, 0, 0, 0, 0, 0, 0, 15, 21, 151
-"f:\urbanReality\urban-reality-os\src\hooks\useOptimizations.js", "JavaScript", 58, 0, 0, 0, 0, 0, 0, 10, 15, 83
-"f:\urbanReality\urban-reality-os\src\hooks\useSimulationEngine.js", "JavaScript", 16, 0, 0, 0, 0, 0, 0, 0, 4, 20
-"f:\urbanReality\urban-reality-os\src\hooks\useTerrainSystem.js", "JavaScript", 25, 0, 0, 0, 0, 0, 0, 0, 5, 30
-"f:\urbanReality\urban-reality-os\src\hooks\useYearProjection.js", "JavaScript", 59, 0, 0, 0, 0, 0, 0, 3, 11, 73
-"f:\urbanReality\urban-reality-os\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 109, 0, 9, 25, 143
+"f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js", "JavaScript", 114, 0, 0, 0, 0, 0, 0, 16, 29, 159
+"f:\urbanReality\urban-reality-os\src\hooks\useLocationMetrics.js", "JavaScript", 116, 0, 0, 0, 0, 0, 0, 3, 21, 140
+"f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js", "JavaScript", 141, 0, 0, 0, 0, 0, 0, 14, 21, 176
+"f:\urbanReality\urban-reality-os\src\hooks\useOptimizations.js", "JavaScript", 69, 0, 0, 0, 0, 0, 0, 13, 17, 99
+"f:\urbanReality\urban-reality-os\src\hooks\useYearProjection.js", "JavaScript", 73, 0, 0, 0, 0, 0, 0, 3, 13, 89
+"f:\urbanReality\urban-reality-os\src\index.css", "PostCSS", 0, 0, 0, 0, 0, 111, 0, 9, 25, 145
 "f:\urbanReality\urban-reality-os\src\layers\AqiLayerPlugin.js", "JavaScript", 54, 0, 0, 0, 0, 0, 0, 10, 6, 70
 "f:\urbanReality\urban-reality-os\src\layers\BaseLayerPlugin.js", "JavaScript", 62, 0, 0, 0, 0, 0, 0, 36, 9, 107
 "f:\urbanReality\urban-reality-os\src\layers\BuildingsLayerPlugin.js", "JavaScript", 38, 0, 0, 0, 0, 0, 0, 11, 7, 56
 "f:\urbanReality\urban-reality-os\src\layers\FacilityLayerPlugin.js", "JavaScript", 76, 0, 0, 0, 0, 0, 0, 23, 12, 111
-"f:\urbanReality\urban-reality-os\src\layers\FloodLayerPlugin.js", "JavaScript", 80, 0, 0, 0, 0, 0, 0, 21, 10, 111
+"f:\urbanReality\urban-reality-os\src\layers\FloodLayerPlugin.js", "JavaScript", 96, 0, 0, 0, 0, 0, 0, 25, 11, 132
 "f:\urbanReality\urban-reality-os\src\layers\LayerRegistry.js", "JavaScript", 55, 0, 0, 0, 0, 0, 0, 42, 10, 107
 "f:\urbanReality\urban-reality-os\src\layers\TrafficLayerPlugin.js", "JavaScript", 67, 0, 0, 0, 0, 0, 0, 12, 10, 89
 "f:\urbanReality\urban-reality-os\src\layers\terrain\ElevationLayerPlugin.js", "JavaScript", 95, 0, 0, 0, 0, 0, 0, 16, 11, 122
+"f:\urbanReality\urban-reality-os\src\layers\terrain\GreenCoverLayerPlugin.js", "JavaScript", 120, 0, 0, 0, 0, 0, 0, 4, 19, 143
+"f:\urbanReality\urban-reality-os\src\layers\terrain\HeatLayerPlugin.js", "JavaScript", 114, 0, 0, 0, 0, 0, 0, 5, 17, 136
+"f:\urbanReality\urban-reality-os\src\layers\terrain\RoadPlannerLayerPlugin.js", "JavaScript", 139, 0, 0, 0, 0, 0, 0, 4, 27, 170
 "f:\urbanReality\urban-reality-os\src\layers\terrain\SuitabilityLayerPlugin.js", "JavaScript", 138, 0, 0, 0, 0, 0, 0, 4, 23, 165
-"f:\urbanReality\urban-reality-os\src\layers\terrain\TerrainFloodPlugin.js", "JavaScript", 126, 0, 0, 0, 0, 0, 0, 15, 17, 158
+"f:\urbanReality\urban-reality-os\src\layers\terrain\TerrainFloodPlugin.js", "JavaScript", 105, 0, 0, 0, 0, 0, 0, 16, 16, 137
 "f:\urbanReality\urban-reality-os\src\main.jsx", "JavaScript JSX", 0, 0, 45, 0, 0, 0, 0, 3, 7, 55
 "f:\urbanReality\urban-reality-os\src\pages\Dashboard.jsx", "JavaScript JSX", 0, 0, 8, 0, 0, 0, 0, 0, 2, 10
-"f:\urbanReality\urban-reality-os\src\store\useMapStore.js", "JavaScript", 126, 0, 0, 0, 0, 0, 0, 13, 18, 157
+"f:\urbanReality\urban-reality-os\src\store\selectors.js", "JavaScript", 63, 0, 0, 0, 0, 0, 0, 14, 11, 88
+"f:\urbanReality\urban-reality-os\src\store\useMapStore.js", "JavaScript", 116, 0, 0, 0, 0, 0, 0, 16, 19, 151
 "f:\urbanReality\urban-reality-os\src\utils\aqi.js", "JavaScript", 52, 0, 0, 0, 0, 0, 0, 6, 11, 69
 "f:\urbanReality\urban-reality-os\src\utils\cache.js", "JavaScript", 83, 0, 0, 0, 0, 0, 0, 17, 20, 120
 "f:\urbanReality\urban-reality-os\src\utils\demographics.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 21, 12, 65
@@ -122,11 +123,12 @@
 "f:\urbanReality\urban-reality-os\src\utils\impactModel.js", "JavaScript", 93, 0, 0, 0, 0, 0, 0, 14, 20, 127
 "f:\urbanReality\urban-reality-os\src\utils\performance.js", "JavaScript", 72, 0, 0, 0, 0, 0, 0, 16, 17, 105
 "f:\urbanReality\urban-reality-os\src\utils\rainfall.js", "JavaScript", 23, 0, 0, 0, 0, 0, 0, 0, 4, 27
-"f:\urbanReality\urban-reality-os\src\utils\safeFetch.js", "JavaScript", 21, 0, 0, 0, 0, 0, 0, 3, 7, 31
+"f:\urbanReality\urban-reality-os\src\utils\safeFetch.js", "JavaScript", 30, 0, 0, 0, 0, 0, 0, 3, 8, 41
 "f:\urbanReality\urban-reality-os\src\utils\worldBank.js", "JavaScript", 111, 0, 0, 0, 0, 0, 0, 17, 26, 154
 "f:\urbanReality\urban-reality-os\src\workers\floodWorker.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 7, 39
+"f:\urbanReality\urban-reality-os\src\workers\impactWorker.js", "JavaScript", 50, 0, 0, 0, 0, 0, 0, 9, 12, 71
 "f:\urbanReality\urban-reality-os\src\workers\terrainWorker.js", "JavaScript", 30, 0, 0, 0, 0, 0, 0, 0, 6, 36
 "f:\urbanReality\urban-reality-os\tailwind.config.js", "JavaScript", 11, 0, 0, 0, 0, 0, 0, 2, 2, 15
 "f:\urbanReality\urban-reality-os\vite.config.js", "JavaScript", 32, 0, 0, 0, 0, 0, 0, 0, 2, 34
 "f:\urbanReality\vite.config.js", "JavaScript", 5, 0, 0, 0, 0, 0, 0, 0, 2, 7
-"Total", "-", 4601, 9135, 6250, 170, 1, 109, 21, 940, 1596, 22823
+"Total", "-", 5315, 1, 5076, 9135, 170, 111, 21, 998, 1558, 22385

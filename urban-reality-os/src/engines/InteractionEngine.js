@@ -1,6 +1,8 @@
 // ================================================
 // InteractionEngine — Click, hover, popup lifecycle
 // Pure JS — manages popup React root externally
+// ✅ isDestroyed guard prevents post-destroy updates
+// ✅ Statistics tracking for debug panel
 // ================================================
 import maplibregl from 'maplibre-gl';
 import { createRoot } from 'react-dom/client';
@@ -13,6 +15,10 @@ class InteractionEngine {
     this._lastRequestTime = 0;
     this._clickAbortController = null;
     this._eventHandlers = new Map();
+    this._destroyed = false;
+
+    // Stats
+    this._stats = { clicks: 0, hovers: 0, popups: 0 };
   }
 
   /**
@@ -21,8 +27,8 @@ class InteractionEngine {
    */
   initPopup(popup) {
     this._popupRef = popup;
+    this._destroyed = false;
 
-    // Setup close handler
     popup.on('close', () => {
       try {
         if (this._popupRootRef) {
@@ -30,34 +36,36 @@ class InteractionEngine {
           this._popupRootRef = null;
         }
       } catch (e) {
-        console.warn('[InteractionEngine] Popup unmount failed:', e);
+        // Ignore unmount errors
       }
     });
   }
 
   /**
    * Create a new popup session (increments counter, returns ID).
+   * @returns {number}
    */
   newSession() {
+    this._stats.clicks++;
     return ++this._popupSessionId;
   }
 
-  /**
-   * Get current session ID.
-   */
   getSessionId() {
     return this._popupSessionId;
   }
 
   /**
-   * Check if a session is still the current one (guards stale updates).
+   * Check if a session is still the current one.
+   * @param {number} sessionId
+   * @returns {boolean}
    */
   isCurrentSession(sessionId) {
-    return this._popupSessionId === sessionId;
+    return !this._destroyed && this._popupSessionId === sessionId;
   }
 
   /**
    * Track request time for race condition prevention.
+   * @returns {number}
    */
   markRequestTime() {
     this._lastRequestTime = Date.now();
@@ -66,13 +74,16 @@ class InteractionEngine {
 
   /**
    * Check if a request time is still the latest.
+   * @param {number} requestTime
+   * @returns {boolean}
    */
   isLatestRequest(requestTime) {
-    return this._lastRequestTime === requestTime;
+    return !this._destroyed && this._lastRequestTime === requestTime;
   }
 
   /**
    * Get a new AbortController, cancelling any previous one.
+   * @returns {AbortController}
    */
   getClickAbortController() {
     if (this._clickAbortController) {
@@ -89,10 +100,9 @@ class InteractionEngine {
    * @param {React.ReactElement} element
    */
   showPopup(map, lngLat, element) {
-    if (!this._popupRef || !map) return;
+    if (!this._popupRef || !map || this._destroyed) return;
 
     try {
-      // Clean up previous root
       if (this._popupRootRef) {
         this._popupRootRef.unmount();
         this._popupRootRef = null;
@@ -106,17 +116,18 @@ class InteractionEngine {
       const root = createRoot(container);
       this._popupRootRef = root;
       root.render(element);
+      this._stats.popups++;
     } catch (err) {
       console.warn('[InteractionEngine] showPopup error:', err);
     }
   }
 
   /**
-   * Update the current popup's content (re-render React root).
+   * Update the current popup's content.
    * @param {React.ReactElement} element
    */
   updatePopup(element) {
-    if (!this._popupRootRef) return;
+    if (!this._popupRootRef || this._destroyed) return;
     try {
       if (this._popupRef && this._popupRef.isOpen()) {
         this._popupRootRef.render(element);
@@ -126,27 +137,36 @@ class InteractionEngine {
     }
   }
 
-  /**
-   * Check if popup is currently open.
-   */
   isPopupOpen() {
     return this._popupRef && this._popupRef.isOpen();
   }
 
-  /**
-   * Get the popup root for conditional rendering checks.
-   */
   getPopupRoot() {
     return this._popupRootRef;
+  }
+
+  /**
+   * Track a hover event for stats.
+   */
+  trackHover() {
+    this._stats.hovers++;
+  }
+
+  /**
+   * Get interaction statistics.
+   * @returns {{clicks: number, hovers: number, popups: number}}
+   */
+  getStats() {
+    return { ...this._stats };
   }
 
   /**
    * Attach a map event handler with tracking for cleanup.
    * @param {maplibregl.Map} map
    * @param {string} event
-   * @param {string|null} layerId — null for map-level events
+   * @param {string|null} layerId
    * @param {Function} handler
-   * @returns {string} — key for later removal
+   * @returns {string}
    */
   attachEvent(map, event, layerId, handler) {
     const key = `${event}:${layerId || 'map'}:${Date.now()}`;
@@ -159,9 +179,6 @@ class InteractionEngine {
     return key;
   }
 
-  /**
-   * Remove a tracked event handler.
-   */
   detachEvent(map, key) {
     const entry = this._eventHandlers.get(key);
     if (!entry) return;
@@ -175,9 +192,6 @@ class InteractionEngine {
     this._eventHandlers.delete(key);
   }
 
-  /**
-   * Remove all tracked event handlers.
-   */
   detachAllEvents(map) {
     for (const [key, entry] of this._eventHandlers) {
       try {
@@ -192,9 +206,18 @@ class InteractionEngine {
   }
 
   /**
+   * Check if engine is destroyed.
+   * @returns {boolean}
+   */
+  isDestroyed() {
+    return this._destroyed;
+  }
+
+  /**
    * Clean up everything.
    */
   destroy() {
+    this._destroyed = true;
     if (this._clickAbortController) {
       this._clickAbortController.abort();
       this._clickAbortController = null;

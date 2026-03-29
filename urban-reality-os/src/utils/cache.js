@@ -1,24 +1,22 @@
 /**
- * Simple in-memory cache with TTL (Time To Live)
- * Reduces API calls and improves performance
+ * Utility functions: cache, debounce, throttle
+ * ✅ MemoryCache with TTL
+ * ✅ Trailing-edge throttle option
+ * ✅ RAF-based throttle for render-sensitive paths
  */
+
 class MemoryCache {
-    constructor(defaultTTL = 5 * 60 * 1000) { // 5 minutes default
+    constructor(defaultTTL = 5 * 60 * 1000) {
         this.cache = new Map();
         this.timers = new Map();
         this.defaultTTL = defaultTTL;
     }
 
     set(key, value, ttl = this.defaultTTL) {
-        // Clear existing timer
         if (this.timers.has(key)) {
             clearTimeout(this.timers.get(key));
         }
-
-        // Set value
         this.cache.set(key, value);
-
-        // Set expiration timer
         if (ttl > 0) {
             const timer = setTimeout(() => {
                 this.cache.delete(key);
@@ -56,12 +54,15 @@ class MemoryCache {
 }
 
 // Singleton cache instances for different data types
-export const apiCache = new MemoryCache(5 * 60 * 1000); // 5 min for API data
-export const geoCache = new MemoryCache(10 * 60 * 1000); // 10 min for geo data
-export const aqiCache = new MemoryCache(3 * 60 * 1000); // 3 min for AQI (updates frequently)
+export const apiCache = new MemoryCache(5 * 60 * 1000);
+export const geoCache = new MemoryCache(10 * 60 * 1000);
+export const aqiCache = new MemoryCache(3 * 60 * 1000);
 
 /**
- * Memoize function calls with arguments
+ * Memoize function calls with arguments.
+ * @param {Function} fn
+ * @param {number} ttl
+ * @returns {Function}
  */
 export function memoize(fn, ttl = 60000) {
     const cache = new Map();
@@ -89,31 +90,111 @@ export function memoize(fn, ttl = 60000) {
 }
 
 /**
- * Debounce function for reducing rapid calls
+ * Debounce function for reducing rapid calls.
+ * @param {Function} fn
+ * @param {number} delay
+ * @returns {Function & {cancel: Function}}
  */
 export function debounce(fn, delay = 300) {
     let timeoutId = null;
 
-    return function(...args) {
+    const debounced = function(...args) {
         if (timeoutId) clearTimeout(timeoutId);
         timeoutId = setTimeout(() => {
             fn.apply(this, args);
             timeoutId = null;
         }, delay);
     };
+
+    debounced.cancel = () => {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+    };
+
+    return debounced;
 }
 
 /**
- * Throttle function for limiting call frequency
+ * Throttle function with optional trailing-edge execution.
+ * @param {Function} fn
+ * @param {number} limit — ms between executions
+ * @param {{trailing?: boolean}} options
+ * @returns {Function & {cancel: Function}}
  */
-export function throttle(fn, limit = 500) {
-    let inThrottle;
+export function throttle(fn, limit = 500, options = {}) {
+    const { trailing = false } = options;
+    let lastRunTime = 0;
+    let trailingTimeoutId = null;
+    let lastArgs = null;
+    let lastThis = null;
 
-    return function(...args) {
-        if (!inThrottle) {
+    const throttled = function(...args) {
+        const now = Date.now();
+        const remaining = limit - (now - lastRunTime);
+
+        lastArgs = args;
+        lastThis = this;
+
+        if (remaining <= 0) {
+            // Enough time has passed — execute immediately
+            if (trailingTimeoutId) {
+                clearTimeout(trailingTimeoutId);
+                trailingTimeoutId = null;
+            }
+            lastRunTime = now;
             fn.apply(this, args);
-            inThrottle = true;
-            setTimeout(() => (inThrottle = false), limit);
+        } else if (trailing && !trailingTimeoutId) {
+            // Schedule trailing call
+            trailingTimeoutId = setTimeout(() => {
+                lastRunTime = Date.now();
+                trailingTimeoutId = null;
+                fn.apply(lastThis, lastArgs);
+            }, remaining);
         }
     };
+
+    throttled.cancel = () => {
+        if (trailingTimeoutId) {
+            clearTimeout(trailingTimeoutId);
+            trailingTimeoutId = null;
+        }
+        lastArgs = null;
+        lastThis = null;
+    };
+
+    return throttled;
+}
+
+/**
+ * RAF-based throttle — ensures the callback runs at most once per animation frame.
+ * Ideal for render-sensitive operations (canvas draw, DOM updates).
+ * @param {Function} fn
+ * @returns {Function & {cancel: Function}}
+ */
+export function throttleRAF(fn) {
+    let rafId = null;
+    let lastArgs = null;
+    let lastThis = null;
+
+    const throttled = function(...args) {
+        lastArgs = args;
+        lastThis = this;
+        if (rafId === null) {
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                fn.apply(lastThis, lastArgs);
+            });
+        }
+    };
+
+    throttled.cancel = () => {
+        if (rafId !== null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+    };
+
+    return throttled;
 }

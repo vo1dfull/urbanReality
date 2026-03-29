@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 /**
  * Global event dispatcher for cinematic mode.
@@ -12,6 +12,7 @@ export function emitCinematic(active) {
 
 export function useCinematic() {
     const [isCinematic, setIsCinematic] = useState(false);
+    const timeoutIdsRef = useRef([]);
 
     useEffect(() => {
         const handleCinematic = (e) => setIsCinematic(!!e.detail.active);
@@ -23,6 +24,9 @@ export function useCinematic() {
         return () => {
             window.removeEventListener("cinematic-mode", handleCinematic);
             document.body.classList.remove("cinematic");
+            // ✅ Fix: clear all running timeouts on unmount
+            timeoutIdsRef.current.forEach(clearTimeout);
+            timeoutIdsRef.current = [];
         };
     }, [isCinematic]);
 
@@ -30,8 +34,12 @@ export function useCinematic() {
         if (!map) return;
         emitCinematic(true);
 
+        // ✅ Fix: clear any previous timeouts before starting new chain
+        timeoutIdsRef.current.forEach(clearTimeout);
+        timeoutIdsRef.current = [];
+
         defaultPath.forEach((step, i) => {
-            setTimeout(() => {
+            const id = setTimeout(() => {
                 map.easeTo({
                     ...step,
                     duration: 2500,
@@ -39,9 +47,11 @@ export function useCinematic() {
                 });
 
                 if (i === defaultPath.length - 1) {
-                    setTimeout(() => emitCinematic(false), 2600);
+                    const endId = setTimeout(() => emitCinematic(false), 2600);
+                    timeoutIdsRef.current.push(endId);
                 }
             }, i * 2600);
+            timeoutIdsRef.current.push(id);
         });
     }, []);
 
@@ -55,7 +65,8 @@ export function useCinematic() {
             bearing: Math.random() * 360,
             duration: 1800
         });
-        setTimeout(() => emitCinematic(false), 2000);
+        const id = setTimeout(() => emitCinematic(false), 2000);
+        timeoutIdsRef.current.push(id);
     }, []);
 
     return {

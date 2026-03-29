@@ -2,12 +2,31 @@
 // DataEngine — All API calls, caching, AbortController
 // Pure JS — no React dependency
 // ✅ CacheEngine wraps all expensive API calls
+// ✅ Retry with backoff for critical requests
+// ✅ Signal propagation for all fetches
+// ✅ AI response caching
 // ================================================
 import { fetchRealtimeAQI } from '../utils/aqi';
 import { fetchIndiaMacroData } from '../utils/worldBank';
 import { getUrbanAnalysis } from '../utils/gemini';
 import { MAJOR_INDIAN_CITIES, OPENWEATHER_KEY, TOMTOM_KEY } from '../constants/mapConstants';
 import CacheEngine from '../core/CacheEngine';
+import { createLogger } from '../core/Logger';
+
+const log = createLogger('DataEngine');
+
+/** @type {number} Retry attempts for critical fetches */
+const MAX_RETRIES = 2;
+
+/** @type {number} Base backoff delay in ms */
+const RETRY_BACKOFF = 1000;
+
+/**
+ * Sleep for a given duration.
+ * @param {number} ms
+ * @returns {Promise<void>}
+ */
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 class DataEngine {
   constructor() {
@@ -38,11 +57,10 @@ class DataEngine {
    */
   async fetchAllCitiesAQI() {
     if (!OPENWEATHER_KEY) {
-      console.warn('[DataEngine] OpenWeather API key not available');
+      log.warn('OpenWeather API key not available');
       return null;
     }
 
-    // ✅ Cache AQI city data for 5 minutes
     return CacheEngine.fetch('aqi:cities:all', async () => {
       const CHUNK_SIZE = 10;
       const features = [];
@@ -66,7 +84,7 @@ class DataEngine {
                 geometry: { type: 'Point', coordinates: [city.lng, city.lat] },
               };
             } catch (err) {
-              console.warn(`[DataEngine] AQI fetch failed for ${city.name}:`, err);
+              log.warn(`AQI fetch failed for ${city.name}:`, err);
               return null;
             }
           })
@@ -75,56 +93,76 @@ class DataEngine {
       }
 
       return { type: 'FeatureCollection', features };
-    }, 5 * 60_000); // 5 min TTL
+    }, 5 * 60_000);
   }
 
   // ── Static Data ──
 
   /**
    * Fetch flood.json, demographics.json, facilities.json in parallel.
+   * Includes retry logic for robustness.
    */
   async fetchStaticData() {
-    // ✅ Cache static JSON files — they never change at runtime
     return CacheEngine.fetch('static:all', async () => {
       const results = { floodData: null, cityDemo: null, facilityData: null };
-      const [floodRes, demoRes, facilityRes] = await Promise.allSettled([
-        fetch('/data/flood.json'),
-        fetch('/data/demographics.json'),
-        fetch('/data/facilities.json'),
+
+      const fetchWithRetry = async (url, retries = MAX_RETRIES) => {
+        for (let attempt = 0; attempt <= retries; attempt++) {
+          try {
+            const res = await fetch(url);
+            if (res.ok) return await res.json();
+            throw new Error(`HTTP ${res.status}`);
+          } catch (err) {
+            if (attempt < retries) {
+              await sleep(RETRY_BACKOFF * Math.pow(2, attempt));
+            } else {
+              log.warn(`Static fetch failed: ${url}`, err);
+              return null;
+            }
+          }
+        }
+        return null;
+      };
+
+      const [floodData, cityDemo, facilityData] = await Promise.all([
+        fetchWithRetry('/data/flood.json'),
+        fetchWithRetry('/data/demographics.json'),
+        fetchWithRetry('/data/facilities.json'),
       ]);
-      if (floodRes.status === 'fulfilled' && floodRes.value.ok) {
-        try { results.floodData = await floodRes.value.json(); } catch (e) { /* skip */ }
-      }
-      if (demoRes.status === 'fulfilled' && demoRes.value.ok) {
-        try { results.cityDemo = await demoRes.value.json(); } catch (e) { /* skip */ }
-      }
-      if (facilityRes.status === 'fulfilled' && facilityRes.value.ok) {
-        try { results.facilityData = await facilityRes.value.json(); } catch (e) { /* skip */ }
-      }
+
+      results.floodData = floodData;
+      results.cityDemo = cityDemo;
+      results.facilityData = facilityData;
+
       return results;
-    }, 60 * 60_000); // 1 hour TTL — static data
+    }, 60 * 60_000);
   }
 
   // ── World Bank ──
 
   /**
-   * Fetch India macro data with caching.
+   * Fetch India macro data with caching and retry.
    */
   async fetchWorldBankData() {
     if (this._macroDataCache) return this._macroDataCache;
-    try {
-      const data = await fetchIndiaMacroData();
-      this._macroDataCache = data;
-      return data;
-    } catch (e) {
-      console.warn('[DataEngine] World Bank data failed:', e);
-      return null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const data = await fetchIndiaMacroData();
+        this._macroDataCache = data;
+        return data;
+      } catch (e) {
+        if (attempt < MAX_RETRIES) {
+          await sleep(RETRY_BACKOFF * Math.pow(2, attempt));
+        } else {
+          log.warn('World Bank data failed after retries:', e);
+          return null;
+        }
+      }
     }
+    return null;
   }
 
-  /**
-   * Get cached macro data without re-fetching.
-   */
   getMacroData() {
     return this._macroDataCache;
   }
@@ -140,88 +178,86 @@ class DataEngine {
   async fetchLocationData(lat, lng, signal) {
     const locationKey = `location:${lat.toFixed(4)}:${lng.toFixed(4)}`;
 
-    // ✅ Cache location data for 3 minutes — coords rounded to ~11m precision
     return CacheEngine.fetch(locationKey, async () => {
       const [placeName, realTimeAQI, rainData, trafficJson] = await Promise.all([
-      // Place Name
-      this._fetchPlaceName(lat, lng).catch((err) => {
-        console.warn('[DataEngine] Geocoding failed:', err);
-        return 'Unknown Location';
-      }),
+        // Place Name
+        this._fetchPlaceName(lat, lng, signal).catch((err) => {
+          if (err?.name === 'AbortError') throw err;
+          log.warn('Geocoding failed:', err);
+          return 'Unknown Location';
+        }),
 
-      // AQI
-      (async () => {
-        try {
-          return await fetchRealtimeAQI(lat, lng, OPENWEATHER_KEY, signal);
-        } catch (e) {
-          if (e.name === 'AbortError') return null;
-          console.warn('[DataEngine] AQI fetch failed:', e);
-          return null;
-        }
-      })(),
+        // AQI
+        (async () => {
+          try {
+            return await fetchRealtimeAQI(lat, lng, OPENWEATHER_KEY, signal);
+          } catch (e) {
+            if (e.name === 'AbortError') return null;
+            log.warn('AQI fetch failed:', e);
+            return null;
+          }
+        })(),
 
-      // Rainfall
-      (async () => {
-        try {
-          return await Promise.race([
-            this._fetchRainfall(lat, lng, signal),
-            new Promise((_, r) => setTimeout(() => r(new Error('Rain Timeout')), 4000)),
-          ]);
-        } catch (e) {
-          if (e.name === 'AbortError') return { rain: 0, probability: 0 };
-          console.warn('[DataEngine] Rain fetch failed:', e);
-          return { rain: 0, probability: 0 };
-        }
-      })(),
+        // Rainfall — signal now propagated
+        (async () => {
+          try {
+            return await Promise.race([
+              this._fetchRainfall(lat, lng, signal),
+              new Promise((_, r) => setTimeout(() => r(new Error('Rain Timeout')), 4000)),
+            ]);
+          } catch (e) {
+            if (e.name === 'AbortError') return { rain: 0, probability: 0 };
+            log.warn('Rain fetch failed:', e);
+            return { rain: 0, probability: 0 };
+          }
+        })(),
 
-      // Traffic
-      (async () => {
-        if (!TOMTOM_KEY) return null;
-        try {
-          const res = await Promise.race([
-            fetch(
-              `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?key=${TOMTOM_KEY}&point=${lat},${lng}`,
-              { signal }
-            ),
-            new Promise((_, r) => setTimeout(() => r(new Error('Traffic Timeout')), 4000)),
-          ]);
-          if (res.ok) return await res.json();
-          return null;
-        } catch (e) {
-          if (e.name === 'AbortError') return null;
-          return null;
-        }
-      })(),
+        // Traffic
+        (async () => {
+          if (!TOMTOM_KEY) return null;
+          try {
+            const res = await Promise.race([
+              fetch(
+                `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json?key=${TOMTOM_KEY}&point=${lat},${lng}`,
+                { signal }
+              ),
+              new Promise((_, r) => setTimeout(() => r(new Error('Traffic Timeout')), 4000)),
+            ]);
+            if (res.ok) return await res.json();
+            return null;
+          } catch (e) {
+            if (e.name === 'AbortError') return null;
+            return null;
+          }
+        })(),
       ]);
 
       return { placeName, realTimeAQI, rainData, trafficJson };
-    }, 3 * 60_000); // 3 min TTL
+    }, 3 * 60_000);
   }
 
   // ── AI Analysis ──
 
   /**
-   * Fetch urban AI analysis.
+   * Fetch urban AI analysis with caching and abort support.
    * @param {object} payload
+   * @param {object} [options]
+   * @param {AbortSignal} [options.signal]
    * @returns {Promise<string|null>}
    */
-  async fetchAIAnalysis(payload) {
+  async fetchAIAnalysis(payload, options = {}) {
     try {
-      const analysis = await getUrbanAnalysis(payload);
+      const analysis = await getUrbanAnalysis(payload, options);
       return analysis || 'No analysis available.';
     } catch (err) {
-      console.error('[DataEngine] AI Analysis Failed:', err);
+      if (err?.name === 'AbortError') return null;
+      log.error('AI Analysis Failed:', err);
       return null;
     }
   }
 
   // ── AbortController Management ──
 
-  /**
-   * Create a new AbortController for a named operation, cancelling any previous one.
-   * @param {string} key
-   * @returns {AbortController}
-   */
   createAbortController(key) {
     this.abort(key);
     const controller = new AbortController();
@@ -229,10 +265,6 @@ class DataEngine {
     return controller;
   }
 
-  /**
-   * Abort a named operation.
-   * @param {string} key
-   */
   abort(key) {
     const existing = this._abortControllers.get(key);
     if (existing) {
@@ -241,9 +273,6 @@ class DataEngine {
     }
   }
 
-  /**
-   * Abort all operations.
-   */
   abortAll() {
     for (const controller of this._abortControllers.values()) {
       controller.abort();
@@ -253,10 +282,13 @@ class DataEngine {
 
   // ── Private Helpers ──
 
-  async _fetchPlaceName(lat, lng) {
+  async _fetchPlaceName(lat, lng, signal) {
     const response = await fetch(
       `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-      { headers: { 'User-Agent': 'UrbanRealityOS/1.0' } }
+      {
+        headers: { 'User-Agent': 'UrbanRealityOS/1.0' },
+        signal,
+      }
     );
     if (!response.ok) throw new Error('Geocoding failed');
     const data = await response.json();
@@ -267,9 +299,12 @@ class DataEngine {
     return 'Unknown Location';
   }
 
-  async _fetchRainfall(lat, lng) {
+  /**
+   * Fixed: signal is now propagated to the fetch call.
+   */
+  async _fetchRainfall(lat, lng, signal) {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&hourly=rain,precipitation_probability&forecast_days=1`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new Error('Open-Meteo error');
     const data = await res.json();
     return {

@@ -3,16 +3,27 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth.js';
+import { analyze } from './routes/gemini.js';
 
 // Load environment variables from server/.env or process env
 dotenv.config();
 
-// IMPORTANT: install @google/generative-ai in server environment
-// npm install @google/generative-ai
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
 const app = express();
-app.use(cors());
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:5173')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS policy: origin ${origin} not allowed`));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 // Connect to MongoDB
@@ -24,14 +35,9 @@ mongoose.connect(MONGO_URI)
 // Routes
 app.use('/api/auth', authRoutes);
 
-const API_KEY = process.env.GEMINI_API_KEY;
-if (!API_KEY) {
-  console.warn('GEMINI_API_KEY is not set. Gemini backend will return fallback responses.');
-}
-
-const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-
-app.post('/api/urban-analysis', async (req, res) => {
+const geminiRoutes = express.Router();
+geminiRoutes.post('/analysis', analyze);
+app.use('/api/gemini', geminiRoutes);
   try {
     const { data, year, metrics } = req.body;
     // metrics = { aqi: number, traffic: number, floodDepth: number, weather: string }

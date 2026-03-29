@@ -1,12 +1,11 @@
-import { useCallback, useRef, useEffect, useState } from 'react';
-import { aqiCache, debounce } from '../utils/cache';
+import { useCallback, useRef, useEffect } from 'react';
+import { aqiCache } from '../utils/cache';
 
 /**
  * Optimized hook for AQI data fetching with caching
- * ✅ Now uses AbortController for cancellable requests
+ * ✅ Uses AbortController for cancellable requests
  */
 export function useAQIData(OPENWEATHER_KEY) {
-    const cacheRef = useRef(new Map());
     const abortRef = useRef(null);
 
     const fetchRealtimeAQI = useCallback(async (lat, lng) => {
@@ -23,7 +22,7 @@ export function useAQIData(OPENWEATHER_KEY) {
 
         try {
             const res = await fetch(
-                `https://api.openweathermap.org/api/pollution/v1/co/?lon=${lng}&lat=${lat}&appid=${OPENWEATHER_KEY}`,
+                `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_KEY}`,
                 { signal: abortRef.current.signal }
             );
 
@@ -35,7 +34,7 @@ export function useAQIData(OPENWEATHER_KEY) {
                 category: __getAQICategory(data.list?.[0]?.main?.aqi)
             };
 
-            aqiCache.set(cacheKey, result, 3 * 60 * 1000); // 3 min cache
+            aqiCache.set(cacheKey, result, 3 * 60 * 1000);
             return result;
         } catch (err) {
             if (err.name === 'AbortError') return null;
@@ -60,39 +59,30 @@ function __getAQICategory(aqi) {
 }
 
 /**
- * Optimized hook for debounced location updates
+ * Optimized hook for debounced location updates.
+ * ✅ Fixed: uses ref-based approach to prevent closure staleness
  */
 export function useDebouncedLocation(callback, delay = 500) {
-    const debouncedCallback = useCallback(
-        debounce(callback, delay),
-        [callback, delay]
-    );
+    const callbackRef = useRef(callback);
+    const timerRef = useRef(null);
 
-    return debouncedCallback;
-}
+    // Keep ref current without recreating the debounced function
+    callbackRef.current = callback;
 
-/**
- * Optimized hook for layer state management
- */
-export function useLayerState(initialLayers = {}) {
-    const [layers, setLayers] = useState(initialLayers);
-    const layersCacheRef = useRef(initialLayers);
+    const debouncedFn = useCallback((...args) => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+            callbackRef.current(...args);
+            timerRef.current = null;
+        }, delay);
+    }, [delay]);
 
-    const updateLayer = useCallback((key, value) => {
-        setLayers(prev => {
-            const updated = { ...prev, [key]: value };
-            layersCacheRef.current = updated;
-            return updated;
-        });
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
     }, []);
 
-    const updateMultipleLayers = useCallback((updates) => {
-        setLayers(prev => {
-            const updated = { ...prev, ...updates };
-            layersCacheRef.current = updated;
-            return updated;
-        });
-    }, []);
-
-    return { layers, updateLayer, updateMultipleLayers };
+    return debouncedFn;
 }

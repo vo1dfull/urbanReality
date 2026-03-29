@@ -50,6 +50,13 @@ function hasConverged(current, target) {
   });
 }
 
+/**
+ * @param {object} options
+ * @param {object} options.coords
+ * @param {Function} options.fetchAQI
+ * @param {Function} options.fetchTerrain
+ * @param {Function} options.fetchPopulation
+ */
 export function useLocationMetrics({
   coords,
   fetchAQI,
@@ -58,6 +65,15 @@ export function useLocationMetrics({
 }) {
   const [data, setData] = useState(MOCK_DATA);
   const taskIdRef = useRef(null);
+  // ✅ Ref-stabilize callbacks to prevent dependency churn
+  const fetchAQIRef = useRef(fetchAQI);
+  const fetchTerrainRef = useRef(fetchTerrain);
+  const fetchPopulationRef = useRef(fetchPopulation);
+
+  // Keep refs fresh
+  fetchAQIRef.current = fetchAQI;
+  fetchTerrainRef.current = fetchTerrain;
+  fetchPopulationRef.current = fetchPopulation;
 
   useEffect(() => {
     if (!coords) return;
@@ -67,9 +83,9 @@ export function useLocationMetrics({
     async function load() {
       try {
         const [aqiRes, terrainRes, populationRes] = await Promise.allSettled([
-          fetchAQI(coords),
-          fetchTerrain(coords),
-          fetchPopulation(coords)
+          fetchAQIRef.current(coords),
+          fetchTerrainRef.current(coords),
+          fetchPopulationRef.current(coords)
         ]);
 
         const nextData = {
@@ -116,7 +132,8 @@ export function useLocationMetrics({
           taskIdRef.current = null;
         }
 
-        taskIdRef.current = FrameController.add(animate, 16);
+        // ✅ Run at ~30fps instead of 60fps — halves React state updates
+        taskIdRef.current = FrameController.add(animate, 32, 'location-metrics');
       } catch (e) {
         setData(MOCK_DATA);
       }
@@ -131,7 +148,7 @@ export function useLocationMetrics({
         taskIdRef.current = null;
       }
     };
-  }, [coords, fetchAQI, fetchTerrain, fetchPopulation]);
+  }, [coords]); // ✅ Only rerun when coords change — fetchers are ref-stable
 
   return data;
 }

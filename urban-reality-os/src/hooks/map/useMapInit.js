@@ -3,57 +3,83 @@ import maplibregl from "maplibre-gl";
 import { TERRAIN_SOURCE_ID } from '../../constants/mapConstants';
 
 export function useMapInit() {
-
     const ensureHillshade = useCallback((map) => {
         if (!map) return;
-        try {
-            if (!map.getSource(TERRAIN_SOURCE_ID)) return;
-            if (map.getLayer("terrain-hillshade")) return;
 
-            map.addLayer({
-                id: "terrain-hillshade",
-                type: "hillshade",
-                source: TERRAIN_SOURCE_ID,
-                paint: {
-                    "hillshade-exaggeration": 0.6,
-                    "hillshade-shadow-color": "#3d3d3d",
-                    "hillshade-highlight-color": "#ffffff",
-                    "hillshade-accent-color": "#9c8468"
+        const addHillshadeLayer = () => {
+            if (map.getLayer("terrain-hillshade")) return;
+            if (!map.getSource(TERRAIN_SOURCE_ID)) return;
+
+            try {
+                map.addLayer({
+                    id: "terrain-hillshade",
+                    type: "hillshade",
+                    source: TERRAIN_SOURCE_ID,
+                    paint: {
+                        "hillshade-exaggeration": 0.6,
+                        "hillshade-shadow-color": "#3d3d3d",
+                        "hillshade-highlight-color": "#ffffff",
+                        "hillshade-accent-color": "#9c8468"
+                    }
+                });
+            } catch (e) {
+                console.warn("ensureHillshade failed:", e);
+            }
+        };
+
+        if (map.getSource(TERRAIN_SOURCE_ID)) {
+            addHillshadeLayer();
+        } else {
+            const onSourceData = (event) => {
+                if (event.sourceId === TERRAIN_SOURCE_ID && event.isSourceLoaded) {
+                    map.off('sourcedata', onSourceData);
+                    addHillshadeLayer();
                 }
-            });
-        } catch (e) {
-            console.warn("ensureHillshade failed:", e);
+            };
+            map.on('sourcedata', onSourceData);
         }
     }, []);
 
-    const add3DBuildings = useCallback((map) => {
+    const add3DBuildings = useCallback((map, vectorSourceId, sourceLayer) => {
         if (!map) return;
-        try {
+        if (!vectorSourceId || !sourceLayer) {
+            console.warn('add3DBuildings requires explicit source and layer names. Skipping 3D building creation.');
+            return;
+        }
+
+        const addBuildingsLayer = () => {
             if (map.getLayer("3d-buildings")) return;
-            const sources = map.getStyle()?.sources || {};
-            let vectorSourceId = Object.keys(sources).find(k => sources[k]?.type === 'vector');
-            if (!vectorSourceId && sources.openmaptiles) vectorSourceId = 'openmaptiles';
-            if (!vectorSourceId) return;
+            if (!map.getSource(vectorSourceId)) return;
 
-            const styleLayers = map.getStyle()?.layers || [];
-            const candidateLayers = ["building", "buildings", "building_3d"];
-            const sourceLayer = candidateLayers.find(cl => styleLayers.some(sl => sl["source-layer"] === cl)) || candidateLayers[0];
+            try {
+                map.addLayer({
+                    id: "3d-buildings",
+                    source: vectorSourceId,
+                    "source-layer": sourceLayer,
+                    type: "fill-extrusion",
+                    minzoom: 14,
+                    paint: {
+                        "fill-extrusion-color": "#d1d1d1",
+                        "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 12],
+                        "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+                        "fill-extrusion-opacity": 0.85
+                    }
+                });
+            } catch (e) {
+                console.warn("add3DBuildings failed:", e);
+            }
+        };
 
-            map.addLayer({
-                id: "3d-buildings",
-                source: vectorSourceId,
-                "source-layer": sourceLayer,
-                type: "fill-extrusion",
-                minzoom: 14,
-                paint: {
-                    "fill-extrusion-color": "#d1d1d1",
-                    "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 12],
-                    "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
-                    "fill-extrusion-opacity": 0.85
+        if (map.getSource(vectorSourceId)) {
+            addBuildingsLayer();
+        } else {
+            const onSourceData = (event) => {
+                if (event.sourceId === vectorSourceId && event.isSourceLoaded) {
+                    map.off('sourcedata', onSourceData);
+                    addBuildingsLayer();
                 }
-            });
-        } catch (e) {
-            console.warn("add3DBuildings failed:", e);
+            };
+            map.on('sourcedata', onSourceData);
         }
     }, []);
 
@@ -80,7 +106,7 @@ export function useMapInit() {
             }
 
             ensureHillshade(map);
-            add3DBuildings(map);
+            add3DBuildings(map, 'openmaptiles', 'building');
 
             // Re-apply visibility based on state
             if (map.getLayer("terrain-hillshade")) {

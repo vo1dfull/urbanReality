@@ -1,5 +1,7 @@
 /**
  * Application Performance Configuration
+ * ✅ Added quality presets for adaptive quality system
+ * ✅ Added FPS thresholds for auto-quality adjustment
  */
 
 export const PERFORMANCE_CONFIG = {
@@ -8,20 +10,24 @@ export const PERFORMANCE_CONFIG = {
     aqi: 3 * 60 * 1000,      // 3 minutes - AQI updates frequently
     geo: 10 * 60 * 1000,     // 10 minutes - geo data is stable
     api: 5 * 60 * 1000,      // 5 minutes - general API data
-    traffic: 2 * 60 * 1000   // 2 minutes - traffic updates often
+    traffic: 2 * 60 * 1000,  // 2 minutes - traffic updates often
+    ai: 5 * 60 * 1000,       // 5 minutes - AI analysis results
   },
 
   // Debounce/Throttle delays (ms)
   debounce: {
     search: 300,
     mapMove: 500,
-    resize: 300
+    resize: 300,
+    coverageRender: 100,
   },
 
   throttle: {
     scroll: 100,
-    mouseMov: 100,
-    zoom: 100
+    mouseMove: 100,
+    zoom: 100,
+    facilityHover: 300,
+    aqiHover: 100,
   },
 
   // Request timeouts (ms)
@@ -29,14 +35,22 @@ export const PERFORMANCE_CONFIG = {
     aqi: 5000,
     traffic: 4000,
     rainfall: 4000,
-    general: 8000
+    general: 8000,
+    ai: 15000,
+  },
+
+  // Retry
+  retry: {
+    maxAttempts: 3,
+    baseDelay: 1000,
+    maxDelay: 8000,
   },
 
   // Batch processing
   batch: {
-    aqiChunkSize: 5,
+    aqiChunkSize: 10,
     facilityChunkSize: 10,
-    delay: 200
+    delay: 200,
   },
 
   // Feature flags
@@ -45,15 +59,53 @@ export const PERFORMANCE_CONFIG = {
     enableServiceWorker: false,
     enableResourceHints: true,
     enableLazyLoading: true,
-    enableRenderOptimization: true
+    enableRenderOptimization: true,
+    enableDebugPanel: true,
+    enableAdaptiveQuality: true,
   },
 
   // Render hints
   render: {
-    maxFrameTime: 16.67, // 60fps
-    warningThreshold: 50, // warn if render takes > 50ms
-    measurePerformance: false // set to true for debugging
-  }
+    maxFrameTime: 16.67,       // 60fps target
+    warningThreshold: 50,      // warn if render takes > 50ms
+    measurePerformance: false,  // set to true for debugging
+  },
+
+  // Adaptive Quality Presets
+  quality: {
+    low: {
+      terrainExaggeration: 0,
+      maxTileCacheSize: 20,
+      facilityAnimations: false,
+      floodParticles: false,
+    },
+    medium: {
+      terrainExaggeration: 0.8,
+      maxTileCacheSize: 35,
+      facilityAnimations: true,
+      floodParticles: true,
+    },
+    high: {
+      terrainExaggeration: 1.4,
+      maxTileCacheSize: 50,
+      facilityAnimations: true,
+      floodParticles: true,
+    },
+    ultra: {
+      terrainExaggeration: 2.0,
+      maxTileCacheSize: 100,
+      facilityAnimations: true,
+      floodParticles: true,
+    },
+  },
+
+  // FPS Thresholds for auto-quality
+  fpsThresholds: {
+    dropToLow: 20,
+    dropToMedium: 30,
+    raiseToHigh: 50,
+    raiseToUltra: 58,
+  },
 };
 
 export default PERFORMANCE_CONFIG;

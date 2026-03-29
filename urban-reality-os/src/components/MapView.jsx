@@ -2,6 +2,9 @@
 // MapView.jsx — Thin Orchestrator
 // ✅ Uses grouped selectors (store/selectors.js) → far fewer re-renders
 // ✅ UI split: MapCanvas, PanelRoot, OverlayRoot rendered separately
+// ✅ DebugPanel integration (toggle via D key)
+// ✅ Notification system (replaces alert())
+// ✅ useAnalysisState groups 4 fields into 1 subscription
 // ================================================
 import { useCallback, useRef, useEffect, memo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -15,6 +18,8 @@ import {
   useFloodState,
   useFacilityState,
   useUIToggles,
+  useAnalysisState,
+  useNotification,
 } from '../store/selectors';
 
 // Hooks
@@ -41,6 +46,7 @@ import EconomicPanel from './EconomicPanel';
 import CitySuggestions from './CitySuggestions';
 import FacilityStatsPanel from './FacilityStatsPanel';
 import FacilityListPanel from './FacilityListPanel';
+import DebugPanel from './DebugPanel';
 
 import { BASE_YEAR, MAX_YEAR, IMPACT_MODEL } from '../constants/mapConstants';
 
@@ -63,18 +69,20 @@ export default function MapView() {
   const facilityData = dataReady ? DataEngine.getFacilityData() : null;
   const { showLayersMenu, showSuggestions } = useUIToggles();
 
+  // ✅ Grouped analysis selector — 1 subscription instead of 4 separate ones
+  const { impactData, demographics, urbanAnalysis, analysisLoading } = useAnalysisState();
+
   // ── Individual setters (stable refs — won't cause re-renders) ──
   const setError = useMapStore((s) => s.setError);
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const setLayers = useMapStore((s) => s.setLayers);
-  const impactData = useMapStore((s) => s.impactData);
-  const demographics = useMapStore((s) => s.demographics);
-  const urbanAnalysis = useMapStore((s) => s.urbanAnalysis);
-  const analysisLoading = useMapStore((s) => s.analysisLoading);
   const setFacilityCheckOpen = useMapStore((s) => s.setFacilityCheckOpen);
   const setShowLayersMenu = useMapStore((s) => s.setShowLayersMenu);
   const setFacilityViewMode = useMapStore((s) => s.setFacilityViewMode);
   const setFloodMode = useMapStore((s) => s.setFloodMode);
+
+  // ── Notification ──
+  const notification = useNotification();
 
   // ── Stable mapRef (set once on mount) ──
   const mapRef = useRef(null);
@@ -154,7 +162,47 @@ export default function MapView() {
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
       <OverlayRoot mapStyle={mapStyle} mapRef={mapRef} />
+
+      {/* ── NOTIFICATION TOAST ── */}
+      {notification && <NotificationToast message={notification} />}
+
+      {/* ── DEBUG PANEL (Phase B) ── */}
+      <DebugPanel />
     </>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// NotificationToast — Auto-dismissing notification
+// ══════════════════════════════════════════════════
+function NotificationToast({ message }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 80,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 10001,
+      background: 'rgba(15, 23, 42, 0.95)',
+      backdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255,255,255,0.15)',
+      borderRadius: 12,
+      padding: '10px 20px',
+      color: '#f1f5f9',
+      fontSize: 13,
+      fontWeight: 500,
+      fontFamily: "'Inter', sans-serif",
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+      animation: 'slideUp 300ms ease-out',
+    }}>
+      {message}
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+      `}</style>
+    </div>
   );
 }
 
@@ -189,6 +237,9 @@ const PanelRoot = memo(function PanelRoot({
           <div style={{ textAlign: 'center' }}>
             <div style={{ marginBottom: 12, fontSize: 32 }}>🗺️</div>
             <div>Loading map data...</div>
+            <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
+              Initializing Urban Reality OS
+            </div>
           </div>
         </div>
       )}
@@ -392,6 +443,9 @@ const PanelRoot = memo(function PanelRoot({
           <div style={{ marginTop: 4, fontSize: 11, opacity: 0.8 }}>
             Left/Right = Rotate<br />Up/Down = Tilt
           </div>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 10, color: '#64748b' }}>
+          Double-click = Smart Zoom
         </div>
       </div>
 

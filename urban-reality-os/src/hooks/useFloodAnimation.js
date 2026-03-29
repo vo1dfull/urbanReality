@@ -1,19 +1,25 @@
 // ================================================
 // useFloodAnimation — Flood depth animation loop
-// ✅ Uses FrameController (ONE global rAF loop)
-// ✅ Auto-pauses via FrameController visibility handling
-// ✅ Threshold guard: skips setData if depth change < 0.05
+// 🔥 PERF: 400ms interval (was 200ms) — 50% fewer map updates
+// 🔥 PERF: Deferred EventBus emit (non-blocking)
+// 🔥 PERF: Skips frames when FrameController reports low FPS
+// 🔥 PERF: Pre-allocated feature state object (no GC)
 // ================================================
 import { useEffect, useRef } from 'react';
 import useMapStore from '../store/useMapStore';
 import MapEngine from '../engines/MapEngine';
 import LayerEngine from '../engines/LayerEngine';
 import FrameController from '../core/FrameController';
+import eventBus, { EVENTS } from '../core/EventBus';
 import {
   BASE_YEAR,
   MAX_YEAR,
   FLOOD_ANIMATION_CONFIG,
 } from '../constants/mapConstants';
+
+// Pre-allocated objects (avoid GC in animation loop)
+const _featureStateTarget = { source: 'flood-depth', id: 'flood-polygon-1' };
+const _featureStateValue = { depth: 0 };
 
 export default function useFloodAnimation() {
   const floodMode = useMapStore((s) => s.floodMode);
@@ -24,6 +30,7 @@ export default function useFloodAnimation() {
   const floodDepthRef = useRef(0);
   const rainfallRef = useRef(0);
   const geometryInitRef = useRef(false);
+  const wasActiveRef = useRef(false);
 
   useEffect(() => {
     const map = MapEngine.getMap();
@@ -32,27 +39,26 @@ export default function useFloodAnimation() {
     const floodPlugin = LayerEngine.getPlugin('flood');
     if (!floodPlugin) return;
 
-    // Remove previous task from global loop
     if (taskIdRef.current !== null) {
       FrameController.remove(taskIdRef.current);
       taskIdRef.current = null;
     }
 
-    // Reset + clear when disabled
     if (!floodMode || !floodDepthEnabled) {
       floodDepthRef.current = FLOOD_ANIMATION_CONFIG.resetDepth;
-      // Clear feature state instead of replacing geometry
       try { map.removeFeatureState({ source: 'flood-depth' }); } catch (_) {}
+      if (wasActiveRef.current) {
+        eventBus.emit(EVENTS.FLOOD_STOPPED, { year, depth: 0 });
+        wasActiveRef.current = false;
+      }
       return;
     }
 
-    // Upload geometry ONCE (idempotent)
     if (!geometryInitRef.current) {
       floodPlugin.initDepthGeometry(map);
       geometryInitRef.current = true;
     }
 
-    // Compute target max depth
     const yearsElapsed = year - BASE_YEAR;
     const timeFactor = yearsElapsed / (MAX_YEAR - BASE_YEAR);
     const rainAmplifier = Math.min(rainfallRef.current / 15, 1);
@@ -63,11 +69,20 @@ export default function useFloodAnimation() {
       floodDepthRef.current = FLOOD_ANIMATION_CONFIG.resetDepth;
     }
 
-    // Register with FrameController — runs at ~5fps (200ms interval)
-    const taskFn = () => {
-      if (!MapEngine.getMap()) return;
+    if (!wasActiveRef.current) {
+      eventBus.emit(EVENTS.FLOOD_STARTED, { year, maxDepth });
+      wasActiveRef.current = true;
+    }
 
-      // Stop when max reached
+    // 🔥 PERF: 400ms interval = ~2.5fps (was 200ms = ~5fps)
+    // setFeatureState is expensive — halving frequency saves significant CPU
+    const taskFn = () => {
+      const currentMap = MapEngine.getMap();
+      if (!currentMap) return;
+
+      // 🔥 Skip if FPS is critically low
+      if (FrameController.getFPS() < 20) return;
+
       if (floodDepthRef.current >= maxDepth) {
         if (taskIdRef.current !== null) {
           FrameController.remove(taskIdRef.current);
@@ -77,23 +92,26 @@ export default function useFloodAnimation() {
       }
 
       const prevDepth = floodDepthRef.current;
+      // 🔥 Larger increment (was depthIncrement) to compensate for lower frequency
       const nextDepth = Math.min(
-        prevDepth + FLOOD_ANIMATION_CONFIG.depthIncrement,
+        prevDepth + FLOOD_ANIMATION_CONFIG.depthIncrement * 2,
         maxDepth
       );
 
-      // Threshold guard
-      if (nextDepth - prevDepth > 0.05) {
+      if (nextDepth - prevDepth > 0.08) {
         floodDepthRef.current = nextDepth;
-        // Lightweight GPU-side update — no geometry re-upload
-        map.setFeatureState(
-          { source: 'flood-depth', id: 'flood-polygon-1' },
-          { depth: floodDepthRef.current }
-        );
+        // Reuse pre-allocated objects
+        _featureStateValue.depth = nextDepth;
+        try {
+          currentMap.setFeatureState(_featureStateTarget, _featureStateValue);
+        } catch (_) {}
+        // 🔥 Deferred emit — doesn't block this frame
+        eventBus.emitDeferred(EVENTS.FLOOD_TICK, nextDepth);
       }
     };
 
-    taskIdRef.current = FrameController.add(taskFn, 200);
+    // Register as normal priority (not critical — visual-only)
+    taskIdRef.current = FrameController.add(taskFn, 400, 'flood-animation', 'normal');
 
     return () => {
       if (taskIdRef.current !== null) {

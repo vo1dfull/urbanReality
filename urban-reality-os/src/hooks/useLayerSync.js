@@ -2,6 +2,7 @@
 // useLayerSync — Syncs Zustand layer toggles to map
 // Also handles style switching with layer recovery
 // ✅ useShallow prevents new-reference re-renders on objects
+// ✅ EventBus emissions on sync complete
 // ================================================
 import { useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
@@ -10,10 +11,13 @@ import MapEngine from '../engines/MapEngine';
 import LayerEngine from '../engines/LayerEngine';
 import FacilityEngine from '../engines/FacilityEngine';
 import DataEngine from '../engines/DataEngine';
+import eventBus, { EVENTS } from '../core/EventBus';
 import { OPENWEATHER_KEY } from '../constants/mapConstants';
+import { createLogger } from '../core/Logger';
+
+const log = createLogger('useLayerSync');
 
 export default function useLayerSync() {
-  // ✅ useShallow: prevents re-render when individual layer values are unchanged
   const layers = useMapStore(useShallow((s) => s.layers));
   const terrainSubLayers = useMapStore(useShallow((s) => s.terrainSubLayers));
   const terrainMode = useMapStore((s) => s.terrainMode);
@@ -45,7 +49,6 @@ export default function useLayerSync() {
     if (suitabilityPlugin) suitabilityPlugin.toggle(map, terrainSubLayers.suitability);
 
     const heatPlugin = LayerEngine.getPlugin('terrainHeat');
-    // For heat, pass year and an empty green zones set (managed by UI)
     if (heatPlugin) heatPlugin.toggle(map, terrainSubLayers.heat, year, new Set());
 
     const greenPlugin = LayerEngine.getPlugin('terrainGreen');
@@ -53,6 +56,8 @@ export default function useLayerSync() {
 
     const roadPlugin = LayerEngine.getPlugin('terrainRoad');
     if (roadPlugin && !terrainSubLayers.road) roadPlugin.clearPath(map);
+
+    eventBus.emit(EVENTS.LAYERS_SYNCED, { layers, terrainSubLayers });
 
   }, [layers, terrainSubLayers, terrainMode, year, loading]);
 
@@ -62,7 +67,6 @@ export default function useLayerSync() {
     const map = MapEngine.getMap();
     if (!map) return;
 
-    // Skip initial
     if (isInitialLoad.current) {
       styleRef.current = mapStyle;
       isInitialLoad.current = false;
@@ -72,16 +76,19 @@ export default function useLayerSync() {
     if (styleRef.current === mapStyle) return;
     styleRef.current = mapStyle;
 
+    eventBus.emit(EVENTS.MAP_STYLE_CHANGE, { style: mapStyle });
+
     MapEngine.switchStyle(mapStyle, (recoveredMap) => {
-      // Recover all layers after style change
       const state = useMapStore.getState();
       LayerEngine.recoverAllLayers(recoveredMap, state);
 
-      // Re-init facility coverage canvas
-      if (state.facilityData) {
+      if (state.facilityData || DataEngine.getFacilityData()) {
         FacilityEngine.destroy(recoveredMap);
         FacilityEngine.initCoverageCanvas(recoveredMap);
       }
+
+      eventBus.emit(EVENTS.MAP_STYLE_RECOVERED, { style: mapStyle });
+      log.info(`Style recovered: ${mapStyle}`);
     });
   }, [mapStyle, loading]);
 
@@ -101,23 +108,27 @@ export default function useLayerSync() {
     const refreshAQIData = async () => {
       const map = MapEngine.getMap();
       if (!map) return;
-      const aqiData = await DataEngine.fetchAllCitiesAQI();
-      if (aqiData && aqiData.features?.length > 0) {
-        const plugin = LayerEngine.getPlugin('aqi');
-        if (plugin) plugin.update(map, { aqiGeo: aqiData });
+      try {
+        const aqiData = await DataEngine.fetchAllCitiesAQI();
+        if (aqiData && aqiData.features?.length > 0) {
+          const plugin = LayerEngine.getPlugin('aqi');
+          if (plugin) plugin.update(map, { aqiGeo: aqiData });
 
-        const nextDigest = computeAqiDigest(aqiData);
-        if (nextDigest !== aqiDigestRef.current) {
-          DataEngine.setAqiGeo(aqiData);
-          aqiDigestRef.current = nextDigest;
+          const nextDigest = computeAqiDigest(aqiData);
+          if (nextDigest !== aqiDigestRef.current) {
+            DataEngine.setAqiGeo(aqiData);
+            aqiDigestRef.current = nextDigest;
+          }
         }
+      } catch (err) {
+        log.warn('AQI refresh failed:', err);
       }
     };
 
     refreshAQIData();
     aqiRefreshIntervalRef.current = setInterval(() => {
       if (!document.hidden) refreshAQIData();
-    }, 300000); // 5 minutes — skips refresh when tab hidden
+    }, 300000);
 
     return () => {
       if (aqiRefreshIntervalRef.current) {
@@ -147,7 +158,6 @@ export default function useLayerSync() {
       FacilityEngine.attachListeners(map, renderFn);
     } else {
       FacilityEngine.detachListeners(map);
-      // Clear canvas when no facilities active
       FacilityEngine.renderCoverage(map, facilityData, layers, 'coverage');
     }
 

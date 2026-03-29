@@ -9,10 +9,23 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_123';
 
+function validateAuthInput(email, password) {
+    if (!email || typeof email !== 'string' || email.length < 6 || !email.includes('@')) {
+        return 'Please provide a valid email address.';
+    }
+    if (!password || typeof password !== 'string' || password.length < 8) {
+        return 'Password must be at least 8 characters long.';
+    }
+    return null;
+}
+
 // Signup
 router.post('/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
+        const validationError = validateAuthInput(email, password);
+        if (validationError) return res.status(400).json({ msg: validationError });
+
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ msg: 'User already exists' });
 
@@ -33,10 +46,15 @@ router.post('/signup', async (req, res) => {
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+        const validationError = validateAuthInput(email, password);
+        if (validationError) return res.status(400).json({ msg: validationError });
+
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
 
-        if (!user.password) return res.status(400).json({ msg: 'Please log in with Google' });
+        if (!user.password) {
+            return res.status(400).json({ msg: 'This account uses Google login. Please log in with Google or set a password.' });
+        }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
@@ -74,7 +92,7 @@ router.post('/google', async (req, res) => {
         res.json({ token: jwtToken, user: { id: user._id, name: user.name, email: user.email, picture: user.picture } });
     } catch (err) {
         console.error('Google Auth Error:', err);
-        res.status(500).json({ msg: 'Google auth failed' });
+        res.status(500).json({ msg: 'Google authentication failed. Please try again.' });
     }
 });
 

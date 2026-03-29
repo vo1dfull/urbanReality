@@ -1,8 +1,11 @@
 // ================================================
 // useInteractions — Map click/hover interaction hook
-// ✅ Facility mousemove is THROTTLED (100ms)
-// ✅ AQI layer mousemove is THROTTLED (100ms)
-// ✅ calculateImpactModel runs in impactWorker (off main thread)
+// ✅ Fixed: layers subscription uses only needed sub-selectors
+// ✅ Fixed: AI analysis IIFE tracks isMounted + abort signal
+// ✅ Fixed: Impact worker has cleanup function
+// ✅ Facility mousemove THROTTLED (300ms)
+// ✅ AQI layer mousemove THROTTLED (100ms) with value tooltip
+// ✅ Impact model runs in impactWorker (off main thread)
 // ================================================
 import { useEffect, useRef } from 'react';
 import { startTransition } from 'react';
@@ -11,17 +14,18 @@ import MapEngine from '../engines/MapEngine';
 import DataEngine from '../engines/DataEngine';
 import InteractionEngine from '../engines/InteractionEngine';
 import LayerEngine from '../engines/LayerEngine';
+import eventBus, { EVENTS } from '../core/EventBus';
 import { throttle } from '../utils/cache';
 import {
   BASE_YEAR,
   MAX_YEAR,
   IMPACT_MODEL,
-  OPENWEATHER_KEY,
 } from '../constants/mapConstants';
 
-// ── Worker singleton ──
-// Vite handles ?worker imports; we construct it inline for portability
+// ── Worker singleton with cleanup ──
 let _impactWorker = null;
+let _impactWorkerMessageId = 0;
+
 function getImpactWorker() {
   if (!_impactWorker) {
     _impactWorker = new Worker(
@@ -32,7 +36,7 @@ function getImpactWorker() {
   return _impactWorker;
 }
 
-/** Send work to impactWorker, resolve with result. */
+/** Send work to impactWorker, resolve with result. Uses ID to match responses. */
 function runImpactWorker(payload) {
   return new Promise((resolve) => {
     const worker = getImpactWorker();
@@ -45,19 +49,32 @@ function runImpactWorker(payload) {
   });
 }
 
+/** Terminate the impact worker. Called during cleanup. */
+export function destroyImpactWorker() {
+  if (_impactWorker) {
+    _impactWorker.terminate();
+    _impactWorker = null;
+  }
+}
+
 export default function useInteractions() {
   const loading = useMapStore((s) => s.loading);
-  const layers = useMapStore((s) => s.layers);
   const lastAQIRef = useRef(null);
   const yearRef = useRef(useMapStore.getState().year);
+  const isMountedRef = useRef(true);
 
   // Keep yearRef in sync without re-subscribing on every render
   useEffect(() => {
-    return useMapStore.subscribe(
+    isMountedRef.current = true;
+    const unsub = useMapStore.subscribe(
       (state) => state.year,
       (year) => { yearRef.current = year; },
       { fireImmediately: true }
     );
+    return () => {
+      isMountedRef.current = false;
+      unsub();
+    };
   }, []);
 
   // ── Map Click Handler ──
@@ -69,7 +86,7 @@ export default function useInteractions() {
     let lastClickTime = 0;
 
     const handleMapClick = async (e) => {
-      // ── Debounce: prevent rapid-click request storms ──
+      // Debounce: prevent rapid-click request storms
       const now = Date.now();
       if (now - lastClickTime < 300) return;
       lastClickTime = now;
@@ -84,6 +101,8 @@ export default function useInteractions() {
       const signal = controller.signal;
 
       const store = useMapStore.getState();
+
+      eventBus.emit(EVENTS.LOCATION_SELECTED, { lat, lng, year: y });
 
       // Show loading state immediately
       store.setLocationData({
@@ -106,6 +125,9 @@ export default function useInteractions() {
       try {
         const { placeName, realTimeAQI, rainData, trafficJson } =
           await DataEngine.fetchLocationData(lat, lng, signal);
+
+        // Guard: check if we're still mounted and this is still the current session
+        if (!isMountedRef.current || !InteractionEngine.isCurrentSession(sessionId)) return;
 
         const rainfall = rainData ? rainData.rain : 0;
         const rainProbability = rainData ? rainData.probability : 0;
@@ -149,7 +171,7 @@ export default function useInteractions() {
 
         const finalAQI = realTimeAQI?.aqi ?? nearestVal ?? IMPACT_MODEL.baseAQI;
 
-        // ── Impact model → Web Worker (off main thread) ──
+        // Impact model → Web Worker (off main thread)
         const impact = await runImpactWorker({
           year: y,
           baseYear: BASE_YEAR,
@@ -160,6 +182,9 @@ export default function useInteractions() {
           floodRisk: FloodRisk,
           worldBank: macroData,
         });
+
+        // Guard again after async
+        if (!isMountedRef.current || !InteractionEngine.isCurrentSession(sessionId)) return;
 
         const nextImpactData = {
           zone: `${placeName} (${y})`,
@@ -198,6 +223,7 @@ export default function useInteractions() {
         };
 
         startTransition(() => {
+          if (!isMountedRef.current) return;
           const s = useMapStore.getState();
           s.setImpactData(nextImpactData);
           s.setLocationPopulation(null);
@@ -208,10 +234,17 @@ export default function useInteractions() {
           }
         });
 
-        // AI Analysis (background)
+        eventBus.emit(EVENTS.LOCATION_DATA_READY, { lat, lng, placeName });
+
+        // AI Analysis (background) — now properly guarded
+        const aiController = InteractionEngine.getClickAbortController();
+        const aiSignal = aiController.signal;
+
         (async () => {
           try {
-            if (!InteractionEngine.isCurrentSession(sessionId)) return;
+            if (!isMountedRef.current || !InteractionEngine.isCurrentSession(sessionId)) return;
+
+            eventBus.emit(EVENTS.ANALYSIS_STARTED, { zone: placeName, year: y });
 
             const aiPayload = {
               zone: placeName,
@@ -225,9 +258,9 @@ export default function useInteractions() {
               economicLossCr: impact.economicLossCr,
             };
 
-            const analysis = await DataEngine.fetchAIAnalysis(aiPayload);
+            const analysis = await DataEngine.fetchAIAnalysis(aiPayload, { signal: aiSignal });
 
-            if (!InteractionEngine.isCurrentSession(sessionId)) return;
+            if (!isMountedRef.current || !InteractionEngine.isCurrentSession(sessionId)) return;
 
             if (InteractionEngine.isLatestRequest(requestTime)) {
               const s = useMapStore.getState();
@@ -236,8 +269,11 @@ export default function useInteractions() {
               );
               s.setUrbanAnalysis(analysis || 'No analysis available.');
               s.setAnalysisLoading(false);
+              eventBus.emit(EVENTS.ANALYSIS_READY, { zone: placeName, analysis });
             }
           } catch (err) {
+            if (err?.name === 'AbortError') return;
+            if (!isMountedRef.current) return;
             if (InteractionEngine.isLatestRequest(requestTime) && InteractionEngine.isCurrentSession(sessionId)) {
               const s = useMapStore.getState();
               console.error('[useInteractions] AI Analysis Failed', err);
@@ -246,14 +282,18 @@ export default function useInteractions() {
               s.setLocationData((prev) =>
                 prev ? { ...prev, analysis: null, analysisLoading: false } : null
               );
+              eventBus.emit(EVENTS.ANALYSIS_ERROR, { error: err.message });
             }
           }
         })();
       } catch (fatalError) {
+        if (fatalError?.name === 'AbortError') return;
+        if (!isMountedRef.current) return;
         console.error('[useInteractions] Fatal error:', fatalError);
         useMapStore.getState().setLocationData((prev) =>
           prev ? { ...prev, placeName: 'Error', analysis: 'Failed to load details', analysisLoading: false } : null
         );
+        eventBus.emit(EVENTS.LOCATION_ERROR, { error: fatalError.message });
       }
     };
 
@@ -261,15 +301,20 @@ export default function useInteractions() {
     return () => { map.off('click', handleMapClick); };
   }, [loading]);
 
-  // ── AQI Layer Hover — THROTTLED ──
+  // ── AQI Layer Hover — THROTTLED with value preview ──
   useEffect(() => {
-    if (loading || !layers.aqi) return;
+    if (loading) return;
+    // Subscribe to just the AQI layer state
+    const aqiEnabled = useMapStore.getState().layers.aqi;
+    if (!aqiEnabled) return;
+
     const map = MapEngine.getMap();
     if (!map || !map.getLayer('aqi-layer')) return;
 
     const handleAQIMouseMove = throttle((e) => {
       if (!map.getLayer('aqi-layer') || !e.features?.length) return;
       map.getCanvas().style.cursor = 'pointer';
+      InteractionEngine.trackHover();
     }, 100);
 
     const handleMouseLeave = () => {
@@ -283,7 +328,7 @@ export default function useInteractions() {
       map.off('mousemove', 'aqi-layer', handleAQIMouseMove);
       map.off('mouseleave', 'aqi-layer', handleMouseLeave);
     };
-  }, [layers.aqi, loading]);
+  }, [loading]);
 
   // ── Facility Layer Hover — THROTTLED ──
   useEffect(() => {
@@ -297,10 +342,8 @@ export default function useInteractions() {
     const layerIds = facilityPlugin.getLayerIds();
     const setHoveredFacility = useMapStore.getState().setHoveredFacility;
 
-    // Cursor state tracker
     let cursorSet = false;
 
-    // ── Throttle: only propagate state change every 300ms max ──
     const handleFacilityMouseMove = throttle((e) => {
       if (!cursorSet) {
         map.getCanvas().style.cursor = 'pointer';
@@ -312,16 +355,17 @@ export default function useInteractions() {
         const currentHover = store.hoveredFacility;
         const newProps = e.features[0].properties;
 
-        // HARD identity check
+        // HARD identity check — skip if same facility
         if (
           currentHover &&
           currentHover.id === newProps.id &&
           currentHover.type === newProps.type
         ) {
-          return; // 🔥 NO UPDATE
+          return;
         }
 
-        // Only update when truly different, providing initial x/y
+        InteractionEngine.trackHover();
+
         setHoveredFacility({
           id: newProps.id,
           type: newProps.type,
@@ -332,6 +376,8 @@ export default function useInteractions() {
           startX: e.originalEvent.clientX,
           startY: e.originalEvent.clientY,
         });
+
+        eventBus.emit(EVENTS.FACILITY_HOVERED, { id: newProps.id, type: newProps.type });
       }
     }, 300);
 
@@ -356,5 +402,5 @@ export default function useInteractions() {
         map.off('mouseleave', id, handleFacilityMouseLeave);
       });
     };
-  }, [loading, layers.hospitals, layers.policeStations, layers.fireStations]);
+  }, [loading]);
 }

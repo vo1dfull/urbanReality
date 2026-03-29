@@ -1,19 +1,24 @@
 // ================================================
 // Urban Reality OS — Zustand Store
 // Centralized state management for the map system
+// ✅ Batch setter for multiple state updates in one render
+// ✅ debugMode flag for dev tools
+// ✅ fpsTarget for adaptive quality
+// NOTE: MapLibre instances should not be stored in Zustand.
 // ================================================
 import { create } from 'zustand';
 import { INITIAL_YEAR, MAP_CONFIG } from '../constants/mapConstants';
 
+const applyUpdater = (updater, current) =>
+  typeof updater === 'function' ? updater(current) : updater;
+
 const useMapStore = create((set, get) => ({
   // ── Map Slice ──
-  mapInstance: null,
   mapReady: false,
   loading: true,
   error: null,
   mapStyle: 'default',
 
-  setMapInstance: (map) => set({ mapInstance: map }),
   setMapReady: (ready) => set({ mapReady: ready }),
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
@@ -33,7 +38,7 @@ const useMapStore = create((set, get) => ({
 
   setLayers: (updater) =>
     set((state) => ({
-      layers: typeof updater === 'function' ? updater(state.layers) : updater,
+      layers: applyUpdater(updater, state.layers),
     })),
   toggleLayer: (key) =>
     set((state) => ({
@@ -52,8 +57,7 @@ const useMapStore = create((set, get) => ({
   setActiveLocation: (loc) => set({ activeLocation: loc }),
   setLocationData: (data) =>
     set((state) => ({
-      locationData:
-        typeof data === 'function' ? data(state.locationData) : data,
+      locationData: applyUpdater(data, state.locationData),
     })),
   setUiMode: (mode) => set({ uiMode: mode }),
   setImpactData: (data) => set({ impactData: data }),
@@ -77,13 +81,11 @@ const useMapStore = create((set, get) => ({
 
   setFacilityCheckOpen: (open) =>
     set((state) => ({
-      facilityCheckOpen:
-        typeof open === 'function' ? open(state.facilityCheckOpen) : open,
+      facilityCheckOpen: applyUpdater(open, state.facilityCheckOpen),
     })),
   setShowLayersMenu: (show) =>
     set((state) => ({
-      showLayersMenu:
-        typeof show === 'function' ? show(state.showLayersMenu) : show,
+      showLayersMenu: applyUpdater(show, state.showLayersMenu),
     })),
   setShowSuggestions: (show) => set({ showSuggestions: show }),
   setFacilityViewMode: (mode) => set({ facilityViewMode: mode }),
@@ -113,7 +115,7 @@ const useMapStore = create((set, get) => ({
     green: false,
     road: false,
   },
-  terrainMode: 'elevation', // 'elevation' or 'slope'
+  terrainMode: 'elevation',
   terrainHoveredPoint: null,
   
   setTerrainSubLayers: (updater) =>
@@ -142,9 +144,24 @@ const useMapStore = create((set, get) => ({
   },
   setSimulationState: (updater) =>
     set((state) => ({
-      simulationState:
-        typeof updater === 'function' ? updater(state.simulationState) : updater,
+      simulationState: applyUpdater(updater, state.simulationState),
     })),
+
+  // ── Debug Slice ──
+  debugMode: false,
+  setDebugMode: (mode) => set({ debugMode: mode }),
+
+  // ── Adaptive Quality ──
+  qualityLevel: 'high', // 'low' | 'medium' | 'high' | 'ultra'
+  setQualityLevel: (level) => set({ qualityLevel: level }),
+
+  // ── Notification (replaces alert()) ──
+  notification: null,
+  setNotification: (msg) => set({ notification: msg }),
+  clearNotification: () => set({ notification: null }),
+
+  // ── Batch setter: update multiple keys in a single render ──
+  batchSet: (updates) => set(updates),
 }));
 
 export default useMapStore;
