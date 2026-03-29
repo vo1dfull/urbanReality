@@ -45,6 +45,7 @@ class MapEngine {
       antialias: false,
       fadeDuration: 0,
       maxTileCacheSize: 50,
+      renderWorldCopies: false,
       trackResize: true,
       preserveDrawingBuffer: false,
     });

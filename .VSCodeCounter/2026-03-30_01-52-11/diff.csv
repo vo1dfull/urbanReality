@@ -1,0 +1,8 @@
+"filename", "language", "JavaScript", "JavaScript JSX", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, -3, -1, 0, -4
+"f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js", "JavaScript", -32, 0, -1, -1, -34
+"f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js", "JavaScript", -4, 0, 0, 0, -4
+"f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js", "JavaScript", -75, 0, -16, -7, -98
+"f:\urbanReality\urban-reality-os\src\layers\BuildingsLayerPlugin.js", "JavaScript", 291, 0, -6, 38, 323
+"f:\urbanReality\urban-reality-os\src\workers\buildingSubmersionWorker.js", "JavaScript", 126, 0, 0, 20, 146
+"Total", "-", 306, -3, -24, 50, 329

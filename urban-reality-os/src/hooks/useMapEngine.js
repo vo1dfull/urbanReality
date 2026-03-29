@@ -45,15 +45,28 @@ export default function useMapEngine() {
     map.once('load', () => {
       if (!isMounted) return;
 
-      // Terrain can be added immediately — tiles load async
-      MapEngine.addTerrain();
+      const scheduleIdleTask = (task) => {
+        if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+          requestIdleCallback(task, { timeout: 600 });
+        } else {
+          setTimeout(task, 400);
+        }
+      };
 
-      // Mark map as ready — removes loading overlay
+      scheduleIdleTask(() => {
+        if (!isMounted) return;
+        MapEngine.addTerrain();
+      });
+
+      // Mark map ready immediately — show UI and let tiles continue loading quietly
       setMapReady(true);
       setLoading(false);
 
-      // ── PHASE 2: Load data in background (non-blocking) ──
-      loadBackgroundData(isMounted);
+      // Defer secondary data loads until the browser is idle
+      scheduleIdleTask(() => {
+        if (!isMounted) return;
+        loadBackgroundData(isMounted);
+      });
     });
 
     // Handle map load errors
