@@ -19,6 +19,7 @@ import { useDebugMode } from '../store/selectors';
 
 const DebugPanel = memo(function DebugPanel() {
   const debugMode = useDebugMode();
+  const qualityLevel = useMapStore(s => s.qualityLevel);
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -87,7 +88,7 @@ const DebugPanel = memo(function DebugPanel() {
       {/* FPS */}
       <Section title="Performance">
         <Row label="FPS" value={<span style={{ color: fpsColor, fontWeight: 700 }}>{fps}</span>} />
-        <Row label="Quality" value={useMapStore.getState().qualityLevel} />
+        <Row label="Quality" value={qualityLevel} />
         {stats.memory && (
           <Row label="Memory" value={`${stats.memory.usedJS}/${stats.memory.totalJS} MB`} />
         )}

@@ -104,7 +104,7 @@ export default function useYearProjection() {
         taskIdRef.current = null;
       }
     };
-  }, [year, activeLocation]);
+  }, [year, activeLocation?.sessionId]);
 }
 
 // Export for testing

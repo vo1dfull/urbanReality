@@ -115,13 +115,32 @@ export default function useMapEngine() {
         log.info('All data loaded');
 
         // ── Adaptive quality: subscribe to FPS updates ──
-        FrameController.onFPS(({ fps, isLow }) => {
+        let lowFPSCount = 0;
+        let highFPSCount = 0;
+
+        FrameController.onFPS(({ fps }) => {
           if (!isMounted) return;
           const currentQuality = useMapStore.getState().qualityLevel;
-          if (isLow && currentQuality !== 'low') {
-            log.warn(`Low FPS detected (${fps}), reducing quality`);
-            useMapStore.getState().setQualityLevel('medium');
-            MapEngine.applyQuality('medium');
+          const targetQuality = FrameController.getQualityHint();
+
+          if (targetQuality !== currentQuality) {
+            // Priority: Downgrade faster than upgrade
+            if (fps < 40) lowFPSCount++;
+            else lowFPSCount = 0;
+
+            if (fps > 55) highFPSCount++;
+            else highFPSCount = 0;
+
+            if (lowFPSCount >= 3 || highFPSCount >= 10) {
+              log.info(`Adaptive Quality: Switching from ${currentQuality} to ${targetQuality} (FPS: ${fps})`);
+              useMapStore.getState().setQualityLevel(targetQuality);
+              MapEngine.applyQuality(targetQuality);
+              lowFPSCount = 0;
+              highFPSCount = 0;
+            }
+          } else {
+            lowFPSCount = 0;
+            highFPSCount = 0;
           }
         });
 

@@ -3,6 +3,11 @@ import ReactDOM from "react-dom/client";
 import { AuthProvider } from "./context/AuthContext";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
+import { addResourceHints } from "./utils/performance";
+
+// Inject DNS prefetch and preconnect tags early
+addResourceHints();
+
 // Lazy load heavy MapView component
 const MapView = lazy(() => import("./components/MapView"));
 
@@ -41,14 +46,22 @@ const AppWrapper = ({ children }) => {
   return children;
 };
 
+const appTree = (
+  <AppWrapper>
+    <AuthProvider>
+      <Suspense fallback={<LoadingFallback />}>
+        <MapView />
+      </Suspense>
+    </AuthProvider>
+  </AppWrapper>
+);
+
 root.render(
-  <React.StrictMode>
-    <AppWrapper>
-      <AuthProvider>
-        <Suspense fallback={<LoadingFallback />}>
-          <MapView />
-        </Suspense>
-      </AuthProvider>
-    </AppWrapper>
-  </React.StrictMode>
+  import.meta.env.DEV ? (
+    <React.StrictMode>
+      {appTree}
+    </React.StrictMode>
+  ) : (
+    appTree
+  )
 );

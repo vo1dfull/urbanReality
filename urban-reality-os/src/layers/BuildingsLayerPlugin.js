@@ -1,31 +1,49 @@
 // ================================================
 // Buildings Layer Plugin — 3D extruded buildings
+// 🔥 PERF: FrameController pulse (was setInterval 120ms)
+// 🔥 PERF: Zero-allocation BBox/centroid (no temp arrays)
+// 🔥 PERF: 500ms throttle gate on updateSubmersionState
+// 🔥 PERF: 200-building cap per worker update
+// 🔥 PERF: Pre-allocated buildings array (no GC per frame)
+// 🔥 PERF: Zoom guard — skip when buildings not visible
 // ================================================
 import BaseLayerPlugin from './BaseLayerPlugin';
 import { simulationEngine } from '../engines/SimulationEngine';
 import DataEngine from '../engines/DataEngine';
 import eventBus from '../core/EventBus';
+import FrameController from '../core/FrameController';
 import { createLogger } from '../core/Logger';
 
 const log = createLogger('BuildingsLayerPlugin');
-const WINDOW_PULSE_MS = 120;
 const TERRAIN_EXAGGERATION = 1.4;
-const CRITICAL_TYPES = ['hospital', 'school', 'police'];
+
+/** @type {number} Minimum ms between submersion updates */
+const UPDATE_THROTTLE_MS = 500;
+
+/** @type {number} Maximum buildings per worker update */
+const MAX_BUILDINGS_PER_UPDATE = 200;
+
+/** @type {number} Minimum zoom to process buildings */
+const MIN_ZOOM = 14;
 
 export default class BuildingsLayerPlugin extends BaseLayerPlugin {
   constructor() {
     super('buildings');
     this._worker = null;
     this._simulationUnsub = null;
-    this._pulseInterval = null;
+    this._pulseTaskId = null;
     this._pulsePhase = 0;
     this._criticalFeatureIds = new Set();
     this._pendingUpdate = false;
     this._requestId = 0;
     this._lastHandledRequestId = 0;
+    this._lastUpdateTime = 0;
     this._map = null;
     this._boundMoveEnd = null;
     this._facilityData = null;
+
+    // Pre-allocated reusable array — avoids GC per update
+    this._buildingsBuffer = [];
   }
 
   init(map) {
@@ -41,7 +59,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
       source: 'openmaptiles',
       'source-layer': 'building',
       type: 'fill-extrusion',
-      minzoom: 14,
+      minzoom: MIN_ZOOM,
       paint: {
         'fill-extrusion-color': [
           'case',
@@ -78,7 +96,6 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     this.initialized = true;
     this._ensureWorker();
     this._startSimulationSubscription(map);
-    this._startPulseAnimation();
   }
 
   onAdd(map, data) {
@@ -99,23 +116,36 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
 
   updateSubmersionState(map, simulationState) {
     if (!map || !this._worker || !simulationState) return;
+
+    // 🔥 Zoom guard — skip when buildings aren't visible
+    const currentZoom = map.getZoom();
+    if (currentZoom < MIN_ZOOM) return;
+
+    // 🔥 Throttle gate — max one update per UPDATE_THROTTLE_MS
+    const now = performance.now();
+    if (now - this._lastUpdateTime < UPDATE_THROTTLE_MS) return;
+    this._lastUpdateTime = now;
+
     const sourceLayer = 'building';
     let features = map.queryRenderedFeatures({ layers: ['3d-buildings'] });
-    const layer = map.getLayer('3d-buildings');
-    const currentZoom = map.getZoom();
-    const layerVisibility = layer ? map.getLayoutProperty('3d-buildings', 'visibility') : 'none';
 
     if (!features || features.length === 0) {
-      if (currentZoom < 14 || layerVisibility === 'none') {
-        return;
-      }
+      const layer = map.getLayer('3d-buildings');
+      const layerVisibility = layer ? map.getLayoutProperty('3d-buildings', 'visibility') : 'none';
+      if (layerVisibility === 'none') return;
       features = map.querySourceFeatures('openmaptiles', { sourceLayer });
     }
 
     if (!features || features.length === 0) return;
 
-    const buildings = [];
-    for (let i = 0; i < features.length; i += 1) {
+    // 🔥 Cap features to MAX_BUILDINGS_PER_UPDATE
+    const featureCount = Math.min(features.length, MAX_BUILDINGS_PER_UPDATE);
+
+    // 🔥 Reuse pre-allocated array
+    const buildings = this._buildingsBuffer;
+    buildings.length = 0;
+
+    for (let i = 0; i < featureCount; i++) {
       const feature = features[i];
       if (!feature || !feature.properties) continue;
 
@@ -126,10 +156,13 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
       const height = this._getNumeric(props.render_height ?? props.height ?? props['height:float'] ?? 0);
       const base = this._getNumeric(props.render_min_height ?? props.min_height ?? 0);
       const geometry = feature.geometry;
-      const bbox = this._geometryBBox(geometry);
+
+      // 🔥 Zero-allocation BBox — inline without temp array
+      const bbox = this._geometryBBoxInline(geometry);
       if (!bbox) continue;
 
-      const centroid = this._geometryCentroid(geometry, bbox);
+      // 🔥 Zero-allocation centroid — inline without temp array
+      const centroid = this._geometryCentroidInline(geometry, bbox);
       const capacity = this._computeCapacity(props, height, bbox);
       const footprintArea = this._estimateFootprintArea(bbox);
 
@@ -177,7 +210,9 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     if (!map || !Array.isArray(data.updates)) return;
 
     const criticalFeatureIds = new Set();
-    for (const update of data.updates) {
+    const updates = data.updates;
+    for (let i = 0; i < updates.length; i++) {
+      const update = updates[i];
       const state = {
         isSubmerged: update.isSubmerged,
         submersionRatio: update.submersionRatio,
@@ -236,28 +271,32 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     });
   }
 
+  // 🔥 PERF: FrameController idle task at ~4fps (250ms) instead of setInterval(120ms)
+  // Auto-throttled by FrameController when FPS is low
   _startPulseAnimation() {
-    if (this._pulseInterval) return;
-    this._pulseInterval = setInterval(() => {
+    if (this._pulseTaskId !== null) return;
+    this._pulseTaskId = FrameController.add(() => {
       this._pulsePhase = (this._pulsePhase + 0.08) % 1;
       if (!this._map || this._criticalFeatureIds.size === 0) return;
+
+      // 🔥 Batch: single pulsePhase for all critical buildings
+      const target = { source: 'openmaptiles', sourceLayer: 'building', id: null };
+      const value = { pulsePhase: this._pulsePhase };
       for (const id of this._criticalFeatureIds) {
+        target.id = id;
         try {
-          this._map.setFeatureState(
-            { source: 'openmaptiles', sourceLayer: 'building', id },
-            { pulsePhase: this._pulsePhase }
-          );
+          this._map.setFeatureState(target, value);
         } catch (err) {
           // ignore missing IDs
         }
       }
-    }, WINDOW_PULSE_MS);
+    }, 250, 'building-pulse', 'idle');
   }
 
   _stopPulseAnimation() {
-    if (this._pulseInterval) {
-      clearInterval(this._pulseInterval);
-      this._pulseInterval = null;
+    if (this._pulseTaskId !== null) {
+      FrameController.remove(this._pulseTaskId);
+      this._pulseTaskId = null;
     }
   }
 
@@ -272,9 +311,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
       this._boundMoveEnd = null;
     }
 
-    if (this._pulseInterval) {
-      this._stopPulseAnimation();
-    }
+    this._stopPulseAnimation();
 
     if (this._worker) {
       this._worker.terminate();
@@ -282,6 +319,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     }
 
     this._criticalFeatureIds.clear();
+    this._buildingsBuffer.length = 0;
     this._map = null;
     super.destroy(map);
   }
@@ -311,49 +349,79 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     return Math.max(20, latMeters * lngMeters);
   }
 
-  _geometryBBox(geometry) {
+  /**
+   * 🔥 Zero-allocation BBox — iterates coordinates inline without temp arrays.
+   * No .push(), no .forEach(), no intermediate arrays.
+   */
+  _geometryBBoxInline(geometry) {
     if (!geometry || !geometry.coordinates) return null;
-    const points = [];
+    const coords = geometry.coordinates;
+    const type = geometry.type;
 
-    if (geometry.type === 'Polygon') {
-      geometry.coordinates.forEach((ring) => ring.forEach((coord) => points.push(coord)));
-    } else if (geometry.type === 'MultiPolygon') {
-      geometry.coordinates.forEach((polygon) => polygon.forEach((ring) => ring.forEach((coord) => points.push(coord))));
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hasPoints = false;
+
+    if (type === 'Polygon') {
+      for (let r = 0; r < coords.length; r++) {
+        const ring = coords[r];
+        for (let c = 0; c < ring.length; c++) {
+          const lng = ring[c][0], lat = ring[c][1];
+          if (lng < minX) minX = lng;
+          if (lat < minY) minY = lat;
+          if (lng > maxX) maxX = lng;
+          if (lat > maxY) maxY = lat;
+          hasPoints = true;
+        }
+      }
+    } else if (type === 'MultiPolygon') {
+      for (let p = 0; p < coords.length; p++) {
+        const polygon = coords[p];
+        for (let r = 0; r < polygon.length; r++) {
+          const ring = polygon[r];
+          for (let c = 0; c < ring.length; c++) {
+            const lng = ring[c][0], lat = ring[c][1];
+            if (lng < minX) minX = lng;
+            if (lat < minY) minY = lat;
+            if (lng > maxX) maxX = lng;
+            if (lat > maxY) maxY = lat;
+            hasPoints = true;
+          }
+        }
+      }
     }
 
-    if (points.length === 0) return null;
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const [lng, lat] of points) {
-      minX = Math.min(minX, lng);
-      minY = Math.min(minY, lat);
-      maxX = Math.max(maxX, lng);
-      maxY = Math.max(maxY, lat);
-    }
-
-    return { minX, minY, maxX, maxY };
+    return hasPoints ? { minX, minY, maxX, maxY } : null;
   }
 
-  _geometryCentroid(geometry, bbox) {
-    if (geometry && geometry.type && geometry.coordinates) {
-      const points = [];
-      if (geometry.type === 'Polygon') {
-        geometry.coordinates[0].forEach((coord) => points.push(coord));
-      } else if (geometry.type === 'MultiPolygon') {
-        geometry.coordinates[0][0].forEach((coord) => points.push(coord));
+  /**
+   * 🔥 Zero-allocation centroid — computed via running sum, no temp arrays.
+   */
+  _geometryCentroidInline(geometry, bbox) {
+    if (!geometry || !geometry.type || !geometry.coordinates) {
+      return bbox ? { lng: (bbox.minX + bbox.maxX) / 2, lat: (bbox.minY + bbox.maxY) / 2 } : { lng: 0, lat: 0 };
+    }
+
+    let sumLng = 0, sumLat = 0, count = 0;
+    const coords = geometry.coordinates;
+
+    if (geometry.type === 'Polygon' && coords[0]) {
+      const ring = coords[0];
+      for (let i = 0; i < ring.length; i++) {
+        sumLng += ring[i][0];
+        sumLat += ring[i][1];
+        count++;
       }
-      if (points.length > 0) {
-        const avg = points.reduce((acc, [lng, lat]) => {
-          acc.lng += lng;
-          acc.lat += lat;
-          return acc;
-        }, { lng: 0, lat: 0 });
-        return { lng: avg.lng / points.length, lat: avg.lat / points.length };
+    } else if (geometry.type === 'MultiPolygon' && coords[0] && coords[0][0]) {
+      const ring = coords[0][0];
+      for (let i = 0; i < ring.length; i++) {
+        sumLng += ring[i][0];
+        sumLat += ring[i][1];
+        count++;
       }
+    }
+
+    if (count > 0) {
+      return { lng: sumLng / count, lat: sumLat / count };
     }
     return bbox ? { lng: (bbox.minX + bbox.maxX) / 2, lat: (bbox.minY + bbox.maxY) / 2 } : { lng: 0, lat: 0 };
   }
@@ -371,7 +439,8 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     const facilities = [];
     const addFacilities = (items, type) => {
       if (!Array.isArray(items)) return;
-      for (const item of items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
         if (item && typeof item.lat === 'number' && typeof item.lng === 'number') {
           facilities.push({ ...item, type });
         }

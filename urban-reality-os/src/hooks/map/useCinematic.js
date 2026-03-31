@@ -14,12 +14,10 @@ export function useCinematic() {
     const [isCinematic, setIsCinematic] = useState(false);
     const timeoutIdsRef = useRef([]);
 
+    // 🔥 PERF: Listener setup runs ONCE — no churn on state change
     useEffect(() => {
         const handleCinematic = (e) => setIsCinematic(!!e.detail.active);
         window.addEventListener("cinematic-mode", handleCinematic);
-
-        // Sync DOM class to React state (Safe Mutation)
-        document.body.classList.toggle("cinematic", isCinematic);
 
         return () => {
             window.removeEventListener("cinematic-mode", handleCinematic);
@@ -28,6 +26,11 @@ export function useCinematic() {
             timeoutIdsRef.current.forEach(clearTimeout);
             timeoutIdsRef.current = [];
         };
+    }, []);
+
+    // Sync DOM class to React state (separate effect — only runs when state changes)
+    useEffect(() => {
+        document.body.classList.toggle("cinematic", isCinematic);
     }, [isCinematic]);
 
     const startCityFlyThrough = useCallback((map, defaultPath) => {

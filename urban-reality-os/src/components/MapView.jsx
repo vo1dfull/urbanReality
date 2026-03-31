@@ -35,6 +35,7 @@ import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
 import MapEngine from '../engines/MapEngine';
 import InteractionEngine from '../engines/InteractionEngine';
 import DataEngine from '../engines/DataEngine';
+import FrameController from '../core/FrameController';
 
 // UI Components
 import TerrainController from './terrain/TerrainController';
@@ -168,6 +169,9 @@ export default function MapView() {
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
       <OverlayRoot mapStyle={mapStyle} mapRef={mapRef} />
 
+      {/* ── FPS HUD ── */}
+      <FPSHUD />
+
       {/* ── NOTIFICATION TOAST ── */}
       {notification && <NotificationToast message={notification} />}
 
@@ -180,7 +184,18 @@ export default function MapView() {
 // ══════════════════════════════════════════════════
 // NotificationToast — Auto-dismissing notification
 // ══════════════════════════════════════════════════
-function NotificationToast({ message }) {
+// 🔥 PERF: Static style element — prevents injecting new <style> tags on every render
+let _toastStyleInjected = false;
+function _ensureToastStyle() {
+  if (_toastStyleInjected) return;
+  _toastStyleInjected = true;
+  const style = document.createElement('style');
+  style.textContent = '@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+  document.head.appendChild(style);
+}
+
+const NotificationToast = memo(function NotificationToast({ message }) {
+  _ensureToastStyle();
   return (
     <div style={{
       position: 'fixed',
@@ -201,15 +216,43 @@ function NotificationToast({ message }) {
       animation: 'slideUp 300ms ease-out',
     }}>
       {message}
-      <style>{`
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-          to { opacity: 1; transform: translateX(-50%) translateY(0); }
-        }
-      `}</style>
     </div>
   );
-}
+});
+
+// ══════════════════════════════════════════════════
+// FPS HUD — Direct DOM manipulation for performance
+// ══════════════════════════════════════════════════
+const FPSHUD = memo(function FPSHUD() {
+  const containerRef = useRef(null);
+  const debugMode = useMapStore(s => s.debugMode);
+
+  useEffect(() => {
+    if (!debugMode || !containerRef.current) return;
+    const unsub = FrameController.onFPS(({ fps }) => {
+      if (containerRef.current) {
+        containerRef.current.textContent = `${fps} FPS`;
+        containerRef.current.style.color = fps >= 50 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#f87171';
+      }
+    });
+    return unsub;
+  }, [debugMode]);
+
+  if (!debugMode) return null;
+
+  return (
+    <div ref={containerRef} style={{
+      position: 'fixed', top: 12, left: 12, zIndex: 10000,
+      background: 'rgba(5, 8, 16, 0.7)', padding: '4px 8px',
+      borderRadius: '6px', fontFamily: "'Inter', sans-serif",
+      fontSize: '11px', fontWeight: '700', color: '#4ade80',
+      pointerEvents: 'none', border: '1px solid rgba(255,255,255,0.1)',
+      backdropFilter: 'blur(4px)',
+    }}>
+      60 FPS
+    </div>
+  );
+});
 
 // ══════════════════════════════════════════════════
 // PanelRoot — All UI panels in one isolated subtree
@@ -501,7 +544,7 @@ const PanelRoot = memo(function PanelRoot({
 // OverlayRoot — Top-layer tooltips and popups
 // ✅ FIXED: Direct DOM manipulation eliminates 120fps re-renders
 // ══════════════════════════════════════════════════
-function OverlayRoot({ mapStyle, mapRef }) {
+const OverlayRoot = memo(function OverlayRoot({ mapStyle, mapRef }) {
   const hoveredFacility = useMapStore(s => s.hoveredFacility);
   const tooltipRef = useRef(null);
 
@@ -555,13 +598,13 @@ function OverlayRoot({ mapStyle, mapRef }) {
       </div>
     </div>
   );
-}
+});
 
 // ══════════════════════════════════════════════════
 // Sub-components (private to MapView)
 // ══════════════════════════════════════════════════
 
-function LayerBarButton({ label, active, activeColor = '#3b82f6', onClick, thumbnail, labelColor }) {
+const LayerBarButton = memo(function LayerBarButton({ label, active, activeColor = '#3b82f6', onClick, thumbnail, labelColor }) {
   const borderColor = active ? activeColor : 'rgba(255,255,255,0.08)';
   const bgColor = active ? `${activeColor}33` : 'rgba(255,255,255,0.04)';
   const textColor = labelColor || (active ? '#93c5fd' : '#94a3b8');
@@ -586,9 +629,9 @@ function LayerBarButton({ label, active, activeColor = '#3b82f6', onClick, thumb
       <span style={{ fontSize: 10, color: textColor, fontWeight: 700, letterSpacing: '0.3px', fontFamily: "'Inter', sans-serif" }}>{label}</span>
     </button>
   );
-}
+});
 
-function SatelliteThumbnail() {
+const SatelliteThumbnail = memo(function SatelliteThumbnail() {
   return (
     <div style={{ width: 50, height: 46, borderRadius: 8, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #8b7355 0%, #6b5842 25%, #4a3d2e 50%, #8b7355 75%, #a69075 100%)' }} />
@@ -597,9 +640,9 @@ function SatelliteThumbnail() {
       <div style={{ position: 'absolute', top: '28%', left: '10%', width: '80%', height: 2, background: '#d4a574', transform: 'rotate(-10deg)', opacity: 0.8 }} />
     </div>
   );
-}
+});
 
-function TerrainThumbnail() {
+const TerrainThumbnail = memo(function TerrainThumbnail() {
   return (
     <div style={{ width: 50, height: 46, borderRadius: 8, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, #d4e8d4 0%, #c0d8c0 20%, #8bb08b 40%, #6b8f6b 60%, #4a6f4a 80%, #2a4f2a 100%)' }} />
@@ -610,9 +653,9 @@ function TerrainThumbnail() {
       </svg>
     </div>
   );
-}
+});
 
-function TrafficThumbnail() {
+const TrafficThumbnail = memo(function TrafficThumbnail() {
   return (
     <div style={{ width: 50, height: 46, borderRadius: 8, background: 'rgba(8,15,35,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       <svg width="36" height="36" viewBox="0 0 36 36">
@@ -625,9 +668,9 @@ function TrafficThumbnail() {
       </svg>
     </div>
   );
-}
+});
 
-function TrafficLegend() {
+const TrafficLegend = memo(function TrafficLegend() {
   return (
     <div
       data-layers-menu
@@ -656,4 +699,4 @@ function TrafficLegend() {
       </div>
     </div>
   );
-}
+});

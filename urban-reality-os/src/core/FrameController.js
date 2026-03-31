@@ -124,6 +124,17 @@ class FrameController {
   isLowFPS() { return this._fps < LOW_FPS_THRESHOLD; }
 
   /**
+   * Return a recommended quality level based on current FPS.
+   * @returns {'low'|'medium'|'high'|'ultra'}
+   */
+  getQualityHint() {
+    if (this._fps < 30) return 'low';
+    if (this._fps < 45) return 'medium';
+    if (this._fps < 55) return 'high';
+    return 'ultra';
+  }
+
+  /**
    * Rebuild priority-sorted task arrays from the map.
    * Only called when tasks change (add/remove), NOT every frame.
    * @private

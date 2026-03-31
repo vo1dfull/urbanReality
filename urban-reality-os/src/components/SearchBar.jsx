@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo } from "react";
 
-const MAPTILER_KEY = "UQBNCVHquLf1PybiywBt"; // MapTiler API key
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_KEY || "UQBNCVHquLf1PybiywBt"; // Fallback to avoid breaking
 
-export default function SearchBar({ mapRef, onLocationSelect }) {
+const SearchBar = memo(function SearchBar({ mapRef, onLocationSelect }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -28,7 +28,7 @@ export default function SearchBar({ mapRef, onLocationSelect }) {
   }, []);
 
   // Debounced search function
-  const searchLocations = async (query) => {
+  const searchLocations = async (query, signal) => {
     if (!query || query.length < 2) {
       setSuggestions([]);
       setShowSuggestions(false);
@@ -38,7 +38,8 @@ export default function SearchBar({ mapRef, onLocationSelect }) {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${MAPTILER_KEY}&limit=5&country=in`
+        `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${MAPTILER_KEY}&limit=5&country=in`,
+        { signal }
       );
 
       if (!response.ok) throw new Error("Geocoding failed");
@@ -53,6 +54,7 @@ export default function SearchBar({ mapRef, onLocationSelect }) {
         setShowSuggestions(false);
       }
     } catch (error) {
+      if (error.name === "AbortError") return; // Ignore aborted request errors
       console.error("Search error:", error);
       setSuggestions([]);
       setShowSuggestions(false);
@@ -61,13 +63,18 @@ export default function SearchBar({ mapRef, onLocationSelect }) {
     }
   };
 
-  // Debounce function
+  // Debounce function with AbortController
   useEffect(() => {
+    const abortController = new AbortController();
+    
     const timer = setTimeout(() => {
-      searchLocations(searchQuery);
+      searchLocations(searchQuery, abortController.signal);
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      abortController.abort();
+    };
   }, [searchQuery]);
 
   const handleSelectLocation = (feature) => {
@@ -333,4 +340,6 @@ export default function SearchBar({ mapRef, onLocationSelect }) {
       `}</style>
     </div>
   );
-}
+});
+
+export default SearchBar;

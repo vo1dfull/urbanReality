@@ -13,6 +13,14 @@ const log = createLogger('MapEngine');
 const STYLE_LOAD_MAX_POLLS = 50;
 const STYLE_LOAD_POLL_MS = 100;
 
+/** Quality presets for adaptive rendering */
+const QUALITY_PRESETS = {
+  low: { maxTileCacheSize: 20, fadeDuration: 0 },
+  medium: { maxTileCacheSize: 35, fadeDuration: 0 },
+  high: { maxTileCacheSize: 50, fadeDuration: 0 },
+  ultra: { maxTileCacheSize: 100, fadeDuration: 100 },
+};
+
 class MapEngine {
   constructor() {
     this._map = null;
@@ -161,12 +169,17 @@ class MapEngine {
         };
       })();
 
+      let pollCount = 0;
       const checkReady = () => {
         if (!this._map || this._destroyed) return;
         if (this._map.isStyleLoaded()) {
           finalize('styleLoaded');
-        } else {
+        } else if (pollCount < STYLE_LOAD_MAX_POLLS) {
+          pollCount++;
           setTimeout(checkReady, STYLE_LOAD_POLL_MS);
+        } else {
+          log.warn('Style load polling exceeded max attempts, forcing finalize');
+          finalize('maxPolls');
         }
       };
 
@@ -225,6 +238,26 @@ class MapEngine {
     }
     this._currentStyle = 'default';
     log.info('Map destroyed');
+  }
+
+  /**
+   * Apply quality preset to the map.
+   * @param {'low'|'medium'|'high'|'ultra'} level
+   */
+  applyQuality(level) {
+    if (!this._map) return;
+    const preset = QUALITY_PRESETS[level];
+    if (!preset) return;
+    try {
+      // MapLibre doesn't expose maxTileCacheSize post-init,
+      // but we can control fade and repaint behavior
+      if (typeof this._map._fadeDuration !== 'undefined') {
+        this._map._fadeDuration = preset.fadeDuration;
+      }
+      log.info(`Quality set to: ${level}`);
+    } catch (err) {
+      log.warn('applyQuality error:', err);
+    }
   }
 
   /**

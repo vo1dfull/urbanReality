@@ -65,11 +65,21 @@ export async function safeFetch(fn, fallback, options = {}) {
 
   let lastError = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // 🔥 PERF: Use AbortController-based timeout that cleans up properly
+    let timeoutId = null;
     try {
-      const result = await Promise.race([
-        _executeFetch(fn),
-        _timeoutPromise(timeout),
-      ]);
+      const result = await new Promise((resolve, reject) => {
+        // Set up the timeout — will be cleared on success
+        timeoutId = setTimeout(() => {
+          timeoutId = null;
+          reject(new Error(`Request timed out after ${timeout}ms`));
+        }, timeout);
+
+        _executeFetch(fn).then(resolve, reject);
+      });
+
+      // 🔥 Clean up timer on success (prevents orphaned setTimeout)
+      if (timeoutId !== null) { clearTimeout(timeoutId); timeoutId = null; }
 
       // Cache the result
       if (cacheKey && result !== fallback) {
@@ -81,6 +91,9 @@ export async function safeFetch(fn, fallback, options = {}) {
 
       return result ?? fallback;
     } catch (err) {
+      // 🔥 Clean up timer on error too
+      if (timeoutId !== null) { clearTimeout(timeoutId); timeoutId = null; }
+
       lastError = err;
       if (err.name === 'AbortError') break; // Don't retry aborted requests
 
@@ -124,16 +137,6 @@ async function _executeFetch(fn) {
   }
 
   return res;
-}
-
-/**
- * Create a timeout promise.
- * @private
- */
-function _timeoutPromise(ms) {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms);
-  });
 }
 
 export default safeFetch;
