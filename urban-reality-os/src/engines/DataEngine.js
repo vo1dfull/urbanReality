@@ -10,6 +10,7 @@ import { fetchRealtimeAQI } from '../utils/aqi';
 import { fetchIndiaMacroData } from '../utils/worldBank';
 import { getUrbanAnalysis } from '../utils/gemini';
 import { MAJOR_INDIAN_CITIES, OPENWEATHER_KEY, TOMTOM_KEY } from '../constants/mapConstants';
+import PERFORMANCE_CONFIG from '../config/performance';
 import CacheEngine from '../core/CacheEngine';
 import { createLogger } from '../core/Logger';
 
@@ -61,8 +62,15 @@ class DataEngine {
       return null;
     }
 
-    return CacheEngine.fetch('aqi:cities:all', async () => {
-      const CHUNK_SIZE = 10;
+    const cacheKey = 'aqi:cities:all';
+    const cached = CacheEngine.get(cacheKey);
+    if (cached) {
+      this._refreshAllCitiesAQI(cacheKey);
+      return cached;
+    }
+
+    return CacheEngine.fetch(cacheKey, async () => {
+      const CHUNK_SIZE = PERFORMANCE_CONFIG.batch.aqiChunkSize;
       const features = [];
 
       for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
@@ -93,7 +101,45 @@ class DataEngine {
       }
 
       return { type: 'FeatureCollection', features };
-    }, 5 * 60_000);
+    }, PERFORMANCE_CONFIG.cache.aqi);
+  }
+
+  _refreshAllCitiesAQI(cacheKey) {
+    CacheEngine.fetch(cacheKey, async () => {
+      const CHUNK_SIZE = PERFORMANCE_CONFIG.batch.aqiChunkSize;
+      const features = [];
+
+      for (let i = 0; i < MAJOR_INDIAN_CITIES.length; i += CHUNK_SIZE) {
+        const chunk = MAJOR_INDIAN_CITIES.slice(i, i + CHUNK_SIZE);
+        const results = await Promise.all(
+          chunk.map(async (city) => {
+            try {
+              const r = await fetchRealtimeAQI(city.lat, city.lng, OPENWEATHER_KEY);
+              if (!r) return null;
+              return {
+                type: 'Feature',
+                properties: {
+                  aqi: r.aqi,
+                  city: city.name,
+                  level: r.category || null,
+                  pm25: r.pm25 ?? null,
+                  pm10: r.pm10 ?? null,
+                },
+                geometry: { type: 'Point', coordinates: [city.lng, city.lat] },
+              };
+            } catch (err) {
+              log.warn(`AQI refresh failed for ${city.name}:`, err);
+              return null;
+            }
+          })
+        );
+        features.push(...results.filter(Boolean));
+      }
+
+      return { type: 'FeatureCollection', features };
+    }, PERFORMANCE_CONFIG.cache.aqi).catch((err) => {
+      log.warn('Background AQI refresh failed:', err);
+    });
   }
 
   // ── Static Data ──
@@ -135,7 +181,7 @@ class DataEngine {
       results.facilityData = facilityData;
 
       return results;
-    }, 60 * 60_000);
+    }, PERFORMANCE_CONFIG.cache.geo);
   }
 
   // ── World Bank ──
@@ -233,7 +279,7 @@ class DataEngine {
       ]);
 
       return { placeName, realTimeAQI, rainData, trafficJson };
-    }, 3 * 60_000);
+    }, PERFORMANCE_CONFIG.cache.api);
   }
 
   // ── AI Analysis ──

@@ -56,12 +56,4 @@ const appTree = (
   </AppWrapper>
 );
 
-root.render(
-  import.meta.env.DEV ? (
-    <React.StrictMode>
-      {appTree}
-    </React.StrictMode>
-  ) : (
-    appTree
-  )
-);
+root.render(appTree);

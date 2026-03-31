@@ -1,4 +1,5 @@
 import { useCallback, useRef, useEffect } from 'react';
+import DataEngine from '../engines/DataEngine';
 import { aqiCache } from '../utils/cache';
 
 /**
@@ -14,16 +15,14 @@ export function useAQIData(OPENWEATHER_KEY) {
         const cached = aqiCache.get(cacheKey);
         if (cached) return cached;
 
-        // Cancel previous in-flight request
-        if (abortRef.current) {
-            abortRef.current.abort();
-        }
-        abortRef.current = new AbortController();
+        // Cancel previous in-flight request and use centralized controller.
+        const controller = DataEngine.createAbortController('useAQIData');
+        abortRef.current = controller;
 
         try {
             const res = await fetch(
                 `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_KEY}`,
-                { signal: abortRef.current.signal }
+                { signal: controller.signal }
             );
 
             if (!res.ok) throw new Error('AQI fetch failed');
@@ -46,7 +45,7 @@ export function useAQIData(OPENWEATHER_KEY) {
     // Cleanup abort on unmount
     useEffect(() => {
         return () => {
-            if (abortRef.current) abortRef.current.abort();
+            DataEngine.abort('useAQIData');
         };
     }, []);
 

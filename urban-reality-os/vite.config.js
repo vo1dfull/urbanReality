@@ -17,7 +17,8 @@ export default defineConfig({
         manualChunks: {
           'maplibre': ['maplibre-gl'],
           'vendor': ['react', 'react-dom'],
-          'ui': ['framer-motion', 'recharts']
+          'ui': ['framer-motion'],
+          'charts': ['recharts']
         }
       }
     },

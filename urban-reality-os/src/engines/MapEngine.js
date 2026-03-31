@@ -4,6 +4,7 @@
 // ================================================
 import maplibregl from 'maplibre-gl';
 import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL, TERRAIN_SOURCE_ID } from '../constants/mapConstants';
+import PERFORMANCE_CONFIG from '../config/performance';
 import { throttle } from '../utils/cache';
 import { createLogger } from '../core/Logger';
 
@@ -11,15 +12,10 @@ const log = createLogger('MapEngine');
 
 /** @type {number} Max polls for style loading */
 const STYLE_LOAD_MAX_POLLS = 50;
-const STYLE_LOAD_POLL_MS = 100;
+const STYLE_LOAD_POLL_MS = 250;
 
-/** Quality presets for adaptive rendering */
-const QUALITY_PRESETS = {
-  low: { maxTileCacheSize: 20, fadeDuration: 0 },
-  medium: { maxTileCacheSize: 35, fadeDuration: 0 },
-  high: { maxTileCacheSize: 50, fadeDuration: 0 },
-  ultra: { maxTileCacheSize: 100, fadeDuration: 100 },
-};
+const QUALITY_PRESETS = PERFORMANCE_CONFIG.quality;
+
 
 class MapEngine {
   constructor() {
@@ -27,6 +23,11 @@ class MapEngine {
     this._popup = null;
     this._currentStyle = 'default';
     this._destroyed = false;
+    this._quality = 'medium';
+    this._terrainExaggeration = QUALITY_PRESETS.medium?.terrainExaggeration ?? 1.4;
+    this._styleSwitchTimeout = null;
+    this._lastStatsTime = 0;
+    this._statsCache = null;
   }
 
   /**
@@ -43,6 +44,11 @@ class MapEngine {
 
     this._destroyed = false;
 
+    const quality = options.quality || this._quality || 'medium';
+    const qualityPreset = QUALITY_PRESETS[quality] || QUALITY_PRESETS.medium;
+    this._quality = quality;
+    this._terrainExaggeration = qualityPreset.terrainExaggeration ?? this._terrainExaggeration;
+
     const map = new maplibregl.Map({
       container,
       style: STYLE_URLS.default,
@@ -51,8 +57,8 @@ class MapEngine {
       pitch: options.pitch || MAP_CONFIG.pitch,
       bearing: options.bearing || MAP_CONFIG.bearing,
       antialias: false,
-      fadeDuration: 0,
-      maxTileCacheSize: 50,
+      fadeDuration: qualityPreset.fadeDuration ?? 0,
+      maxTileCacheSize: qualityPreset.maxTileCacheSize ?? 50,
       renderWorldCopies: false,
       trackResize: true,
       preserveDrawingBuffer: false,
@@ -104,7 +110,10 @@ class MapEngine {
           tileSize: 256,
         });
       }
-      this._map.setTerrain({ source: TERRAIN_SOURCE_ID, exaggeration: 1.4 });
+      this._map.setTerrain({
+        source: TERRAIN_SOURCE_ID,
+        exaggeration: this._terrainExaggeration,
+      });
     } catch (err) {
       log.warn('addTerrain error:', err);
     }
@@ -119,28 +128,8 @@ class MapEngine {
     }
   }
 
-  /**
-   * Create the reusable popup instance.
-   * @returns {maplibregl.Popup}
-   */
-  createPopup() {
-    this._popup = new maplibregl.Popup({
-      className: 'custom-popup',
-      closeButton: false,
-      offset: 12,
-      closeOnClick: false,
-    });
-    return this._popup;
-  }
-
-  /**
-   * Switch the map style with robust recovery.
-   * Uses polling fallback if 'idle' event doesn't fire.
-   * @param {string} styleName
-   * @param {Function} onRecovery
-   */
-  switchStyle(styleName, onRecovery) {
-    if (!this._map) return;
+  _executeStyleSwitch(styleName, onRecovery) {
+    if (!this._map || this._destroyed) return;
     if (this._currentStyle === styleName) return;
 
     const targetStyle = STYLE_URLS[styleName];
@@ -173,23 +162,57 @@ class MapEngine {
       const checkReady = () => {
         if (!this._map || this._destroyed) return;
         if (this._map.isStyleLoaded()) {
-          finalize('styleLoaded');
+          requestAnimationFrame(() => finalize('styleLoaded'));
         } else if (pollCount < STYLE_LOAD_MAX_POLLS) {
           pollCount++;
           setTimeout(checkReady, STYLE_LOAD_POLL_MS);
         } else {
           log.warn('Style load polling exceeded max attempts, forcing finalize');
-          finalize('maxPolls');
+          requestAnimationFrame(() => finalize('maxPolls'));
         }
       };
 
       this._map.once('idle', () => {
         if (!this._map || this._destroyed) return;
-        finalize('idle');
+        requestAnimationFrame(() => finalize('idle'));
       });
 
       checkReady();
     });
+  }
+
+  /**
+   * Create the reusable popup instance.
+   * @returns {maplibregl.Popup}
+   */
+  createPopup() {
+    this._popup = new maplibregl.Popup({
+      className: 'custom-popup',
+      closeButton: false,
+      offset: 12,
+      closeOnClick: false,
+    });
+    return this._popup;
+  }
+
+  /**
+   * Switch the map style with robust recovery.
+   * Uses polling fallback if 'idle' event doesn't fire.
+   * @param {string} styleName
+   * @param {Function} onRecovery
+   */
+  switchStyle(styleName, onRecovery) {
+    if (!this._map || this._destroyed) return;
+    if (this._currentStyle === styleName) return;
+
+    if (this._styleSwitchTimeout) {
+      clearTimeout(this._styleSwitchTimeout);
+    }
+
+    this._styleSwitchTimeout = setTimeout(() => {
+      this._styleSwitchTimeout = null;
+      this._executeStyleSwitch(styleName, onRecovery);
+    }, 350);
   }
 
   getCurrentStyle() {
@@ -210,8 +233,13 @@ class MapEngine {
    */
   getStats() {
     if (!this._map) return null;
+    const now = performance.now();
+    if (this._lastStatsTime && now - this._lastStatsTime < 100) {
+      return this._statsCache;
+    }
+
     try {
-      return {
+      const stats = {
         zoom: Math.round(this._map.getZoom() * 100) / 100,
         center: [
           Math.round(this._map.getCenter().lng * 1000) / 1000,
@@ -221,13 +249,20 @@ class MapEngine {
         bearing: Math.round(this._map.getBearing()),
         style: this._currentStyle,
       };
+      this._lastStatsTime = now;
+      this._statsCache = stats;
+      return stats;
     } catch {
-      return null;
+      return this._statsCache || null;
     }
   }
 
   destroy() {
     this._destroyed = true;
+    if (this._styleSwitchTimeout) {
+      clearTimeout(this._styleSwitchTimeout);
+      this._styleSwitchTimeout = null;
+    }
     if (this._popup) {
       this._popup.remove();
       this._popup = null;
@@ -249,10 +284,16 @@ class MapEngine {
     const preset = QUALITY_PRESETS[level];
     if (!preset) return;
     try {
-      // MapLibre doesn't expose maxTileCacheSize post-init,
-      // but we can control fade and repaint behavior
+      this._quality = level;
+      this._terrainExaggeration = preset.terrainExaggeration ?? this._terrainExaggeration;
       if (typeof this._map._fadeDuration !== 'undefined') {
-        this._map._fadeDuration = preset.fadeDuration;
+        this._map._fadeDuration = preset.fadeDuration ?? 0;
+      }
+      if (this._map.getTerrain()) {
+        this._map.setTerrain({
+          source: TERRAIN_SOURCE_ID,
+          exaggeration: this._terrainExaggeration,
+        });
       }
       log.info(`Quality set to: ${level}`);
     } catch (err) {

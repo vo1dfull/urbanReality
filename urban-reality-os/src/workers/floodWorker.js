@@ -7,7 +7,14 @@ self.onmessage = (event) => {
 
   const features = [];
   const radius = Math.min(0.02, (waterLevel + rainIntensity / 200) * 0.02);
-  const step = Math.max(0.0004, radius / 18);
+  let step = Math.max(0.0004, radius / 18);
+  const maxPoints = 2000;
+  const span = radius * 2;
+  const estimatedSteps = Math.max(1, Math.ceil(span / step));
+  if (estimatedSteps * estimatedSteps > maxPoints) {
+    const cappedSteps = Math.max(2, Math.floor(Math.sqrt(maxPoints)));
+    step = Math.max(step, span / cappedSteps);
+  }
 
   for (let dx = -radius; dx <= radius; dx += step) {
     for (let dy = -radius; dy <= radius; dy += step) {

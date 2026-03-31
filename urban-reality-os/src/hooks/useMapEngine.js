@@ -125,13 +125,14 @@ export default function useMapEngine() {
 
           if (targetQuality !== currentQuality) {
             // Priority: Downgrade faster than upgrade
-            if (fps < 40) lowFPSCount++;
+            if (fps < 35) lowFPSCount++;
             else lowFPSCount = 0;
 
-            if (fps > 55) highFPSCount++;
+            if (fps >= 55) highFPSCount++;
             else highFPSCount = 0;
 
-            if (lowFPSCount >= 3 || highFPSCount >= 10) {
+            // Downgrade after ~2s of low FPS, upgrade after ~10s of high FPS
+            if (lowFPSCount >= 4 || highFPSCount >= 20) {
               log.info(`Adaptive Quality: Switching from ${currentQuality} to ${targetQuality} (FPS: ${fps})`);
               useMapStore.getState().setQualityLevel(targetQuality);
               MapEngine.applyQuality(targetQuality);
