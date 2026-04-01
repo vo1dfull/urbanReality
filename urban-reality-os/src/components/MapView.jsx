@@ -344,6 +344,42 @@ const PanelRoot = memo(function PanelRoot({
       <TerrainController map={mapRef.current} isActive={mapStyle === 'terrain'} />
       <SearchBar mapRef={mapRef} onLocationSelect={onLocationSelect} />
       <TimeSlider />
+      <AnimatePresence>
+        {activePanel === 'traffic' && (
+          <motion.div
+            initial={{ opacity: 0, x: -12, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -10, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <TrafficPanel layers={layers} />
+          </motion.div>
+        )}
+        {activePanel === 'facility' && (
+          <motion.div
+            initial={{ opacity: 0, x: -12, scale: 0.98 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -10, scale: 0.98 }}
+            transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <FacilityPanel
+              layers={layers}
+              setLayers={setLayers}
+              facilityData={facilityData}
+              facilityViewMode={facilityViewMode}
+              setFacilityViewMode={setFacilityViewMode}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <InsightPanel
+        insight={urbanAnalysis}
+        loading={analysisLoading}
+        impactData={impactData}
+        demographics={demographics}
+        appMode={appMode}
+        buildMode={buildMode}
+      />
 
       {/* ── Bottom-Left Layer Bar ── */}
       <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 20 }}>
@@ -731,6 +767,202 @@ const TrafficLegend = memo(function TrafficLegend() {
             <span style={{ fontSize: 12, color: '#94a3b8' }}>{label}</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+});
+
+const LeftDock = memo(function LeftDock({
+  activePanel, appMode, buildMode,
+  setActivePanel, setAppMode, setBuildMode,
+  mapStyle, setMapStyle,
+  layers, setLayers,
+  setFacilityCheckOpen, facilityCheckOpen,
+}) {
+  const featureItems = [
+    { id: 'terrain', label: 'Terrain', icon: '🏔️', active: activePanel === 'terrain' || mapStyle === 'terrain' },
+    { id: 'traffic', label: 'Traffic', icon: '🚦', active: activePanel === 'traffic' || layers.traffic },
+    { id: 'facility', label: 'Facility', icon: '🏥', active: activePanel === 'facility' || facilityCheckOpen },
+  ];
+
+  const modeItems = [
+    { id: 'explore', label: 'Explore' },
+    { id: 'simulation', label: 'Simulation' },
+    { id: 'planning', label: 'Planning' },
+  ];
+
+  return (
+    <div style={{ position: 'fixed', top: 22, left: 22, zIndex: 10005, display: 'flex', flexDirection: 'column', gap: 14, width: 92 }}>
+      <div style={{ padding: 14, borderRadius: 18, background: 'rgba(8, 12, 28, 0.92)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)', boxShadow: '0 28px 80px rgba(0,0,0,0.28)' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 12, textAlign: 'center' }}>Features</div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {featureItems.map((item) => (
+            <motion.button
+              key={item.id}
+              onClick={() => {
+                const isActive = activePanel === item.id;
+                if (item.id === 'terrain') {
+                  setMapStyle(isActive ? 'default' : 'terrain');
+                  setActivePanel(isActive ? null : 'terrain');
+                  return;
+                }
+                if (item.id === 'traffic') {
+                  setLayers((prev) => ({ ...prev, traffic: !prev.traffic }));
+                  setActivePanel(isActive ? null : 'traffic');
+                  return;
+                }
+                if (item.id === 'facility') {
+                  setFacilityCheckOpen(!isActive);
+                  setActivePanel(isActive ? null : 'facility');
+                  return;
+                }
+              }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              style={{
+                borderRadius: 16,
+                border: item.active ? '1px solid rgba(96,165,250,0.65)' : '1px solid rgba(255,255,255,0.08)',
+                background: item.active ? 'rgba(96,165,250,0.16)' : 'rgba(255,255,255,0.05)',
+                color: item.active ? '#e0f2fe' : '#cbd5e1',
+                height: 72,
+                display: 'grid',
+                placeItems: 'center',
+                cursor: 'pointer',
+                transition: 'all 170ms ease',
+                willChange: 'transform, box-shadow',
+              }}
+            >
+              <span style={{ fontSize: 24 }}>{item.icon}</span>
+              <span style={{ fontSize: 10, marginTop: 4, fontWeight: 700 }}>{item.label}</span>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: 14, borderRadius: 18, background: 'rgba(8, 12, 28, 0.92)', border: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(16px)', boxShadow: '0 18px 50px rgba(0,0,0,0.22)' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.24em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 12, textAlign: 'center' }}>Mode</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {modeItems.map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => setAppMode(mode.id)}
+              style={{
+                width: '100%', padding: '10px 0', borderRadius: 14,
+                border: appMode === mode.id ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.08)',
+                background: appMode === mode.id ? 'rgba(96,165,250,0.18)' : 'rgba(255,255,255,0.05)',
+                color: appMode === mode.id ? '#f8fbff' : '#cbd5e1',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 180ms ease',
+              }}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={() => setBuildMode((active) => !active)}
+        style={{
+          padding: '12px 0', borderRadius: 16,
+          border: '1px solid rgba(255,255,255,0.1)',
+          background: buildMode ? 'linear-gradient(135deg, #34d399, #22c55e)' : 'rgba(255,255,255,0.05)',
+          color: buildMode ? '#081f0c' : '#e2e8f0',
+          fontSize: 11,
+          fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: buildMode ? '0 12px 32px rgba(34,197,94,0.22)' : 'none',
+          transition: 'all 180ms ease',
+        }}
+      >
+        {buildMode ? 'Build Mode Active' : 'Enter Build Mode'}
+      </button>
+    </div>
+  );
+});
+
+const TrafficPanel = memo(function TrafficPanel({ layers }) {
+  return (
+    <div style={{ position: 'fixed', top: 120, left: 132, zIndex: 10003, width: 320, borderRadius: 24, padding: 18, background: 'rgba(5, 10, 22, 0.9)', border: '1px solid rgba(96,165,250,0.16)', backdropFilter: 'blur(22px)', boxShadow: '0 26px 80px rgba(0,0,0,0.35)', color: '#e2e8f0' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span>🚦</span>
+        <span>Traffic Operations</span>
+      </div>
+      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 18 }}>Live flow analysis and congestion alerts for the current city view.</div>
+      <div style={{ display: 'grid', gap: 14 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#94a3b8' }}>
+            <span>Layer status</span><strong style={{ color: layers.traffic ? '#60a5fa' : '#94a3b8' }}>{layers.traffic ? 'Enabled' : 'Disabled'}</strong>
+          </div>
+          <div style={{ height: 8, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{ width: layers.traffic ? '96%' : '8%', height: '100%', background: layers.traffic ? '#60a5fa' : '#475569', transition: 'width 320ms ease' }} />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>Risk alert</div>
+          <div style={{ padding: '12px 14px', borderRadius: 16, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(96,165,250,0.14)' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#fbbf24' }}>Moderate congestion</div>
+            <div style={{ fontSize: 11, marginTop: 4, color: '#cbd5e1' }}>Traffic slowdowns are concentrated around arterial roads and bridge crossings.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const FacilityPanel = memo(function FacilityPanel({ layers, setLayers, facilityData, facilityViewMode, setFacilityViewMode }) {
+  const counts = {
+    hospitals: facilityData?.hospitals?.length || 0,
+    policeStations: facilityData?.policeStations?.length || 0,
+    fireStations: facilityData?.fireStations?.length || 0,
+  };
+
+  return (
+    <div style={{ position: 'fixed', top: 120, left: 132, zIndex: 10003, width: 320, borderRadius: 24, padding: 18, background: 'rgba(5, 10, 22, 0.9)', border: '1px solid rgba(16,185,129,0.16)', backdropFilter: 'blur(22px)', boxShadow: '0 26px 80px rgba(0,0,0,0.35)', color: '#e2e8f0' }}>
+      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span>🏥</span>
+        <span>Facility Intelligence</span>
+      </div>
+      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 16 }}>Facility coverage, response readiness, and critical gap detection.</div>
+      {['hospitals', 'policeStations', 'fireStations'].map((key) => (
+        <button
+          key={key}
+          onClick={() => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}
+          style={{
+            width: '100%', padding: '12px 14px', borderRadius: 16,
+            border: `1px solid ${layers[key] ? '#34d399' : 'rgba(255,255,255,0.08)'}`,
+            background: layers[key] ? 'rgba(34,211,153,0.12)' : 'rgba(255,255,255,0.04)',
+            color: layers[key] ? '#d1fae5' : '#cbd5e1',
+            textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            transition: 'all 180ms ease',
+          }}
+        >
+          <span style={{ textTransform: 'capitalize', fontSize: 13, fontWeight: 700 }}>{key.replace(/([A-Z])/g, ' $1')}</span>
+          <span style={{ fontSize: 12, opacity: 0.9 }}>{counts[key]} active</span>
+        </button>
+      ))}
+      <div style={{ marginTop: 16, padding: '14px 16px', borderRadius: 18, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', marginBottom: 10 }}>View Mode</div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {['coverage', 'gap', 'heatmap'].map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setFacilityViewMode(mode)}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 14,
+                border: facilityViewMode === mode ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.08)',
+                background: facilityViewMode === mode ? 'rgba(96,165,250,0.16)' : 'transparent',
+                color: facilityViewMode === mode ? '#f8fbff' : '#cbd5e1',
+                textTransform: 'capitalize', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                transition: 'all 180ms ease',
+              }}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
