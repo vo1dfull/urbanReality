@@ -96,7 +96,7 @@ export default function InsightPanel({ insight, loading, impactData, demographic
   );
 }
 
-function RiskCard({ title, value, label, accent }) {
+function RiskCard({ title, value, label, accent = '#94a3b8' }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 16, background: 'rgba(15,23,42,0.85)', border: '1px solid rgba(255,255,255,0.08)' }}>
       <div>
@@ -104,7 +104,7 @@ function RiskCard({ title, value, label, accent }) {
         <div style={{ marginTop: 6, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>{value}</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-        <span style={{ fontSize: 11, color }}>{label}</span>
+        <span style={{ fontSize: 11, color: accent }}>{label}</span>
         <div style={{ width: 36, height: 6, borderRadius: 999, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
           <div style={{ width: '100%', height: '100%', background: accent }} />
         </div>

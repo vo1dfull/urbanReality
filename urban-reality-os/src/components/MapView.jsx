@@ -8,6 +8,7 @@
 // ================================================
 import { useCallback, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
