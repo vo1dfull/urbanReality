@@ -7,6 +7,7 @@
 // ✅ useAnalysisState groups 4 fields into 1 subscription
 // ================================================
 import { useCallback, useRef, useEffect, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -19,6 +20,7 @@ import {
   useFacilityState,
   useUIToggles,
   useAnalysisState,
+  usePanelState,
   useNotification,
 } from '../store/selectors';
 
@@ -40,10 +42,10 @@ import FrameController from '../core/FrameController';
 // UI Components
 import TerrainController from './terrain/TerrainController';
 import CoordinateDisplay from './CoordinateDisplay';
-import MapMenu from './MapMenu';
 import SearchBar from './SearchBar';
 import TimeSlider from './TimeSlider';
 import EconomicPanel from './EconomicPanel';
+import InsightPanel from './InsightPanel';
 import CitySuggestions from './CitySuggestions';
 import FacilityStatsPanel from './FacilityStatsPanel';
 import FacilityListPanel from './FacilityListPanel';
@@ -66,6 +68,7 @@ export default function MapView() {
   const layers = useLayers();
   const { floodMode } = useFloodState();
   const { facilityCheckOpen, facilityViewMode } = useFacilityState();
+  const { activePanel, appMode, buildMode } = usePanelState();
   const dataReady = useMapStore((s) => s.dataReady);
   const facilityData = dataReady ? DataEngine.getFacilityData() : null;
   const { showLayersMenu, showSuggestions } = useUIToggles();
@@ -81,6 +84,9 @@ export default function MapView() {
   const setShowLayersMenu = useMapStore((s) => s.setShowLayersMenu);
   const setFacilityViewMode = useMapStore((s) => s.setFacilityViewMode);
   const setFloodMode = useMapStore((s) => s.setFloodMode);
+  const setActivePanel = useMapStore((s) => s.setActivePanel);
+  const setAppMode = useMapStore((s) => s.setAppMode);
+  const setBuildMode = useMapStore((s) => s.setBuildMode);
 
   // ── Notification ──
   const notification = useNotification();
@@ -160,6 +166,12 @@ export default function MapView() {
         demographics={demographics}
         urbanAnalysis={urbanAnalysis}
         analysisLoading={analysisLoading}
+        activePanel={activePanel}
+        appMode={appMode}
+        buildMode={buildMode}
+        setActivePanel={setActivePanel}
+        setAppMode={setAppMode}
+        setBuildMode={setBuildMode}
         mapReady={mapReady}
         onLocationSelect={handleLocationSelect}
         onToggleFlood={toggleFloodMode}
@@ -269,6 +281,8 @@ const PanelRoot = memo(function PanelRoot({
   facilityViewMode, setFacilityViewMode,
   floodMode, facilityData,
   impactData, demographics, urbanAnalysis, analysisLoading,
+  activePanel, appMode, buildMode,
+  setActivePanel, setAppMode, setBuildMode,
   mapReady, onLocationSelect, onToggleFlood, startCityFlyThrough,
 }) {
   return (
@@ -313,7 +327,20 @@ const PanelRoot = memo(function PanelRoot({
         </div>
       )}
 
-      <MapMenu layers={layers} setLayers={setLayers} mapStyle={mapStyle} setMapStyle={setMapStyle} mapRef={mapRef} />
+      <LeftDock
+        activePanel={activePanel}
+        appMode={appMode}
+        buildMode={buildMode}
+        setActivePanel={setActivePanel}
+        setAppMode={setAppMode}
+        setBuildMode={setBuildMode}
+        mapStyle={mapStyle}
+        setMapStyle={setMapStyle}
+        layers={layers}
+        setLayers={setLayers}
+        setFacilityCheckOpen={setFacilityCheckOpen}
+        facilityCheckOpen={facilityCheckOpen}
+      />
       <TerrainController map={mapRef.current} isActive={mapStyle === 'terrain'} />
       <SearchBar mapRef={mapRef} onLocationSelect={onLocationSelect} />
       <TimeSlider />
@@ -547,31 +574,38 @@ const PanelRoot = memo(function PanelRoot({
 const OverlayRoot = memo(function OverlayRoot({ mapStyle, mapRef }) {
   const hoveredFacility = useMapStore(s => s.hoveredFacility);
   const tooltipRef = useRef(null);
+  const rafRef = useRef(null);
+  const pointerRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!hoveredFacility) return;
 
     const move = (e) => {
-      // Directly update the DOM element. DO NOT trigger a React re-render.
-      if (tooltipRef.current) {
-        tooltipRef.current.style.transform = `translate3d(${e.clientX + 15}px, ${e.clientY + 15}px, 0)`;
-      }
+      pointerRef.current = { x: e.clientX, y: e.clientY };
+      if (rafRef.current) return;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        if (tooltipRef.current) {
+          tooltipRef.current.style.transform = `translate3d(${pointerRef.current.x + 15}px, ${pointerRef.current.y + 15}px, 0)`;
+        }
+      });
     };
 
-    // Use passive listener for better scroll/mouse performance
     window.addEventListener('mousemove', move, { passive: true });
 
-    // Set initial position based on the facility data
     if (tooltipRef.current && hoveredFacility.startX) {
       tooltipRef.current.style.transform = `translate3d(${hoveredFacility.startX + 15}px, ${hoveredFacility.startY + 15}px, 0)`;
     }
 
-    return () => window.removeEventListener('mousemove', move);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [hoveredFacility]);
 
-  if (!hoveredFacility) return null;
+  if (!hoveredFacility || typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div
       ref={tooltipRef}
       style={{

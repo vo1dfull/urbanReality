@@ -49,12 +49,18 @@ const useMapStore = create((set, get) => ({
   // ── Location Slice ──
   activeLocation: null,
   locationData: null,
-  uiMode: null, // null | 'location' | 'terrain'
+  uiMode: null, // legacy: null | 'location' | 'terrain'
+  activePanel: null, // left dock active panel
+  appMode: 'explore', // explore | simulation | planning
+  buildMode: false,
   impactData: null,
   demographics: null,
   locationPopulation: null,
 
   setActiveLocation: (loc) => set({ activeLocation: loc }),
+  setActivePanel: (panel) => set((state) => ({ activePanel: state.activePanel === panel ? null : panel })),
+  setAppMode: (mode) => set({ appMode: mode }),
+  setBuildMode: (active) => set((state) => ({ buildMode: typeof active === 'function' ? active(state.buildMode) : active })),
   setLocationData: (data) =>
     set((state) => ({
       locationData: applyUpdater(data, state.locationData),

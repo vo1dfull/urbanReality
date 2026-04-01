@@ -47,6 +47,16 @@ export const useLocationState = () =>
     }))
   );
 
+// ── App panel state
+export const usePanelState = () =>
+  useMapStore(
+    useShallow((s) => ({
+      activePanel: s.activePanel,
+      appMode: s.appMode,
+      buildMode: s.buildMode,
+    }))
+  );
+
 // ── Analysis state (grouped — prevents 4 separate re-renders) ──
 export const useAnalysisState = () =>
   useMapStore(
