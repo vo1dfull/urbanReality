@@ -15,12 +15,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // Store — grouped selectors
 import useMapStore from '../store/useMapStore';
 import {
-  useMapState,
   useLayers,
   useFloodState,
   useFacilityState,
   useUIToggles,
-  useAnalysisState,
   usePanelState,
   useNotification,
 } from '../store/selectors';
@@ -65,7 +63,14 @@ export default function MapView() {
   useKeyboardShortcuts();
 
   // ── Grouped selectors (minimal re-renders) ──
-  const { loading, error, mapReady, mapStyle } = useMapState();
+  const { loading, error, mapReady, mapStyle } = useMapStore(
+    useShallow((s) => ({
+      loading: s.loading,
+      error: s.error,
+      mapReady: s.mapReady,
+      mapStyle: s.mapStyle,
+    }))
+  );
   const layers = useLayers();
   const { floodMode } = useFloodState();
   const { facilityCheckOpen, facilityViewMode } = useFacilityState();
@@ -75,7 +80,14 @@ export default function MapView() {
   const { showLayersMenu, showSuggestions } = useUIToggles();
 
   // ✅ Grouped analysis selector — 1 subscription instead of 4 separate ones
-  const { impactData, demographics, urbanAnalysis, analysisLoading } = useAnalysisState();
+  const { impactData, demographics, urbanAnalysis, analysisLoading } = useMapStore(
+    useShallow((s) => ({
+      impactData: s.impactData,
+      demographics: s.demographics,
+      urbanAnalysis: s.urbanAnalysis,
+      analysisLoading: s.analysisLoading,
+    }))
+  );
 
   // ── Individual setters (stable refs — won't cause re-renders) ──
   const setError = useMapStore((s) => s.setError);

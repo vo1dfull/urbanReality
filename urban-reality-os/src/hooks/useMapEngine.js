@@ -77,6 +77,8 @@ export default function useMapEngine() {
       setLoading(false);
     });
 
+    let fpsUnsub = null;
+
     async function loadBackgroundData(mounted) {
       try {
         // Fire all fetches in parallel — don't await sequentially
@@ -118,7 +120,7 @@ export default function useMapEngine() {
         let lowFPSCount = 0;
         let highFPSCount = 0;
 
-        FrameController.onFPS(({ fps }) => {
+        fpsUnsub = FrameController.onFPS(({ fps }) => {
           if (!isMounted) return;
           const currentQuality = useMapStore.getState().qualityLevel;
           const targetQuality = FrameController.getQualityHint();
@@ -208,6 +210,7 @@ export default function useMapEngine() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       delete window.saveLocation;
       destroyImpactWorker(); // ✅ Fix: clean up worker
+      if (fpsUnsub) fpsUnsub();
       InteractionEngine.destroy();
       FacilityEngine.destroy(MapEngine.getMap());
       LayerEngine.destroyAll(MapEngine.getMap());

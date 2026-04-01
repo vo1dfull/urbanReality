@@ -45,6 +45,10 @@ class FacilityEngine {
   initCoverageCanvas(map) {
     if (!map) return;
     try {
+      if (this._pulseTaskId !== null && !map.getSource('facility-coverage')) {
+        FrameController.remove(this._pulseTaskId);
+        this._pulseTaskId = null;
+      }
       if (map.getSource('facility-coverage')) return;
 
       this._canvas = document.createElement('canvas');
