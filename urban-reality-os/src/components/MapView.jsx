@@ -12,6 +12,17 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+// This headless component absorbs all background map subscriptions
+// preventing MapView from re-rendering during simulations or timeline scrubbing.
+const MapSyncOrchestrator = memo(function MapSyncOrchestrator() {
+  useLayerSync();
+  useFloodAnimation();
+  useYearProjection();
+  useInteractions();
+  useKeyboardShortcuts();
+  return null;
+});
+
 // Store — grouped selectors
 import useMapStore from '../store/useMapStore';
 import {
@@ -55,12 +66,7 @@ import { BASE_YEAR, MAX_YEAR, IMPACT_MODEL } from '../constants/mapConstants';
 export default function MapView() {
   // ── Hooks ──
   const { mapContainerRef } = useMapEngine();
-  useLayerSync();
-  useInteractions();
   const { startCityFlyThrough } = useCameraControls();
-  useFloodAnimation();
-  useYearProjection();
-  useKeyboardShortcuts();
 
   // ── Grouped selectors (minimal re-renders) ──
   const { loading, error, mapReady, mapStyle } = useMapStore(
@@ -155,6 +161,8 @@ export default function MapView() {
         contain: 'strict',            /* 🔥 Prevents layout/paint from propagating */
         willChange: 'transform',      /* 🔥 Forces GPU compositing layer */
       }} />
+
+      <MapSyncOrchestrator />
 
       {/* ── PANEL ROOT (mid layer — isolated from map re-renders) ── */}
       <PanelRoot
