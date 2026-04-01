@@ -630,7 +630,8 @@ const OverlayRoot = memo(function OverlayRoot({ mapStyle, mapRef }) {
           <span style={{ color: '#34d399', fontWeight: 600 }}>{hoveredFacility.coverageRadius || '2'} km</span>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 });
 
