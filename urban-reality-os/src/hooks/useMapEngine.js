@@ -8,7 +8,6 @@ import DataEngine from '../engines/DataEngine';
 import LayerEngine from '../engines/LayerEngine';
 import FacilityEngine from '../engines/FacilityEngine';
 import InteractionEngine from '../engines/InteractionEngine';
-import FrameController from '../core/FrameController';
 import eventBus, { EVENTS } from '../core/EventBus';
 import { destroyImpactWorker } from './useInteractions';
 import { createLogger } from '../core/Logger';
@@ -19,6 +18,7 @@ const log = createLogger('useMapEngine');
 /** @type {number} Max initialization retries */
 const MAX_INIT_RETRIES = 3;
 const RETRY_DELAY = 2000;
+const MAP_READY_TIMEOUT_MS = 6000;
 
 export default function useMapEngine() {
   const mapContainerRef = useRef(null);
@@ -34,8 +34,17 @@ export default function useMapEngine() {
     if (!mapContainerRef.current || initializedRef.current) return;
     initializedRef.current = true;
     let isMounted = true;
+    let readyFinalized = false;
+    let readyTimeoutId = null;
 
     const map = MapEngine.init(mapContainerRef.current);
+
+    const markReady = () => {
+      if (!isMounted || readyFinalized) return;
+      readyFinalized = true;
+      setMapReady(true);
+      setLoading(false);
+    };
 
     // Create popup
     const popup = MapEngine.createPopup();
@@ -53,14 +62,8 @@ export default function useMapEngine() {
         }
       };
 
-      scheduleIdleTask(() => {
-        if (!isMounted) return;
-        MapEngine.addTerrain();
-      });
-
       // Mark map ready immediately — show UI and let tiles continue loading quietly
-      setMapReady(true);
-      setLoading(false);
+      markReady();
 
       // Defer secondary data loads until the browser is idle
       scheduleIdleTask(() => {
@@ -69,6 +72,21 @@ export default function useMapEngine() {
       });
     });
 
+    // Fallback readiness paths for environments where 'load' can be delayed/missed.
+    map.once('idle', () => {
+      markReady();
+    });
+    map.once('styledata', () => {
+      if (map.loaded()) markReady();
+    });
+
+    // Hard timeout so the loading overlay never blocks the app indefinitely.
+    readyTimeoutId = setTimeout(() => {
+      if (!isMounted || readyFinalized) return;
+      log.warn('Map ready timeout reached; forcing UI ready state');
+      markReady();
+    }, MAP_READY_TIMEOUT_MS);
+
     // Handle map load errors
     map.once('error', (e) => {
       if (!isMounted) return;
@@ -76,8 +94,6 @@ export default function useMapEngine() {
       setError('Map failed to load. Please refresh.');
       setLoading(false);
     });
-
-    let fpsUnsub = null;
 
     async function loadBackgroundData(mounted) {
       try {
@@ -115,37 +131,6 @@ export default function useMapEngine() {
         }
         setDataReady(true);
         log.info('All data loaded');
-
-        // ── Adaptive quality: subscribe to FPS updates ──
-        let lowFPSCount = 0;
-        let highFPSCount = 0;
-
-        fpsUnsub = FrameController.onFPS(({ fps }) => {
-          if (!isMounted) return;
-          const currentQuality = useMapStore.getState().qualityLevel;
-          const targetQuality = FrameController.getQualityHint();
-
-          if (targetQuality !== currentQuality) {
-            // Priority: Downgrade faster than upgrade
-            if (fps < 35) lowFPSCount++;
-            else lowFPSCount = 0;
-
-            if (fps >= 55) highFPSCount++;
-            else highFPSCount = 0;
-
-            // Downgrade after ~2s of low FPS, upgrade after ~10s of high FPS
-            if (lowFPSCount >= 4 || highFPSCount >= 20) {
-              log.info(`Adaptive Quality: Switching from ${currentQuality} to ${targetQuality} (FPS: ${fps})`);
-              useMapStore.getState().setQualityLevel(targetQuality);
-              MapEngine.applyQuality(targetQuality);
-              lowFPSCount = 0;
-              highFPSCount = 0;
-            }
-          } else {
-            lowFPSCount = 0;
-            highFPSCount = 0;
-          }
-        });
 
       } catch (err) {
         console.error('[useMapEngine] Background data error:', err);
@@ -207,10 +192,13 @@ export default function useMapEngine() {
     // Cleanup
     return () => {
       isMounted = false;
+      if (readyTimeoutId) {
+        clearTimeout(readyTimeoutId);
+        readyTimeoutId = null;
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       delete window.saveLocation;
       destroyImpactWorker(); // ✅ Fix: clean up worker
-      if (fpsUnsub) fpsUnsub();
       InteractionEngine.destroy();
       FacilityEngine.destroy(MapEngine.getMap());
       LayerEngine.destroyAll(MapEngine.getMap());

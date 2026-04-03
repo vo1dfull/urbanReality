@@ -57,13 +57,14 @@ class LayerEngine {
       },
       traffic: { visible: layers.traffic },
       facility: { facilityData, layers },
-      buildings: null,
-      terrainElevation: { visible: storeState.terrainSubLayers?.elevation, mode: storeState.terrainMode },
-      terrainFlood: { visible: storeState.terrainSubLayers?.flood },
-      terrainSuitability: { visible: storeState.terrainSubLayers?.suitability },
-      terrainHeat: { visible: storeState.terrainSubLayers?.heat, year: storeState.year },
-      terrainGreen: { visible: storeState.terrainSubLayers?.green },
-      terrainRoad: { visible: storeState.terrainSubLayers?.road }
+      // Buildings are expensive on startup; keep disabled unless explicitly enabled later.
+      buildings: false,
+      terrainElevation: storeState.terrainSubLayers?.elevation ? { visible: true, mode: storeState.terrainMode } : false,
+      terrainFlood: storeState.terrainSubLayers?.flood ? { visible: true } : false,
+      terrainSuitability: storeState.terrainSubLayers?.suitability ? { visible: true } : false,
+      terrainHeat: storeState.terrainSubLayers?.heat ? { visible: true, year: storeState.year } : false,
+      terrainGreen: storeState.terrainSubLayers?.green ? { visible: true } : false,
+      terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false
     };
 
     this.registry.initAll(map, dataMap);
@@ -89,13 +90,13 @@ class LayerEngine {
       },
       traffic: { visible: layers.traffic },
       facility: { facilityData, layers },
-      buildings: null,
-      terrainElevation: { visible: storeState.terrainSubLayers?.elevation, mode: storeState.terrainMode },
-      terrainFlood: { visible: storeState.terrainSubLayers?.flood },
-      terrainSuitability: { visible: storeState.terrainSubLayers?.suitability },
-      terrainHeat: { visible: storeState.terrainSubLayers?.heat, year: storeState.year },
-      terrainGreen: { visible: storeState.terrainSubLayers?.green },
-      terrainRoad: { visible: storeState.terrainSubLayers?.road }
+      buildings: false,
+      terrainElevation: storeState.terrainSubLayers?.elevation ? { visible: true, mode: storeState.terrainMode } : false,
+      terrainFlood: storeState.terrainSubLayers?.flood ? { visible: true } : false,
+      terrainSuitability: storeState.terrainSubLayers?.suitability ? { visible: true } : false,
+      terrainHeat: storeState.terrainSubLayers?.heat ? { visible: true, year: storeState.year } : false,
+      terrainGreen: storeState.terrainSubLayers?.green ? { visible: true } : false,
+      terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false
     };
 
     this.registry.recoverAll(map, dataMap);

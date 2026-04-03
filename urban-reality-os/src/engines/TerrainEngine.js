@@ -2,6 +2,8 @@ const SAMPLE_DELTA = 0.0005;
 const CACHE_LIMIT = 20000;
 const TILE_SIZE = 0.01;
 const MAX_PREFETCH_POINTS = 500;
+const PREFETCH_TARGET_GRID = 50;
+const MAX_PREFETCH_ITERATIONS = 3000;
 
 class TerrainEngine {
   constructor() {
@@ -174,8 +176,23 @@ class TerrainEngine {
     const points = [];
     let count = 0;
 
-    for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += step) {
-      for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += step) {
+    const west = bounds.getWest();
+    const east = bounds.getEast();
+    const south = bounds.getSouth();
+    const north = bounds.getNorth();
+
+    // Prevent catastrophic nested-loop cost on large viewports.
+    const lngSpan = Math.abs(east - west);
+    const latSpan = Math.abs(north - south);
+    const minStepLng = lngSpan / PREFETCH_TARGET_GRID;
+    const minStepLat = latSpan / PREFETCH_TARGET_GRID;
+    const safeStep = Math.max(step, minStepLng, minStepLat, 0.0005);
+
+    let iterations = 0;
+
+    for (let lng = west; lng <= east; lng += safeStep) {
+      for (let lat = south; lat <= north; lat += safeStep) {
+        if (iterations++ >= MAX_PREFETCH_ITERATIONS) break;
         const key = this._getCacheKey({ lng, lat });
         if (this.metricCache.has(key)) continue;
         if (count >= MAX_PREFETCH_POINTS) break;
@@ -189,7 +206,7 @@ class TerrainEngine {
         points.push({ key, center, east, west, north, south, year: options.year ?? 2026, builtDensity: options.builtDensity ?? 0.5 });
         count += 1;
       }
-      if (count >= MAX_PREFETCH_POINTS) break;
+      if (count >= MAX_PREFETCH_POINTS || iterations >= MAX_PREFETCH_ITERATIONS) break;
     }
 
     if (points.length === 0 || !this.worker) {

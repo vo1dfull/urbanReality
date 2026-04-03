@@ -53,6 +53,8 @@ export default class LayerRegistry {
   initAll(map, dataMap = {}) {
     for (const plugin of this._plugins.values()) {
       try {
+        // Allow callers to explicitly skip heavy plugins with `false`.
+        if (dataMap[plugin.id] === false) continue;
         if (!plugin.isInitialized()) {
           plugin.init(map, dataMap[plugin.id] || null);
         }

@@ -27,8 +27,8 @@ const useMapStore = create((set, get) => ({
   // ── Layer Slice ──
   layers: {
     aqi: true,
-    flood: true,
-    traffic: true,
+    flood: false,
+    traffic: false,
     floodDepth: false,
     hospitals: false,
     policeStations: false,
