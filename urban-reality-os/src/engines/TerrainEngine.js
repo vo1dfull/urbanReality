@@ -115,6 +115,18 @@ class TerrainEngine {
     const dx = (samples.east - samples.west) / (2 * SAMPLE_DELTA);
     const dy = (samples.north - samples.south) / (2 * SAMPLE_DELTA);
     const slope = Math.sqrt(dx * dx + dy * dy);
+    const aspectRad = Math.atan2(dy, -dx); // downslope direction (approx)
+    const aspectDeg = (aspectRad * 180 / Math.PI + 360) % 360;
+    const variance = (() => {
+      const a = samples.center;
+      const b = samples.east;
+      const c = samples.west;
+      const d = samples.north;
+      const e = samples.south;
+      const mean = (a + b + c + d + e) / 5;
+      const v = ((a - mean) ** 2 + (b - mean) ** 2 + (c - mean) ** 2 + (d - mean) ** 2 + (e - mean) ** 2) / 5;
+      return v;
+    })();
 
     const drainage = this._clamp(1 - slope * 3.5, 0, 1);
     const climateFactor = (year - 2026) * 0.08;
@@ -125,6 +137,8 @@ class TerrainEngine {
     return {
       elevation,
       slope,
+      aspect: aspectDeg,
+      variance,
       drainage,
       heat,
       baseTerrainCost,

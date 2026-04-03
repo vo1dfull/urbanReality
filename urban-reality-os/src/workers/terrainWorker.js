@@ -6,6 +6,10 @@ const computeMetrics = ({ center, east, west, north, south, year = 2026, builtDe
   const dx = (east - west) / (2 * SAMPLE_DELTA);
   const dy = (north - south) / (2 * SAMPLE_DELTA);
   const slope = Math.sqrt(dx * dx + dy * dy);
+  const aspectRad = Math.atan2(dy, -dx);
+  const aspect = (aspectRad * 180 / Math.PI + 360) % 360;
+  const mean = (center + east + west + north + south) / 5;
+  const variance = ((center - mean) ** 2 + (east - mean) ** 2 + (west - mean) ** 2 + (north - mean) ** 2 + (south - mean) ** 2) / 5;
   const drainage = clamp(1 - slope * 3.5, 0, 1);
   const climateFactor = (year - 2026) * 0.08;
   const heat = clamp(1 + builtDensity * 0.8 - center * 0.002 - slope * 0.18 + climateFactor, 0, 3);
@@ -15,6 +19,8 @@ const computeMetrics = ({ center, east, west, north, south, year = 2026, builtDe
   return {
     elevation: center,
     slope,
+    aspect,
+    variance,
     drainage,
     heat,
     baseTerrainCost,
