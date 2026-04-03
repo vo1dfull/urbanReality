@@ -10,6 +10,38 @@ import { createLogger } from '../core/Logger';
 
 const log = createLogger('MapEngine');
 
+/**
+ * Major Indian cities with coordinates (lng, lat)
+ * @type {{[cityName]: {lng: number, lat: number}}}
+ */
+const INDIAN_CITIES_COORDS = {
+  'Mumbai': { lng: 72.8479, lat: 19.0760 },
+  'Delhi': { lng: 77.2090, lat: 28.6139 },
+  'Bangalore': { lng: 77.5946, lat: 12.9716 },
+  'Hyderabad': { lng: 78.4711, lat: 17.3850 },
+  'Chennai': { lng: 80.2809, lat: 13.0827 },
+  'Kolkata': { lng: 88.3639, lat: 22.5726 },
+  'Pune': { lng: 73.8567, lat: 18.5204 },
+  'Ahmedabad': { lng: 72.6369, lat: 23.0225 },
+  'Jaipur': { lng: 75.7873, lat: 26.9124 },
+  'Surat': { lng: 72.8300, lat: 21.1702 },
+  'Lucknow': { lng: 80.9462, lat: 26.8467 },
+  'Indore': { lng: 75.8577, lat: 22.7196 },
+  'Chandigarh': { lng: 76.7794, lat: 30.7333 },
+  'Kochi': { lng: 76.2711, lat: 9.9312 },
+  'Bhopal': { lng: 77.4126, lat: 23.1815 },
+  'Visakhapatnam': { lng: 83.2185, lat: 17.6869 },
+  'Pimpri-Chinchwad': { lng: 73.8007, lat: 18.6298 },
+  'Nagpur': { lng: 79.0882, lat: 21.1458 },
+  'Vadodara': { lng: 73.2167, lat: 22.3072 },
+  'Ghaziabad': { lng: 77.6655, lat: 28.6692 },
+  'Ludhiana': { lng: 75.8573, lat: 30.9010 },
+  'Nashik': { lng: 73.7997, lat: 19.9975 },
+  'Agra': { lng: 78.0081, lat: 27.1767 },
+  'Varanasi': { lng: 82.9789, lat: 25.3176 },
+  'Amritsar': { lng: 74.8723, lat: 31.6340 },
+};
+
 /** @type {number} Max polls for style loading */
 const STYLE_LOAD_MAX_POLLS = 50;
 const STYLE_LOAD_POLL_MS = 250;
@@ -26,9 +58,15 @@ class MapEngine {
     this._quality = 'medium';
     this._terrainExaggeration = QUALITY_PRESETS.medium?.terrainExaggeration ?? 1.4;
     this._styleSwitchTimeout = null;
+    this._styleSwitchAbortController = null; // Cancellation token for style switches
     this._lastStatsTime = 0;
     this._statsCache = null;
     this._layerEngine = null;
+    this._a11yOptions = { reduceMotion: false, highContrast: false, keyboardNavigation: false };
+    this._viewportIdleSubscribers = []; // Array of { callback, unsubscribe }
+    this._moveEndFired = false;
+    this._idleFired = false;
+    this._fpsTracker = { frameCount: 0, lastTime: performance.now(), fps: 0 };
   }
 
   setLayerEngine(layerEngine) {
@@ -186,8 +224,8 @@ class MapEngine {
     }
   }
 
-  _executeStyleSwitch(styleName, onRecovery) {
-    if (!this._map || this._destroyed) return;
+  _executeStyleSwitch(styleName, onRecovery, abortSignal) {
+    if (!this._map || this._destroyed || abortSignal?.aborted) return;
     if (this._currentStyle === styleName) return;
 
     const targetStyle = STYLE_URLS[styleName];
@@ -198,12 +236,12 @@ class MapEngine {
     this._map.setStyle(targetStyle);
 
     this._map.once('style.load', () => {
-      if (!this._map || this._destroyed) return;
+      if (!this._map || this._destroyed || abortSignal?.aborted) return;
 
       const finalize = (() => {
         let finished = false;
         return (reason) => {
-          if (finished) return;
+          if (finished || abortSignal?.aborted) return;
           finished = true;
           if (!this._map || this._destroyed) return;
           if (styleName === 'terrain' || styleName === 'satellite') {
@@ -228,7 +266,7 @@ class MapEngine {
 
       let pollCount = 0;
       const checkReady = () => {
-        if (!this._map || this._destroyed) return;
+        if (!this._map || this._destroyed || abortSignal?.aborted) return;
         if (this._map.isStyleLoaded()) {
           requestAnimationFrame(() => finalize('styleLoaded'));
         } else if (pollCount < STYLE_LOAD_MAX_POLLS) {
@@ -241,7 +279,7 @@ class MapEngine {
       };
 
       this._map.once('idle', () => {
-        if (!this._map || this._destroyed) return;
+        if (!this._map || this._destroyed || abortSignal?.aborted) return;
         requestAnimationFrame(() => finalize('idle'));
       });
 
@@ -266,6 +304,7 @@ class MapEngine {
   /**
    * Switch the map style with robust recovery.
    * Uses polling fallback if 'idle' event doesn't fire.
+   * Cancellable — if called again before completion, aborts previous switch.
    * @param {string} styleName
    * @param {Function} onRecovery
    */
@@ -273,13 +312,22 @@ class MapEngine {
     if (!this._map || this._destroyed) return;
     if (this._currentStyle === styleName) return;
 
+    // Cancel any in-flight style switch
+    if (this._styleSwitchAbortController) {
+      this._styleSwitchAbortController.abort();
+    }
+    this._styleSwitchAbortController = new AbortController();
+    const abortSignal = this._styleSwitchAbortController.signal;
+
     if (this._styleSwitchTimeout) {
       clearTimeout(this._styleSwitchTimeout);
     }
 
     this._styleSwitchTimeout = setTimeout(() => {
       this._styleSwitchTimeout = null;
-      this._executeStyleSwitch(styleName, onRecovery);
+      if (!abortSignal.aborted) {
+        this._executeStyleSwitch(styleName, onRecovery, abortSignal);
+      }
     }, 350);
   }
 
@@ -297,7 +345,7 @@ class MapEngine {
 
   /**
    * Get map debug stats (used by DebugPanel).
-   * @returns {{zoom: number, center: [number,number], pitch: number, bearing: number, style: string} | null}
+   * @returns {{zoom: number, center: [number,number], pitch: number, bearing: number, style: string, tilesLoaded: number, fps: number} | null}
    */
   getStats() {
     if (!this._map) return null;
@@ -307,6 +355,27 @@ class MapEngine {
     }
 
     try {
+      // Track FPS
+      const frameTime = now - this._fpsTracker.lastTime;
+      if (frameTime >= 1000) {
+        this._fpsTracker.fps = Math.round(this._fpsTracker.frameCount / (frameTime / 1000));
+        this._fpsTracker.frameCount = 0;
+        this._fpsTracker.lastTime = now;
+      }
+      this._fpsTracker.frameCount += 1;
+
+      // Get tile load data
+      let tilesLoaded = 0;
+      try {
+        const tilesRenderData = this._map.painter?.getTilesRenderData?.();
+        if (tilesRenderData?.length) {
+          tilesLoaded = tilesRenderData.length;
+        }
+      } catch {
+        // Fallback if getTilesRenderData is unavailable
+        tilesLoaded = 0;
+      }
+
       const stats = {
         zoom: Math.round(this._map.getZoom() * 100) / 100,
         center: [
@@ -316,6 +385,8 @@ class MapEngine {
         pitch: Math.round(this._map.getPitch()),
         bearing: Math.round(this._map.getBearing()),
         style: this._currentStyle,
+        tilesLoaded,
+        fps: this._fpsTracker.fps,
       };
       this._lastStatsTime = now;
       this._statsCache = stats;
@@ -325,11 +396,209 @@ class MapEngine {
     }
   }
 
+  /**
+   * Haversine distance between two geographic points
+   * @private
+   */
+  _haversineDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  /**
+   * Fly to a major Indian city.
+   * @param {string} cityName
+   * @param {number} zoom
+   * @returns {Promise<void>}
+   */
+  async flyToCity(cityName, zoom = 12) {
+    if (!this._map) return Promise.reject(new Error('Map not initialized'));
+
+    const cityCoords = INDIAN_CITIES_COORDS[cityName];
+    if (!cityCoords) {
+      return Promise.reject(new Error(`City "${cityName}" not found`));
+    }
+
+    return new Promise((resolve) => {
+      this._map.flyTo({
+        center: [cityCoords.lng, cityCoords.lat],
+        zoom,
+        duration: 2000,
+      });
+      this._map.once('moveend', resolve);
+    });
+  }
+
+  /**
+   * Measure total distance of a path (km).
+   * @param {Array<{lng: number, lat: number}>} points
+   * @returns {number} Distance in km
+   */
+  measureDistance(points) {
+    if (!Array.isArray(points) || points.length < 2) {
+      return 0;
+    }
+
+    let totalDistance = 0;
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      totalDistance += this._haversineDistance(p1.lat, p1.lng, p2.lat, p2.lng);
+    }
+    return Math.round(totalDistance * 100) / 100;
+  }
+
+  /**
+   * Measure area of a polygon (km²) using the Shoelace formula.
+   * @param {Array<{lng: number, lat: number}>} polygon
+   * @returns {number} Area in km²
+   */
+  measureArea(polygon) {
+    if (!Array.isArray(polygon) || polygon.length < 3) {
+      return 0;
+    }
+
+    // Convert to radians
+    const toRad = (deg) => deg * Math.PI / 180;
+
+    let areaRad = 0;
+    for (let i = 0; i < polygon.length; i += 1) {
+      const p1 = polygon[i];
+      const p2 = polygon[(i + 1) % polygon.length];
+      const lat1 = toRad(p1.lat);
+      const lat2 = toRad(p2.lat);
+      const dLng = toRad(p2.lng - p1.lng);
+
+      areaRad += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
+    }
+
+    // Earth's surface area / 4π * 2
+    const R = 6371; // km
+    const earthSurfaceArea = 4 * Math.PI * R * R;
+    const areaKm2 = Math.abs(areaRad) * earthSurfaceArea / (8 * Math.PI);
+
+    return Math.round(areaKm2 * 100) / 100;
+  }
+
+  /**
+   * Capture the current map viewport as a PNG blob.
+   * @returns {Promise<Blob>}
+   */
+  async captureSnapshot() {
+    if (!this._map) {
+      return Promise.reject(new Error('Map not initialized'));
+    }
+
+    const canvas = this._map.getCanvas();
+    if (!canvas) {
+      return Promise.reject(new Error('Canvas not available'));
+    }
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to capture snapshot'));
+        } else {
+          resolve(blob);
+        }
+      }, 'image/png');
+    });
+  }
+
+  /**
+   * Set accessibility options for the map.
+   * @param {{reduceMotion?: boolean, highContrast?: boolean, keyboardNavigation?: boolean}} options
+   */
+  setAccessibility(options = {}) {
+    const { reduceMotion, highContrast, keyboardNavigation } = options;
+
+    if (typeof reduceMotion === 'boolean') {
+      this._a11yOptions.reduceMotion = reduceMotion;
+      // Reduce animation durations when enabled
+      if (this._map && reduceMotion) {
+        this._map._fadeDuration = 0;
+      }
+    }
+
+    if (typeof highContrast === 'boolean') {
+      this._a11yOptions.highContrast = highContrast;
+      if (this._map && this._layerEngine) {
+        if (highContrast) {
+          // Switch to high-contrast style and maximize opacity
+          this.switchStyle('default');
+          const allLayers = Array.from(this._layerEngine.layerConfigs.values());
+          for (const cfg of allLayers) {
+            cfg.opacity = 1;
+          }
+        }
+      }
+    }
+
+    if (typeof keyboardNavigation === 'boolean') {
+      this._a11yOptions.keyboardNavigation = keyboardNavigation;
+      if (this._map) {
+        // Keyboard shortcuts will be handled by useKeyboardShortcuts hook
+        // This flag informs the hook that keyboard navigation is enabled
+      }
+    }
+
+    log.info('Accessibility options set:', this._a11yOptions);
+  }
+
+  /**
+   * Register a callback to fire once after the map has finished moving
+   * and all tiles have loaded (combines moveend + idle events).
+   * @param {Function} cb
+   * @returns {Function} Unsubscribe function
+   */
+  onViewportIdle(cb) {
+    if (!this._map || typeof cb !== 'function') {
+      return () => {};
+    }
+
+    const handleMoveEnd = () => {
+      this._moveEndFired = true;
+      this._checkViewportIdle(cb);
+    };
+
+    const handleIdle = () => {
+      this._idleFired = true;
+      this._checkViewportIdle(cb);
+    };
+
+    this._map.on('moveend', handleMoveEnd);
+    this._map.on('idle', handleIdle);
+
+    // Return unsubscribe function
+    return () => {
+      if (this._map) {
+        this._map.off('moveend', handleMoveEnd);
+        this._map.off('idle', handleIdle);
+      }
+    };
+  }
+
+  _checkViewportIdle(cb) {
+    if (this._moveEndFired && this._idleFired) {
+      this._moveEndFired = false;
+      this._idleFired = false;
+      if (cb) cb();
+    }
+  }
+
   destroy() {
     this._destroyed = true;
     if (this._styleSwitchTimeout) {
       clearTimeout(this._styleSwitchTimeout);
       this._styleSwitchTimeout = null;
+    }
+    if (this._styleSwitchAbortController) {
+      this._styleSwitchAbortController.abort();
+      this._styleSwitchAbortController = null;
     }
     if (this._popup) {
       this._popup.remove();
@@ -340,6 +609,9 @@ class MapEngine {
       this._map = null;
     }
     this._currentStyle = 'default';
+    this._moveEndFired = false;
+    this._idleFired = false;
+    this._viewportIdleSubscribers.length = 0;
     log.info('Map destroyed');
   }
 

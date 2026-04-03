@@ -46,6 +46,14 @@ class FacilityEngine {
     this._pulseOpacity = 1;
     this._pulseDirty = true;
     this._pulseTaskId = null;
+
+    // Frame scheduling: never render more than once per animation frame
+    this._renderScheduled = false;
+    this._lastRenderTime = 0;
+
+    // Cache for coverage reports
+    this._lastCoverageReport = null;
+    this._lastCoverageGaps = null;
   }
 
   initCoverageCanvas(map) {
@@ -110,10 +118,23 @@ class FacilityEngine {
     }
   }
 
-  renderCoverage(map, facilityData, layers, viewMode) {
+  renderCoverage(map, facilityData, layers, viewMode, options = {}) {
     if (!map || !facilityData || !this._ctx) return;
 
-    const stateKey = `${layers.hospitals}|${layers.policeStations}|${layers.fireStations}|${viewMode}`;
+    // Frame skipping: use requestAnimationFrame to prevent >1 render per frame
+    if (this._renderScheduled) return;
+    this._renderScheduled = true;
+
+    requestAnimationFrame(() => {
+      this._performRenderCoverage(map, facilityData, layers, viewMode, options);
+      this._renderScheduled = false;
+    });
+  }
+
+  _performRenderCoverage(map, facilityData, layers, viewMode, options = {}) {
+    const { highlightGaps = false } = options;
+
+    const stateKey = `${layers.hospitals}|${layers.policeStations}|${layers.fireStations}|${viewMode}|${highlightGaps}`;
     const boundsKey = this._getBoundsKey(map);
 
     // Skip if nothing changed AND pulse hasn't updated
@@ -145,7 +166,7 @@ class FacilityEngine {
       const arr = facilityData.hospitals;
       for (let i = 0; i < arr.length; i++) {
         const rKm = arr[i].coverageRadius || DEFAULT_COVERAGE_KM.hospitals;
-        active.push(arr[i].lng, arr[i].lat, rKm, 0x06, 0xb6, 0xd4, 0); // 7 values per facility
+        active.push(arr[i].lng, arr[i].lat, rKm, 0x06, 0xb6, 0xd4, 0);
       }
     }
     if (layers.policeStations && facilityData.policeStations) {
@@ -185,7 +206,6 @@ class FacilityEngine {
     const lngRange = bEast - bWest;
     if (latRange === 0 || lngRange === 0) return;
 
-    // Pre-compute inverse for multiplication (faster than division)
     const invLatRange = CANVAS_SIZE / latRange;
     const invLngRange = CANVAS_SIZE / lngRange;
 
@@ -204,13 +224,10 @@ class FacilityEngine {
       const x = (fLng - bWest) * invLngRange;
       const y = (bNorth - fLat) * invLatRange;
 
-      // Viewport culling
       if (x < -80 || x > CANVAS_SIZE + 80 || y < -80 || y > CANVAS_SIZE + 80) continue;
 
       if (viewMode === 'coverage' || viewMode === 'heatmap') {
         const colorStr = `#${HEX_TABLE[r]}${HEX_TABLE[g]}${HEX_TABLE[b]}`;
-
-        // Only 2 rings instead of 3 (saves 33% of gradient ops)
         const radii = [fCoverage * 20, fCoverage * 50 * pulseScale];
 
         for (let j = 0; j < 2; j++) {
@@ -227,12 +244,13 @@ class FacilityEngine {
           gradient.addColorStop(1, colorStr + '00');
 
           ctx.beginPath();
-          ctx.arc(x, y, radius, 0, 6.2832); // 2 * PI = 6.2832
+          ctx.arc(x, y, radius, 0, 6.2832);
           ctx.fillStyle = gradient;
           ctx.fill();
         }
       }
     }
+
     if (viewMode === 'gap') {
       const step = 44;
       for (let gx = 0; gx < CANVAS_SIZE; gx += step) {
@@ -248,6 +266,29 @@ class FacilityEngine {
           const tone = minKm <= 1 ? 'rgba(34,197,94,0.18)' : (minKm <= 1.8 ? 'rgba(234,179,8,0.22)' : 'rgba(239,68,68,0.24)');
           ctx.fillStyle = tone;
           ctx.fillRect(gx, gy, step - 6, step - 6);
+        }
+      }
+    }
+
+    if (highlightGaps) {
+      const step = 20;
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+      ctx.lineWidth = 1;
+      for (let gx = 0; gx < CANVAS_SIZE; gx += step) {
+        for (let gy = 0; gy < CANVAS_SIZE; gy += step) {
+          const lng = bWest + (gx / CANVAS_SIZE) * lngRange;
+          const lat = bNorth - (gy / CANVAS_SIZE) * latRange;
+          let minKm = Infinity;
+          for (let f = 0; f < active.length; f += 7) {
+            const dKm = this._distanceKm(lat, lng, active[f + 1], active[f]);
+            const norm = dKm / (active[f + 2] || 1);
+            if (norm < minKm) minKm = norm;
+          }
+          if (minKm > 1.5) {
+            ctx.beginPath();
+            ctx.rect(gx, gy, step - 4, step - 4);
+            ctx.stroke();
+          }
         }
       }
     }
@@ -308,6 +349,202 @@ class FacilityEngine {
     return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
+  /**
+   * @param {object} facilityData
+   * @param {Array} populationGrid
+   * @returns {Array}
+   */
+  computeCoverageGaps(facilityData = {}, populationGrid = []) {
+    const gaps = [];
+    const coverageThreshold = 0.8;
+
+    populationGrid.forEach((cell) => {
+      if (!cell || cell.population < 100) return;
+
+      const { lng, lat, population } = cell;
+      let minCoverageNorm = Infinity;
+      const types = ['hospitals', 'policeStations', 'fireStations', 'schools'];
+
+      for (const type of types) {
+        const facilities = facilityData[type] || [];
+        const coverageKm = DEFAULT_COVERAGE_KM[type] || 1;
+        let covered = false;
+
+        for (const fac of facilities) {
+          const distKm = this._distanceKm(lat, lng, fac.lat, fac.lng);
+          const norm = distKm / coverageKm;
+          if (norm < 1) {
+            covered = true;
+            break;
+          }
+          if (norm < minCoverageNorm) minCoverageNorm = norm;
+        }
+
+        if (!covered && minCoverageNorm > coverageThreshold) {
+          gaps.push({
+            lng,
+            lat,
+            population,
+            facilityType: type,
+            coverageNormalized: minCoverageNorm,
+            severity: minCoverageNorm > 2 ? 'critical' : (minCoverageNorm > 1.5 ? 'high' : 'medium'),
+            weightedImpact: population * (minCoverageNorm - 1),
+          });
+        }
+      }
+    });
+
+    this._lastCoverageGaps = gaps;
+    return gaps.sort((a, b) => b.weightedImpact - a.weightedImpact);
+  }
+
+  /**
+   * @param {string} facilityType
+   * @param {number} count
+   * @param {Array} populationGrid
+   * @returns {Promise<Array>}
+   */
+  async suggestOptimalLocations(facilityType = 'hospitals', count = 3, populationGrid = []) {
+    return new Promise((resolve) => {
+      // Greedy max-coverage: iteratively pick location that covers most uncovered population
+      const coverageKm = DEFAULT_COVERAGE_KM[facilityType] || 2;
+      const candidates = populationGrid.filter((c) => c && c.population > 50).slice();
+      const selected = [];
+
+      for (let i = 0; i < Math.min(count, candidates.length); i += 1) {
+        let best = null;
+        let bestScore = -Infinity;
+
+        for (const candidate of candidates) {
+          let score = candidate.population;
+          for (const other of selected) {
+            const dist = this._distanceKm(candidate.lat, candidate.lng, other.lat, other.lng);
+            if (dist < coverageKm * 2) score *= (1 - Math.max(0, (coverageKm - dist) / coverageKm) * 0.5);
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            best = candidate;
+          }
+        }
+
+        if (best) {
+          selected.push(best);
+          const idx = candidates.indexOf(best);
+          if (idx >= 0) candidates.splice(idx, 1);
+        }
+      }
+
+      resolve(selected.map((c) => ({ lng: c.lng, lat: c.lat })));
+    });
+  }
+
+  /**
+   * @param {object} facilityData
+   * @param {Array} populationGrid
+   * @returns {object}
+   */
+  computeAccessibilityIndex(facilityData = {}, populationGrid = []) {
+    const report = {
+      timestamp: Date.now(),
+      byType: {},
+      overall: { meanDistance: 0, populationCoveredPct: 0, giniCoefficient: 0 },
+    };
+
+    const types = ['hospitals', 'policeStations', 'fireStations', 'schools'];
+    const allDistances = [];
+
+    for (const type of types) {
+      const facilities = facilityData[type] || [];
+      const coverageKm = DEFAULT_COVERAGE_KM[type] || 1.5;
+      const distances = [];
+      let covered = 0;
+      let total = 0;
+
+      populationGrid.forEach((cell) => {
+        if (!cell || cell.population < 50) return;
+        total += cell.population;
+
+        let minDist = Infinity;
+        for (const fac of facilities) {
+          const dist = this._distanceKm(cell.lat, cell.lng, fac.lat, fac.lng);
+          if (dist < minDist) minDist = dist;
+        }
+        distances.push(minDist);
+        allDistances.push(minDist);
+
+        if (minDist <= coverageKm) covered += cell.population;
+      });
+
+      const meanDist = distances.length ? distances.reduce((a, b) => a + b, 0) / distances.length : Infinity;
+      const sortedDist = distances.slice().sort((a, b) => a - b);
+      const gini = this._computeGiniCoefficient(sortedDist);
+
+      report.byType[type] = {
+        facilityCount: facilities.length,
+        meanDistanceKm: Math.round(meanDist * 100) / 100,
+        populationCoveredPct: Math.round((covered / total) * 100 || 0),
+        giniCoefficient: Math.round(gini * 1000) / 1000,
+      };
+    }
+
+    const meanDistAll = allDistances.length ? allDistances.reduce((a, b) => a + b, 0) / allDistances.length : 0;
+    report.overall.meanDistance = Math.round(meanDistAll * 100) / 100;
+    report.overall.giniCoefficient = this._computeGiniCoefficient(allDistances.slice().sort((a, b) => a - b));
+
+    this._lastCoverageReport = report;
+    return report;
+  }
+
+  /**
+   * Compute Gini coefficient for a sorted array (0 = perfect equality, 1 = perfect inequality)
+   * @private
+   */
+  _computeGiniCoefficient(sortedArray) {
+    if (!sortedArray || sortedArray.length === 0) return 0;
+    const n = sortedArray.length;
+    const sum = sortedArray.reduce((a, b) => a + b, 0);
+    if (sum === 0) return 0;
+    const sumWeights = sortedArray.reduce((acc, val, idx) => acc + val * (2 * idx + 1), 0);
+    return (2 * sumWeights) / (n * sum) - (n + 1) / n;
+  }
+
+  /**
+   * @param {string} format
+   * @returns {string}
+   */
+  exportCoverageReport(format = 'json') {
+    const report = this._lastCoverageReport || this.computeAccessibilityIndex({}, []);
+    const gaps = this._lastCoverageGaps || [];
+
+    if (format === 'geojson') {
+      const features = gaps.map((gap) => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [gap.lng, gap.lat] },
+        properties: {
+          population: gap.population,
+          severity: gap.severity,
+          facilityType: gap.facilityType,
+          coverageNormalized: gap.coverageNormalized,
+          weightedImpact: gap.weightedImpact,
+        },
+      }));
+      return JSON.stringify({
+        type: 'FeatureCollection',
+        properties: {
+          timestamp: report.timestamp,
+          ...report.overall,
+        },
+        features,
+      }, null, 2);
+    } else {
+      return JSON.stringify({
+        report,
+        gaps: gaps.slice(0, 100),
+        exportedAt: new Date().toISOString(),
+      }, null, 2);
+    }
+  }
+
   destroy(map) {
     this.detachListeners(map);
     if (this._pulseTaskId !== null) {
@@ -317,6 +554,9 @@ class FacilityEngine {
     this._lastStateKey = null;
     this._lastBoundsKey = null;
     this._activeFacilities.length = 0;
+    this._renderScheduled = false;
+    this._lastCoverageReport = null;
+    this._lastCoverageGaps = null;
     if (map) {
       try {
         if (map.getLayer('facility-coverage-layer')) map.removeLayer('facility-coverage-layer');

@@ -1,0 +1,52 @@
+Date : 2026-04-03 20:18:28
+Directory : f:\urbanReality
+Total : 16 files,  2645 codes, 602 comments, 315 blanks, all 3562 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| JavaScript     |         11 |      1,720 |        602 |        314 |      2,636 |
+| JSON           |          2 |        909 |          0 |          1 |        910 |
+| JavaScript JSX |          3 |         16 |          0 |          0 |         16 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++-------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                    | files      | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                       |         16 |      2,645 |        602 |        315 |      3,562 |
+| urban-reality-os                                                        |         16 |      2,645 |        602 |        315 |      3,562 |
+| urban-reality-os (Files)                                                |          1 |          8 |          0 |          0 |          8 |
+| urban-reality-os\backend                                                |          1 |         33 |          1 |          7 |         41 |
+| urban-reality-os\server                                                 |          3 |        876 |          0 |         -3 |        873 |
+| urban-reality-os\src                                                    |         11 |      1,728 |        601 |        311 |      2,640 |
+| urban-reality-os\src\components                                         |          3 |         16 |          0 |          0 |         16 |
+| urban-reality-os\src\engines                                            |          5 |      1,594 |        565 |        288 |      2,447 |
+| urban-reality-os\src\hooks                                              |          1 |         14 |          0 |          0 |         14 |
+| urban-reality-os\src\layers                                             |          1 |         12 |         13 |          4 |         29 |
+| urban-reality-os\src\workers                                            |          1 |         92 |         23 |         19 |        134 |
++-------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                | language       | code       | comment    | blank      | total      |
++-------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\backend\server.js                      | JavaScript     |         33 |          1 |          7 |         41 |
+| f:\urbanReality\urban-reality-os\server\index.js                        | JavaScript     |        -33 |          0 |         -4 |        -37 |
+| f:\urbanReality\urban-reality-os\server\package-lock.json               | JSON           |        908 |          0 |          1 |        909 |
+| f:\urbanReality\urban-reality-os\server\package.json                    | JSON           |          1 |          0 |          0 |          1 |
+| f:\urbanReality\urban-reality-os\src\components\LocationPopup.jsx       | JavaScript JSX |          1 |          0 |          0 |          1 |
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx             | JavaScript JSX |          2 |          0 |          0 |          2 |
+| f:\urbanReality\urban-reality-os\src\components\UrbanIntelligenceUI.jsx | JavaScript JSX |         13 |          0 |          0 |         13 |
+| f:\urbanReality\urban-reality-os\src\engines\AIAssistant.js             | JavaScript     |        248 |        120 |         41 |        409 |
+| f:\urbanReality\urban-reality-os\src\engines\BuildEngine.js             | JavaScript     |        434 |         91 |         72 |        597 |
+| f:\urbanReality\urban-reality-os\src\engines\DataEngine.js              | JavaScript     |        420 |        170 |         84 |        674 |
+| f:\urbanReality\urban-reality-os\src\engines\PlanningEngine.js          | JavaScript     |        156 |         80 |         26 |        262 |
+| f:\urbanReality\urban-reality-os\src\engines\SatelliteEngine.js         | JavaScript     |        336 |        104 |         65 |        505 |
+| f:\urbanReality\urban-reality-os\src\hooks\useUrbanIntelligence.js      | JavaScript     |         14 |          0 |          0 |         14 |
+| f:\urbanReality\urban-reality-os\src\layers\BaseLayerPlugin.js          | JavaScript     |         12 |         13 |          4 |         29 |
+| f:\urbanReality\urban-reality-os\src\workers\satelliteWorker.js         | JavaScript     |         92 |         23 |         19 |        134 |
+| f:\urbanReality\urban-reality-os\vite.config.js                         | JavaScript     |          8 |          0 |          0 |          8 |
+| Total                                                                   |                |      2,645 |        602 |        315 |      3,562 |
++-------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

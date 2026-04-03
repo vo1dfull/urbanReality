@@ -1264,15 +1264,66 @@ class DataEngine {
   }
 
   async _fetchOverpassFacilities(lat, lng, signal) {
-    const query = `[out:json][timeout:20];(node(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];way(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];relation(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];);out center;`;
-    const res = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query,
-      signal,
-      headers: { 'Content-Type': 'text/plain' },
-    });
-    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
-    return await res.json();
+    const createTimedFetch = (timeoutMs) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const mergedSignal = signal || controller.signal;
+      const cleanup = () => clearTimeout(timer);
+      return { controller, signal: mergedSignal, cleanup };
+    };
+
+    const overpassQuery = `[out:json][timeout:20];(node(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];way(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];relation(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];);out center;`;
+
+    const maxRetries = 3;
+    let backoffMs = 400;
+
+    for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+      const { signal: mergedSignal, cleanup } = createTimedFetch(15000);
+      try {
+        const response = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          body: overpassQuery,
+          signal: mergedSignal,
+          headers: {
+            'Content-Type': 'text/plain',
+            'User-Agent': 'UrbanRealityOS/2.0',
+          },
+        });
+
+        cleanup();
+
+        if (!response.ok) {
+          if (response.status >= 500 && attempt < maxRetries - 1) {
+            await new Promise((resolve) => setTimeout(resolve, backoffMs));
+            backoffMs *= 2;
+            continue;
+          }
+          throw new Error(`Overpass HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+      } catch (err) {
+        cleanup();
+
+        if (err?.name === 'AbortError') {
+          console.warn(`[DataEngine] Overpass ${lat},${lng} request aborted (timeout)`);
+        } else {
+          console.warn(`[DataEngine] Overpass ${lat},${lng} attempt ${attempt + 1} failed:`, err.message || err);
+        }
+
+        if (attempt < maxRetries - 1) {
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          backoffMs *= 2;
+          continue;
+        }
+
+        // Last attempt failed; return null for graceful degradation
+        return null;
+      }
+    }
+
+    return null;
   }
 
   async _normalizeRealtimeInWorker(payload) {

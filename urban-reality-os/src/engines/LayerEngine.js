@@ -4,6 +4,7 @@
 // ================================================
 import LayerRegistry from '../layers/LayerRegistry';
 import DataEngine from './DataEngine';
+import FrameController from '../core/FrameController';
 import AqiLayerPlugin from '../layers/AqiLayerPlugin';
 import FloodLayerPlugin from '../layers/FloodLayerPlugin';
 import TrafficLayerPlugin from '../layers/TrafficLayerPlugin';
@@ -22,9 +23,15 @@ class LayerEngine {
   constructor() {
     this.registry = new LayerRegistry();
     this.layerConfigs = new Map();
+    this.layerGroups = new Map(); // Map<groupId, { layers: Set<layerId>, enabled: boolean }>
     this.groupOrder = ['base', 'terrain', 'infrastructure', 'facilities', 'environment', 'analytics'];
     this._fadeTimers = new Map();
     this._currentLayers = null;
+    this._zOrderDirty = false;
+    this._zOrderTaskId = null;
+    this._layerStats = new Map(); // Map<layerId, { renderCount, lastToggleTime, currentOpacity }>
+    this._layerPresets = new Map(); // Map<presetName, LayerPreset>
+    this._transitionInProgress = new Set(); // Set<fromLayerId:toLayerId>
 
     // Register all built-in plugins
     this.registry
@@ -76,6 +83,21 @@ class LayerEngine {
       fadeMs: config.fadeMs ?? 180,
     };
     this.layerConfigs.set(id, normalized);
+
+    // Add to group registry
+    const groupId = normalized.group;
+    if (!this.layerGroups.has(groupId)) {
+      this.layerGroups.set(groupId, { layers: new Set(), enabled: true });
+    }
+    this.layerGroups.get(groupId).layers.add(id);
+
+    // Initialize stats
+    this._layerStats.set(id, {
+      renderCount: 0,
+      lastToggleTime: null,
+      currentOpacity: normalized.opacity,
+    });
+
     return normalized;
   }
 
@@ -83,14 +105,29 @@ class LayerEngine {
     const cfg = this.layerConfigs.get(id);
     if (!cfg || !map) return;
     cfg.enabled = true;
+    
+    // Update stats
+    const stats = this._layerStats.get(id);
+    if (stats) {
+      stats.lastToggleTime = Date.now();
+      stats.renderCount += 1;
+    }
+
     this._applyLayerState(map, cfg, true);
-    this._applyZOrder(map);
+    this._markZOrderDirty();
   }
 
   disableLayer(id, map) {
     const cfg = this.layerConfigs.get(id);
     if (!cfg || !map) return;
     cfg.enabled = false;
+    
+    // Update stats
+    const stats = this._layerStats.get(id);
+    if (stats) {
+      stats.lastToggleTime = Date.now();
+    }
+
     this._applyLayerState(map, cfg, false);
   }
 
@@ -148,6 +185,13 @@ class LayerEngine {
   _setLayerOpacity(map, layerId, opacity, transitionMs) {
     const layer = map.getLayer(layerId);
     if (!layer) return;
+    
+    // Update stats
+    const stats = this._layerStats.get(layerId);
+    if (stats) {
+      stats.currentOpacity = opacity;
+    }
+
     const type = layer.type;
     const propMap = {
       fill: 'fill-opacity',
@@ -173,8 +217,21 @@ class LayerEngine {
     }
   }
 
+  _markZOrderDirty() {
+    if (this._zOrderDirty) return;
+    this._zOrderDirty = true;
+    if (this._zOrderTaskId !== null) {
+      FrameController?.remove?.(this._zOrderTaskId);
+    }
+    this._zOrderTaskId = FrameController?.add?.(() => {
+      this._zOrderDirty = false;
+      this._zOrderTaskId = null;
+      // Will be called with map from the context where it's needed
+    });
+  }
+
   _applyZOrder(map) {
-    if (!map) return;
+    if (!map || this._zOrderDirty) return;
     const ordered = Array.from(this.layerConfigs.values())
       .filter((cfg) => cfg.enabled && cfg.mode !== 'style')
       .sort((a, b) => {
@@ -199,8 +256,9 @@ class LayerEngine {
    * Initialize all layers with their respective data.
    * @param {maplibregl.Map} map
    * @param {object} storeState — current Zustand state snapshot
+   * @param {Function} onProgress — callback(pct: number) called as each plugin initializes
    */
-  initAllLayers(map, storeState) {
+  initAllLayers(map, storeState, onProgress) {
     const { layers } = storeState;
     const aqiGeo = storeState.aqiGeo ?? DataEngine.getAqiGeo();
     const floodData = storeState.floodData ?? DataEngine.getFloodData();
@@ -224,15 +282,16 @@ class LayerEngine {
       terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false
     };
 
-    this.registry.initAll(map, dataMap);
+    this.registry.initAll(map, dataMap, onProgress);
   }
 
   /**
    * Re-initialize all layers after a style switch.
    * @param {maplibregl.Map} map
    * @param {object} storeState
+   * @param {Function} onProgress — callback(pct: number) called as each plugin recovers
    */
-  recoverAllLayers(map, storeState) {
+  recoverAllLayers(map, storeState, onProgress) {
     const { layers } = storeState;
     const aqiGeo = storeState.aqiGeo ?? DataEngine.getAqiGeo();
     const floodData = storeState.floodData ?? DataEngine.getFloodData();
@@ -256,7 +315,231 @@ class LayerEngine {
       terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false
     };
 
-    this.registry.recoverAll(map, dataMap);
+    this.registry.recoverAll(map, dataMap, onProgress);
+  }
+
+  /**
+   * Toggle visibility for an entire group of layers.
+   * @param {string} groupId
+   * @param {maplibregl.Map} map
+   * @param {boolean} visible
+   */
+  toggleGroup(groupId, map, visible) {
+    const group = this.layerGroups.get(groupId);
+    if (!group) return;
+    
+    const isVisible = typeof visible === 'boolean' ? visible : !group.enabled;
+    group.enabled = isVisible;
+
+    for (const layerId of group.layers) {
+      if (isVisible) this.enableLayer(layerId, map);
+      else this.disableLayer(layerId, map);
+    }
+
+    this._applyZOrder(map);
+  }
+
+  /**
+   * Detect visual conflicts between enabled layers (e.g., heat + flood at max opacity).
+   * @returns {Array<{type: string, layers: string[], severity: 'warn'|'critical', message: string}>}
+   */
+  getLayerConflicts() {
+    const conflicts = [];
+    const enabledLayers = Array.from(this.layerConfigs.values()).filter((cfg) => cfg.enabled);
+
+    // Conflict: heat + flood both enabled and high opacity
+    const heatEnabled = enabledLayers.find((cfg) => cfg.id === 'terrain.heat');
+    const floodEnabled = enabledLayers.find((cfg) => cfg.id === 'environment.rainfall');
+    if (heatEnabled && floodEnabled) {
+      const heatOp = this._layerStats.get('terrain.heat')?.currentOpacity ?? 1;
+      const floodOp = this._layerStats.get('environment.rainfall')?.currentOpacity ?? 1;
+      if (heatOp > 0.7 && floodOp > 0.7) {
+        conflicts.push({
+          type: 'opacity_overlap',
+          layers: ['terrain.heat', 'environment.rainfall'],
+          severity: 'warn',
+          message: 'Heat and Flood layers at high opacity may obscure details; consider reducing opacity.',
+        });
+      }
+    }
+
+    // Conflict: multiple facility types enabled in same group obscure each other
+    const facilityLayers = enabledLayers.filter((cfg) => cfg.group === 'facilities');
+    if (facilityLayers.length > 2) {
+      conflicts.push({
+        type: 'facility_overcrowd',
+        layers: facilityLayers.map((cfg) => cfg.id),
+        severity: 'warn',
+        message: `${facilityLayers.length} facility layers enabled simultaneously; map may appear crowded.`,
+      });
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Save the current layer state as a preset.
+   * @param {string} name
+   * @returns {object} The created preset
+   */
+  saveLayerPreset(name) {
+    const preset = {
+      name,
+      timestamp: Date.now(),
+      layerStates: {},
+      groupStates: {},
+    };
+
+    // Save each layer's state
+    for (const [id, cfg] of this.layerConfigs) {
+      preset.layerStates[id] = {
+        enabled: cfg.enabled,
+        opacity: cfg.opacity,
+      };
+    }
+
+    // Save each group's state
+    for (const [groupId, group] of this.layerGroups) {
+      preset.groupStates[groupId] = {
+        enabled: group.enabled,
+      };
+    }
+
+    this._layerPresets.set(name, preset);
+    return preset;
+  }
+
+  /**
+   * Load a previously saved layer preset.
+   * @param {object|string} preset — preset object or preset name
+   * @param {maplibregl.Map} map
+   */
+  loadLayerPreset(preset, map) {
+    let presetData = preset;
+    if (typeof preset === 'string') {
+      presetData = this._layerPresets.get(preset);
+      if (!presetData) {
+        console.warn(`Preset "${preset}" not found`);
+        return;
+      }
+    }
+
+    if (!presetData.layerStates || !presetData.groupStates) {
+      console.warn('Invalid preset format');
+      return;
+    }
+
+    // Restore layer states
+    for (const [id, state] of Object.entries(presetData.layerStates)) {
+      const cfg = this.layerConfigs.get(id);
+      if (cfg) {
+        cfg.opacity = state.opacity;
+        if (state.enabled) this.enableLayer(id, map);
+        else this.disableLayer(id, map);
+      }
+    }
+
+    // Restore group states
+    for (const [groupId, state] of Object.entries(presetData.groupStates)) {
+      const group = this.layerGroups.get(groupId);
+      if (group) {
+        group.enabled = state.enabled;
+      }
+    }
+
+    this._applyZOrder(map);
+  }
+
+  /**
+   * Animate a smooth cross-fade transition from one layer to another.
+   * @param {string} fromLayerId
+   * @param {string} toLayerId
+   * @param {maplibregl.Map} map
+   * @param {number} durationMs
+   * @returns {Promise<void>}
+   */
+  async animateLayerTransition(fromLayerId, toLayerId, map, durationMs = 500) {
+    if (!map) return Promise.reject(new Error('Map required'));
+
+    const transitionKey = `${fromLayerId}:${toLayerId}`;
+    if (this._transitionInProgress.has(transitionKey)) {
+      return; // Transition already in progress
+    }
+
+    this._transitionInProgress.add(transitionKey);
+
+    try {
+      // Enable both layers initially
+      const fromCfg = this.layerConfigs.get(fromLayerId);
+      const toCfg = this.layerConfigs.get(toLayerId);
+
+      if (!fromCfg || !toCfg) {
+        throw new Error(`Layer not found: ${!fromCfg ? fromLayerId : toLayerId}`);
+      }
+
+      // Enable from layer at full opacity, to layer at 0 opacity
+      this.enableLayer(fromLayerId, map);
+      this.enableLayer(toLayerId, map);
+
+      // Get all layer IDs for both plugins
+      const fromPlugin = this.registry.get(fromCfg.pluginId);
+      const toPlugin = this.registry.get(toCfg.pluginId);
+
+      const fromLayerIds = fromPlugin?.layerIds || [];
+      const toLayerIds = toPlugin?.layerIds || [];
+
+      // Set initial opacity states
+      for (const id of fromLayerIds) {
+        this._setLayerOpacity(map, id, 1, 0);
+      }
+      for (const id of toLayerIds) {
+        this._setLayerOpacity(map, id, 0, 0);
+      }
+
+      // Animate transition
+      await new Promise((resolve) => {
+        const startTime = Date.now();
+        const animate = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / durationMs, 1);
+
+          // Fade out fromLayer, fade in toLayer
+          for (const id of fromLayerIds) {
+            this._setLayerOpacity(map, id, 1 - progress, durationMs);
+          }
+          for (const id of toLayerIds) {
+            this._setLayerOpacity(map, id, progress, durationMs);
+          }
+
+          if (progress < 1) {
+            requestAnimationFrame(animate);
+          } else {
+            // Disable fromLayer at end
+            this.disableLayer(fromLayerId, map);
+            resolve();
+          }
+        };
+        requestAnimationFrame(animate);
+      });
+    } finally {
+      this._transitionInProgress.delete(transitionKey);
+    }
+  }
+
+  /**
+   * Get statistics for all layers.
+   * @returns {{[layerId]: {renderCount: number, lastToggleTime: number|null, currentOpacity: number}}}
+   */
+  getLayerStats() {
+    const stats = {};
+    for (const [id, stat] of this._layerStats) {
+      stats[id] = {
+        renderCount: stat.renderCount,
+        lastToggleTime: stat.lastToggleTime,
+        currentOpacity: stat.currentOpacity,
+      };
+    }
+    return stats;
   }
 
   /**
@@ -282,6 +565,8 @@ class LayerEngine {
     this.toggleLayer('facilities.police', map, !!layers.policeStations);
     this.toggleLayer('facilities.fire', map, !!layers.fireStations);
     this.toggleLayer('facilities.school', map, !!layers.schools);
+
+    this._applyZOrder(map);
   }
 
   getCurrentLayerState() {
@@ -301,6 +586,27 @@ class LayerEngine {
    */
   destroyAll(map) {
     this.registry.destroyAll(map);
+    
+    // Clean up fade timers
+    for (const timerId of this._fadeTimers.values()) {
+      clearTimeout(timerId);
+    }
+    this._fadeTimers.clear();
+
+    // Clean up z-order task
+    if (this._zOrderTaskId !== null) {
+      FrameController?.remove?.(this._zOrderTaskId);
+      this._zOrderTaskId = null;
+    }
+
+    // Clear stats
+    this._layerStats.clear();
+
+    // Clear presets
+    this._layerPresets.clear();
+
+    // Clear transition set
+    this._transitionInProgress.clear();
   }
 }
 
