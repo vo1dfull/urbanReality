@@ -20,8 +20,12 @@ const TERRAIN_EXAGGERATION = 1.4;
 /** @type {number} Minimum ms between submersion updates */
 const UPDATE_THROTTLE_MS = 500;
 
-/** @type {number} Maximum buildings per worker update */
+/** @type {number} Maximum buildings per worker update (baseline) */
 const MAX_BUILDINGS_PER_UPDATE = 200;
+
+/** @type {number} Adaptive caps based on quality/FPS */
+const MAX_BUILDINGS_LOW = 80;
+const MAX_BUILDINGS_MEDIUM = 140;
 
 /** @type {number} Minimum zoom to process buildings */
 const MIN_ZOOM = 14;
@@ -119,7 +123,8 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
 
     // 🔥 Zoom guard — skip when buildings aren't visible
     const currentZoom = map.getZoom();
-    if (currentZoom < MIN_ZOOM) return;
+    const effectiveMinZoom = FrameController.isLowFPS() ? MIN_ZOOM + 1 : MIN_ZOOM;
+    if (currentZoom < effectiveMinZoom) return;
 
     // 🔥 Throttle gate — max one update per UPDATE_THROTTLE_MS
     const now = performance.now();
@@ -138,8 +143,9 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
 
     if (!features || features.length === 0) return;
 
-    // 🔥 Cap features to MAX_BUILDINGS_PER_UPDATE
-    const featureCount = Math.min(features.length, MAX_BUILDINGS_PER_UPDATE);
+    // 🔥 Cap features adaptively based on quality/FPS
+    const adaptiveCap = this._getAdaptiveBuildingCap();
+    const featureCount = Math.min(features.length, adaptiveCap);
 
     // 🔥 Reuse pre-allocated array
     const buildings = this._buildingsBuffer;
@@ -450,5 +456,18 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     addFacilities(facilityData.schools || facilityData.school, 'school');
     addFacilities(facilityData.policeStations, 'police');
     return facilities;
+  }
+
+  /**
+   * Adaptive cap for how many buildings we process in a single
+   * submersion update, based on the current quality hint from
+   * FrameController. This keeps heavy queries bounded on low-end
+   * devices and under sustained low FPS.
+   */
+  _getAdaptiveBuildingCap() {
+    const quality = FrameController.getQualityHint();
+    if (quality === 'low') return MAX_BUILDINGS_LOW;
+    if (quality === 'medium') return MAX_BUILDINGS_MEDIUM;
+    return MAX_BUILDINGS_PER_UPDATE;
   }
 }

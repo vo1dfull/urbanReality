@@ -16,9 +16,9 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
       <button
         onClick={() => setOpen(!open)}
         style={{
-          position: "absolute",
+          position: "fixed",
           top: 20,
-          left: 20,
+          right: 24,
           zIndex: 1002,
           width: 48,
           height: 48,
@@ -65,14 +65,12 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
         </svg>
       </button>
 
-      {/* Side panel */}
-      {/* Side panel */}
       {open && (
         <div
           style={{
-            position: "absolute",
+            position: "fixed",
             top: 20,
-            left: 80,
+            right: 88,
             zIndex: 1002,
             width: 320,
             background: "rgba(15, 23, 42, 0.95)", // Dark slate background

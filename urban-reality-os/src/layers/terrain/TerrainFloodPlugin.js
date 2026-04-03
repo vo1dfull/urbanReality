@@ -4,6 +4,7 @@
 // ================================================
 import BaseLayerPlugin from '../BaseLayerPlugin';
 import { terrainEngine } from '../../engines/TerrainEngine';
+import FrameController from '../../core/FrameController';
 
 export default class TerrainFloodPlugin extends BaseLayerPlugin {
   constructor() {
@@ -111,7 +112,12 @@ export default class TerrainFloodPlugin extends BaseLayerPlugin {
 
     const terrainMetrics = terrainEngine.getTerrainMetrics(map, { lng: center[0], lat: center[1] });
 
-    this.worker.postMessage({ center, rainIntensity, waterLevel, mapBounds, terrainMetrics });
+    // Pass through current quality hint so worker can adapt sampling
+    const quality = typeof FrameController?.getQualityHint === 'function'
+      ? FrameController.getQualityHint()
+      : 'medium';
+
+    this.worker.postMessage({ center, rainIntensity, waterLevel, mapBounds, terrainMetrics, quality });
   }
 
   /**

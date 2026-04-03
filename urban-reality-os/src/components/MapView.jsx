@@ -54,6 +54,7 @@ import TerrainController from './terrain/TerrainController';
 import CoordinateDisplay from './CoordinateDisplay';
 import SearchBar from './SearchBar';
 import TimeSlider from './TimeSlider';
+import MapMenu from './MapMenu';
 import EconomicPanel from './EconomicPanel';
 import InsightPanel from './InsightPanel';
 import CitySuggestions from './CitySuggestions';
@@ -197,6 +198,15 @@ export default function MapView() {
         onLocationSelect={handleLocationSelect}
         onToggleFlood={toggleFloodMode}
         startCityFlyThrough={startCityFlyThrough}
+      />
+
+      {/* Global map menu (AQI, Flood, Flood Depth, account) */}
+      <MapMenu
+        layers={layers}
+        setLayers={setLayers}
+        mapStyle={mapStyle}
+        setMapStyle={setMapStyle}
+        mapRef={mapRef}
       />
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
