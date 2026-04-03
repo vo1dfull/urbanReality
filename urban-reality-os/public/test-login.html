@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login Test</title>
+  <style>
+    body { font-family: Arial; max-width: 500px; margin: 100px auto; padding: 20px; }
+    input { width: 100%; padding: 8px; margin: 10px 0; }
+    button { background: blue; color: white; padding: 10px; cursor: pointer; width: 100%; }
+    #result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
+</head>
+<body>
+  <h1>Login Test</h1>
+  <input id="email" type="email" placeholder="Email" value="mirosot25@gmail.com">
+  <input id="password" type="password" placeholder="Password" value="password123">
+  <button onclick="testLogin()">Test Login</button>
+  <div id="result"></div>
+
+  <script>
+    async function testLogin() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = '<p>Testing...</p>';
+      
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <p class="success">✅ Login Successful!</p>
+            <p><strong>Token:</strong></p>
+            <pre>${data.token}</pre>
+            <p><strong>User:</strong></p>
+            <pre>${JSON.stringify(data.user, null, 2)}</pre>
+          `;
+          localStorage.setItem('token', data.token);
+          console.log('Token saved to localStorage');
+        } else {
+          resultDiv.innerHTML = `
+            <p class="error">❌ Login Failed</p>
+            <p><strong>Status:</strong> ${response.status}</p>
+            <p><strong>Error:</strong> ${data.msg || data.error || JSON.stringify(data)}</p>
+          `;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ Error: ${err.message}</p>
+          <p>Make sure the backend is running on http://localhost:5000</p>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

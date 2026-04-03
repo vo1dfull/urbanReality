@@ -84,7 +84,8 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: 'User not found' });
 
-    if (!user.isVerified) return res.status(403).json({ msg: 'Account not verified. Please verify OTP.' });
+    // Allow login even if not verified (OTP verification is optional)
+    // if (!user.isVerified) return res.status(403).json({ msg: 'Account not verified. Please verify OTP.' });
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(400).json({ msg: 'Invalid credentials' });
