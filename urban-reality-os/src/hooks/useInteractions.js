@@ -301,12 +301,14 @@ export default function useInteractions() {
   useEffect(() => {
     if (loading) return;
     const map = MapEngine.getMap();
-    if (!map) return;
+    if (!map || !map.getCanvas) return;
 
     const facilityPlugin = LayerEngine.getPlugin('facility');
     if (!facilityPlugin) return;
 
     const layerIds = facilityPlugin.getLayerIds();
+    if (!layerIds || layerIds.length === 0) return;
+
     const setHoveredFacility = useMapStore.getState().setHoveredFacility;
     const canvas = map.getCanvas();
 
@@ -361,10 +363,14 @@ export default function useInteractions() {
       setHoveredFacility(null);
     };
 
+    // Safely register event handlers
+    const attachedLayers = [];
     layerIds.forEach((id) => {
-      if (!map.getLayer(id)) return;
-      map.on('mousemove', id, handleFacilityMouseMove);
-      map.on('mouseleave', id, handleFacilityMouseLeave);
+      const currentMap = MapEngine.getMap();
+      if (!currentMap || !currentMap.getLayer(id)) return;
+      currentMap.on('mousemove', id, handleFacilityMouseMove);
+      currentMap.on('mouseleave', id, handleFacilityMouseLeave);
+      attachedLayers.push(id);
     });
 
     return () => {
@@ -372,10 +378,16 @@ export default function useInteractions() {
         cancelAnimationFrame(hoverRaf);
         hoverRaf = null;
       }
-      layerIds.forEach((id) => {
-        if (!map.getLayer(id)) return;
-        map.off('mousemove', id, handleFacilityMouseMove);
-        map.off('mouseleave', id, handleFacilityMouseLeave);
+      // Only detach from layers we successfully attached to
+      attachedLayers.forEach((id) => {
+        const currentMap = MapEngine.getMap();
+        if (!currentMap || !currentMap.getLayer) return;
+        try {
+          currentMap.off('mousemove', id, handleFacilityMouseMove);
+          currentMap.off('mouseleave', id, handleFacilityMouseLeave);
+        } catch (e) {
+          // Silently ignore if map is already destroyed
+        }
       });
     };
   }, [loading]);

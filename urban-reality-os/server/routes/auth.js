@@ -50,14 +50,14 @@ router.post('/login', async (req, res) => {
         if (validationError) return res.status(400).json({ msg: validationError });
 
         const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
+        if (!user) return res.status(401).json({ msg: 'User not found' });
 
         if (!user.password) {
-            return res.status(400).json({ msg: 'This account uses Google login. Please log in with Google or set a password.' });
+            return res.status(401).json({ msg: 'This account uses Google login. Please log in with Google or set a password.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
+        if (!isMatch) return res.status(401).json({ msg: 'Invalid credentials' });
 
         const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { id: user._id, name: user.name, email: user.email } });

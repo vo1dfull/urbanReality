@@ -6,20 +6,29 @@
 // ✅ Notification system (replaces alert())
 // ✅ useAnalysisState groups 4 fields into 1 subscription
 // ================================================
-import { useCallback, useRef, useEffect, memo } from 'react';
+import { useState, useCallback, useRef, useEffect, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+// Auth & Toast
+import { ToastContainer } from '../ui/components/ToastContainer';
+import { useOnlineStatus, useAuthSessionRestore } from '../hooks/useAuthSync';
+
 // This headless component absorbs all background map subscriptions
 // preventing MapView from re-rendering during simulations or timeline scrubbing.
-const MapSyncOrchestrator = memo(function MapSyncOrchestrator() {
+const MapSyncOrchestrator = memo(function MapSyncOrchestrator({ mapReady }) {
+  // Only run interaction hooks if map is ready
+  if (!mapReady) return null;
+
   useLayerSync();
   useFloodAnimation();
   useYearProjection();
   useInteractions();
   useKeyboardShortcuts();
+  useOnlineStatus();
+  useAuthSessionRestore();
   return null;
 });
 
@@ -63,6 +72,7 @@ import FacilityPanelUI from '../ui/panels/FacilityPanel';
 import TrafficPanelUI from '../ui/panels/TrafficPanel';
 import { panelSlideLeft } from '../ui/animations/transitions';
 import Sidebar from '../ui/layout/Sidebar';
+import { LoginModal } from '../ui/components/LoginModal';
 import TopSearch from '../ui/layout/TopSearch';
 import ContextCard from '../ui/layout/ContextCard';
 
@@ -70,6 +80,7 @@ import { BASE_YEAR, MAX_YEAR, IMPACT_MODEL } from '../constants/mapConstants';
 
 export default function MapView() {
   // ── Hooks ──
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const { mapContainerRef } = useMapEngine();
   const { startCityFlyThrough } = useCameraControls();
   
@@ -175,7 +186,7 @@ export default function MapView() {
         willChange: 'transform',      /* 🔥 Forces GPU compositing layer */
       }} />
 
-      <MapSyncOrchestrator />
+      <MapSyncOrchestrator mapReady={mapReady} />
 
       {/* ── MODERN LAYOUT ROOT (strict non-overlapping zones) ── */}
       <ModernLayoutRoot
@@ -210,6 +221,7 @@ export default function MapView() {
         onLocationSelect={handleLocationSelect}
         onToggleFlood={toggleFloodMode}
         startCityFlyThrough={startCityFlyThrough}
+        onRequestLogin={() => setIsLoginOpen(true)}
       />
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
@@ -220,6 +232,12 @@ export default function MapView() {
 
       {/* ── NOTIFICATION TOAST ── */}
       {notification && <NotificationToast message={notification} />}
+
+      {/* ── TOAST CONTAINER (Auth & Global) ── */}
+      <ToastContainer />
+
+      {/* ── LOGIN MODAL ── */}
+      <LoginModal isOpen={isLoginOpen} onClose={() => setIsLoginOpen(false)} />
 
       {/* ── URBAN INTELLIGENCE UI ── */}
       {urbanInitialized && (
@@ -340,6 +358,7 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
   activePanel, appMode, buildMode,
   setActivePanel, setAppMode,
   mapReady, onLocationSelect, onToggleFlood, startCityFlyThrough,
+  onRequestLogin,
 }) {
   _ensureDockPolishStyle();
   return (
@@ -356,12 +375,13 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
         </div>
       )}
 
-      <Sidebar onAction={(key) => {
-        const store = useMapStore.getState();
-        if (key === 'saved-places' || key === 'bookmarks' || key === 'recent-searches') {
-          store.setShowSuggestions(true);
-          return;
-        }
+      <Sidebar
+        onAction={(key) => {
+          const store = useMapStore.getState();
+          if (key === 'saved-places' || key === 'bookmarks' || key === 'recent-searches') {
+            store.setShowSuggestions(true);
+            return;
+          }
         if (key === 'projects') {
           const current = {
             id: `proj-${Date.now()}`,
@@ -395,8 +415,13 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
           store.setNotification('Plugin marketplace hook is ready.');
           return;
         }
-        if (key === 'signin') store.setNotification('Use account menu to sign in.');
-      }} />
+        if (key === 'signin') {
+          onRequestLogin?.();
+          return;
+        }
+      }}
+      onRequestLogin={onRequestLogin}
+      />
       <div style={{ position: 'fixed', top: 14, left: 80, zIndex: 20, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
         <TopSearch onLocationSelect={onLocationSelect} />
         <button className="interactive ui-dock-btn" onClick={startCityFlyThrough} style={floatingBtnStyle}>Fly Through</button>

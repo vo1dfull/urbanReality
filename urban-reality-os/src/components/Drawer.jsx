@@ -1,14 +1,14 @@
 import { memo, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
-import { MEDIUM } from '../animations/motion';
 import useMapStore from '../store/useMapStore';
+import { MEDIUM } from '../animations/motion';
+import { AccountSection } from '../ui/components/AccountSection';
 
-const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAction }) {
-  const { user, logout } = useAuth();
+const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAction, onRequestLogin }) {
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const [units, setUnits] = useState(() => localStorage.getItem('units') || 'km');
-  const initials = (user?.name || 'Guest').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+  
+  // Get stats from localStorage
   const stats = useMemo(() => {
     const read = (k) => {
       try { return JSON.parse(localStorage.getItem(k) || '[]').length; } catch { return 0; }
@@ -55,17 +55,8 @@ const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAc
               padding: 16, color: '#e2e8f0', overflow: 'auto',
             }}
           >
-            <section style={{ marginBottom: 14, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: 12 }}>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>Account</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 999, display: 'grid', placeItems: 'center', background: 'rgba(148,163,184,0.22)', fontWeight: 700 }}>{initials}</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{user?.name || 'Guest'}</div>
-                  <div style={{ fontSize: 12, color: '#94a3b8' }}>{user?.email || 'Sign in for sync'}</div>
-                </div>
-              </div>
-              <button onClick={user ? logout : () => handleAction('signin')} style={btnStyle}>{user ? 'Sign out' : 'Sign in'}</button>
-            </section>
+            {/* New Account Section */}
+            <AccountSection onRequestLogin={onRequestLogin} />
 
             <Section
               title="Places"

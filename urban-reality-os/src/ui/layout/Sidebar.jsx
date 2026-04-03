@@ -3,7 +3,7 @@ import Drawer from '../../components/Drawer';
 import useMapStore from '../../store/useMapStore';
 import PerformanceManager from '../../core/PerformanceManager';
 
-const Sidebar = memo(function Sidebar({ onAction }) {
+const Sidebar = memo(function Sidebar({ onAction, onRequestLogin }) {
   const [open, setOpen] = useState(false);
   const safeMode = useMapStore((s) => s.safeMode);
   const setSafeMode = useMapStore((s) => s.setSafeMode);
@@ -25,6 +25,7 @@ const Sidebar = memo(function Sidebar({ onAction }) {
         open={open}
         onClose={() => setOpen(false)}
         onAction={onAction}
+        onRequestLogin={onRequestLogin}
         safeMode={safeMode}
         setSafeMode={(v) => {
           setSafeMode(v);
