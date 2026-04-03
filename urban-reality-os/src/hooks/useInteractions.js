@@ -313,6 +313,18 @@ export default function useInteractions() {
     let cursorSet = false;
     let lastHoveredId = null;
 
+    let hoverRaf = null;
+    let pendingHover = null;
+
+    const commitHover = () => {
+      hoverRaf = null;
+      if (!pendingHover) return;
+      const payload = pendingHover;
+      pendingHover = null;
+      setHoveredFacility(payload);
+      eventBus.emitDeferred(EVENTS.FACILITY_HOVERED, payload.id);
+    };
+
     const handleFacilityMouseMove = throttle((e) => {
       if (!cursorSet) {
         canvas.style.cursor = 'pointer';
@@ -326,7 +338,7 @@ export default function useInteractions() {
         if (lastHoveredId === newProps.id) return;
         lastHoveredId = newProps.id;
 
-        setHoveredFacility({
+        pendingHover = {
           id: newProps.id,
           type: newProps.type,
           name: newProps.name,
@@ -335,10 +347,8 @@ export default function useInteractions() {
           availableUnits: newProps.availableUnits,
           startX: e.originalEvent.clientX,
           startY: e.originalEvent.clientY,
-        });
-
-        // 🔥 Deferred emit
-        eventBus.emitDeferred(EVENTS.FACILITY_HOVERED, newProps.id);
+        };
+        if (!hoverRaf) hoverRaf = requestAnimationFrame(commitHover);
       }
     }, 500);
 
@@ -358,6 +368,10 @@ export default function useInteractions() {
     });
 
     return () => {
+      if (hoverRaf) {
+        cancelAnimationFrame(hoverRaf);
+        hoverRaf = null;
+      }
       layerIds.forEach((id) => {
         if (!map.getLayer(id)) return;
         map.off('mousemove', id, handleFacilityMouseMove);

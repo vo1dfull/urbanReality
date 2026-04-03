@@ -26,6 +26,7 @@ const AQI_PAINT = {
 export default class AqiLayerPlugin extends BaseLayerPlugin {
   constructor() {
     super('aqi');
+    this._lastDigest = '';
   }
 
   /**
@@ -58,6 +59,13 @@ export default class AqiLayerPlugin extends BaseLayerPlugin {
   update(map, data) {
     if (!map || !data?.aqiGeo) return;
     try {
+      const features = data.aqiGeo.features || [];
+      let digest = `${features.length}`;
+      for (let i = 0; i < Math.min(features.length, 24); i++) {
+        digest += `:${features[i]?.properties?.aqi ?? 0}`;
+      }
+      if (digest === this._lastDigest) return;
+      this._lastDigest = digest;
       const source = map.getSource('aqi');
       if (source) {
         source.setData(data.aqiGeo);

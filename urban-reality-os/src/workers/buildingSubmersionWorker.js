@@ -13,6 +13,16 @@ self.onmessage = (event) => {
       }))
     : [];
 
+  const cellSizeDeg = 0.01;
+  const facilityGrid = new Map();
+  const gridKey = (lng, lat) => `${Math.floor(lng / cellSizeDeg)}:${Math.floor(lat / cellSizeDeg)}`;
+  for (let i = 0; i < facilityPoints.length; i++) {
+    const fp = facilityPoints[i];
+    const key = gridKey(fp.lng, fp.lat);
+    if (!facilityGrid.has(key)) facilityGrid.set(key, []);
+    facilityGrid.get(key).push(fp);
+  }
+
   const pointInBBox = (point, bbox) => {
     if (!point || !bbox) return false;
     return point.lng >= bbox.minX && point.lng <= bbox.maxX && point.lat >= bbox.minY && point.lat <= bbox.maxY;
@@ -81,8 +91,19 @@ self.onmessage = (event) => {
       let bestMatch = null;
       let bestScore = -Infinity;
 
-      for (let j = 0; j < facilityPoints.length; j += 1) {
-        const facility = facilityPoints[j];
+      const cellX = Math.floor(centroid.lng / cellSizeDeg);
+      const cellY = Math.floor(centroid.lat / cellSizeDeg);
+      const nearby = [];
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          const key = `${cellX + dx}:${cellY + dy}`;
+          const bucket = facilityGrid.get(key);
+          if (bucket) nearby.push(...bucket);
+        }
+      }
+
+      for (let j = 0; j < nearby.length; j += 1) {
+        const facility = nearby[j];
         if (!facility || !facility.type) continue;
         if (!CRITICAL_TYPES.includes(facility.type)) continue;
 

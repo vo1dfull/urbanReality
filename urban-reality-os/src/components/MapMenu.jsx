@@ -1,17 +1,23 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import AuthModal from "./AuthModal";
+import useMapStore from "../store/useMapStore";
+import PerformanceManager from "../core/PerformanceManager";
 
 const BACKEND = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapRef }) {
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const safeMode = useMapStore((s) => s.safeMode);
+  const perfMode = useMapStore((s) => s.perfMode);
+  const setSafeMode = useMapStore((s) => s.setSafeMode);
+  const setPerfMode = useMapStore((s) => s.setPerfMode);
 
   const { user, logout } = useAuth();
 
   return (
-    <div>
+    <div style={{ pointerEvents: "none" }}>
       {/* Hamburger Menu Button */}
       <button
         onClick={() => setOpen(!open)}
@@ -19,7 +25,7 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
           position: "fixed",
           top: 20,
           right: 24,
-          zIndex: 1002,
+          zIndex: 20,
           width: 48,
           height: 48,
           borderRadius: 12,
@@ -31,7 +37,8 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
           alignItems: "center",
           justifyContent: "center",
           transition: "all 0.2s",
-          backdropFilter: "blur(8px)"
+          backdropFilter: "blur(8px)",
+          pointerEvents: "auto"
         }}
         onMouseEnter={(e) => {
           if (!open) e.target.style.background = "rgba(255, 255, 255, 1)";
@@ -71,7 +78,7 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
             position: "fixed",
             top: 20,
             right: 88,
-            zIndex: 1002,
+            zIndex: 20,
             width: 320,
             background: "rgba(15, 23, 42, 0.95)", // Dark slate background
             borderRadius: 16,
@@ -79,7 +86,8 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
             backdropFilter: "blur(12px)",
             border: "1px solid rgba(255,255,255,0.1)",
             color: "#f8fafc", // Light text
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            pointerEvents: "auto"
           }}
         >
           <div style={{ padding: 20 }}>
@@ -114,6 +122,43 @@ export default function MapMenu({ layers, setLayers, mapStyle, setMapStyle, mapR
                     />
                     <span style={{ fontSize: 14, fontWeight: 500, color: "#e2e8f0" }}>{layer.label}</span>
                   </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ width: "100%", height: 1, background: "rgba(255,255,255,0.1)", marginBottom: 20 }} />
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#f8fafc" }}>Performance</div>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={safeMode}
+                  onChange={() => {
+                    const next = !safeMode;
+                    setSafeMode(next);
+                    PerformanceManager.setSafeMode(next);
+                  }}
+                />
+                <span style={{ fontSize: 13, color: "#cbd5e1" }}>Safe Mode (startup stability)</span>
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {['low', 'balanced', 'high'].map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setPerfMode(mode)}
+                    style={{
+                      flex: 1,
+                      padding: '6px 8px',
+                      borderRadius: 8,
+                      border: perfMode === mode ? "1px solid #60a5fa" : "1px solid rgba(255,255,255,0.16)",
+                      background: perfMode === mode ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.03)",
+                      color: "#e2e8f0",
+                      cursor: "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    {mode}
+                  </button>
                 ))}
               </div>
             </div>

@@ -8,10 +8,12 @@ import DataEngine from '../engines/DataEngine';
 import LayerEngine from '../engines/LayerEngine';
 import FacilityEngine from '../engines/FacilityEngine';
 import InteractionEngine from '../engines/InteractionEngine';
+import PerformanceManager from '../core/PerformanceManager';
 import eventBus, { EVENTS } from '../core/EventBus';
 import { destroyImpactWorker } from './useInteractions';
 import { createLogger } from '../core/Logger';
 import maplibregl from 'maplibre-gl';
+import FrameController from '../core/FrameController';
 
 const log = createLogger('useMapEngine');
 
@@ -36,8 +38,22 @@ export default function useMapEngine() {
     let isMounted = true;
     let readyFinalized = false;
     let readyTimeoutId = null;
+    let watchdogUnsub = null;
 
     const map = MapEngine.init(mapContainerRef.current);
+    MapEngine.setLayerEngine(LayerEngine);
+    useMapStore.getState().setSafeMode(PerformanceManager.isSafeMode());
+    watchdogUnsub = FrameController.onWatchdog(() => {
+      const state = useMapStore.getState();
+      if (!state.safeMode) return;
+      // Emergency degradation path during sustained frame overruns.
+      state.setLayers((prev) => ({
+        ...prev,
+        traffic: false,
+        flood: false,
+        floodDepth: false,
+      }));
+    });
 
     const markReady = () => {
       if (!isMounted || readyFinalized) return;
@@ -53,6 +69,9 @@ export default function useMapEngine() {
     // ── PHASE 1: Make map interactive ASAP ──
     map.once('load', () => {
       if (!isMounted) return;
+      try {
+        map.getCanvas().style.pointerEvents = 'auto';
+      } catch (_) {}
 
       const scheduleIdleTask = (task) => {
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -74,6 +93,9 @@ export default function useMapEngine() {
 
     // Fallback readiness paths for environments where 'load' can be delayed/missed.
     map.once('idle', () => {
+      try {
+        map.getCanvas().style.pointerEvents = 'auto';
+      } catch (_) {}
       markReady();
     });
     map.once('styledata', () => {
@@ -115,7 +137,8 @@ export default function useMapEngine() {
         const currentMap = MapEngine.getMap();
         if (currentMap) {
           const storeState = useMapStore.getState();
-          LayerEngine.initAllLayers(currentMap, {
+          const safeMode = storeState.safeMode ?? PerformanceManager.isSafeMode();
+          const basePayload = {
             aqiGeo: aqiData,
             floodData: staticData.floodData,
             facilityData: staticData.facilityData,
@@ -123,10 +146,33 @@ export default function useMapEngine() {
             terrainSubLayers: storeState.terrainSubLayers,
             terrainMode: storeState.terrainMode,
             year: storeState.year,
-          });
+          };
+
+          // Safe mode: keep startup ultra-light, then lazily load heavy plugins.
+          if (safeMode) {
+            LayerEngine.initAllLayers(currentMap, {
+              ...basePayload,
+              layers: { ...storeState.layers, flood: false, floodDepth: false, traffic: false },
+              terrainSubLayers: {
+                elevation: false, flood: false, suitability: false, heat: false, green: false, road: false,
+              },
+            });
+          } else {
+            LayerEngine.initAllLayers(currentMap, basePayload);
+          }
 
           if (staticData.facilityData) {
             FacilityEngine.initCoverageCanvas(currentMap);
+          }
+
+          if (safeMode) {
+            setTimeout(() => {
+              if (!isMounted) return;
+              const mapRef = MapEngine.getMap();
+              if (!mapRef) return;
+              const stateNow = useMapStore.getState();
+              LayerEngine.syncAllToggles(mapRef, stateNow.layers);
+            }, 1500);
           }
         }
         setDataReady(true);
@@ -195,6 +241,10 @@ export default function useMapEngine() {
       if (readyTimeoutId) {
         clearTimeout(readyTimeoutId);
         readyTimeoutId = null;
+      }
+      if (watchdogUnsub) {
+        watchdogUnsub();
+        watchdogUnsub = null;
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       delete window.saveLocation;

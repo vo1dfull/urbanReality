@@ -45,6 +45,7 @@ class FrameController {
     this._lastFrameTime = 0;
     this._fps = 60;
     this._fpsCallbacks = [];
+    this._watchdogCallbacks = [];
     this._fpsUpdateCounter = 0;
 
     // Frame budget tracking
@@ -117,6 +118,14 @@ class FrameController {
     return () => {
       const idx = this._fpsCallbacks.indexOf(cb);
       if (idx >= 0) this._fpsCallbacks.splice(idx, 1);
+    };
+  }
+
+  onWatchdog(cb) {
+    this._watchdogCallbacks.push(cb);
+    return () => {
+      const idx = this._watchdogCallbacks.indexOf(cb);
+      if (idx >= 0) this._watchdogCallbacks.splice(idx, 1);
     };
   }
 
@@ -249,6 +258,21 @@ class FrameController {
         }
       }
 
+      const frameCost = performance.now() - frameStart;
+      if (frameCost > FRAME_BUDGET_MS) {
+        this._frameBudgetExceeded++;
+      } else {
+        this._frameBudgetExceeded = Math.max(0, this._frameBudgetExceeded - 1);
+      }
+
+      if (this._frameBudgetExceeded >= 30) {
+        this._frameBudgetExceeded = 0;
+        const payload = { fps: this._fps, frameCost };
+        for (let i = 0; i < this._watchdogCallbacks.length; i++) {
+          try { this._watchdogCallbacks[i](payload); } catch (_) {}
+        }
+      }
+
       this._rafId = requestAnimationFrame(loop);
     };
 
@@ -286,6 +310,7 @@ class FrameController {
     this._tasks.clear();
     this._stopLoop();
     this._fpsCallbacks.length = 0;
+    this._watchdogCallbacks.length = 0;
     this._criticalTasks.length = 0;
     this._normalTasks.length = 0;
     this._idleTasks.length = 0;

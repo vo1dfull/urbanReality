@@ -34,6 +34,7 @@ export default function CoordinateDisplay({ mapRef }) {
 
   return (
     <div
+      className="latlng-box"
       style={{
         position: "absolute",
         bottom: 100,
@@ -48,7 +49,8 @@ export default function CoordinateDisplay({ mapRef }) {
         boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         border: "1px solid rgba(255,255,255,0.1)",
-        animation: "slideIn 0.3s ease-out"
+        animation: "slideIn 0.3s ease-out",
+        pointerEvents: "none"
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>

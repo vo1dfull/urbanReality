@@ -5,6 +5,7 @@
 import BaseLayerPlugin from '../BaseLayerPlugin';
 import { terrainEngine } from '../../engines/TerrainEngine';
 import FrameController from '../../core/FrameController';
+import useMapStore from '../../store/useMapStore';
 
 export default class TerrainFloodPlugin extends BaseLayerPlugin {
   constructor() {
@@ -116,8 +117,9 @@ export default class TerrainFloodPlugin extends BaseLayerPlugin {
     const quality = typeof FrameController?.getQualityHint === 'function'
       ? FrameController.getQualityHint()
       : 'medium';
+    const perfMode = useMapStore.getState().perfMode || 'balanced';
 
-    this.worker.postMessage({ center, rainIntensity, waterLevel, mapBounds, terrainMetrics, quality });
+    this.worker.postMessage({ center, rainIntensity, waterLevel, mapBounds, terrainMetrics, quality, perfMode });
   }
 
   /**

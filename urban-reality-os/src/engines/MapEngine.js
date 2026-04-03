@@ -28,6 +28,11 @@ class MapEngine {
     this._styleSwitchTimeout = null;
     this._lastStatsTime = 0;
     this._statsCache = null;
+    this._layerEngine = null;
+  }
+
+  setLayerEngine(layerEngine) {
+    this._layerEngine = layerEngine || null;
   }
 
   /**
@@ -154,6 +159,14 @@ class MapEngine {
             this.removeTerrain();
           }
           if (onRecovery) onRecovery(this._map, styleName);
+          if (this._layerEngine?.syncAllToggles) {
+            try {
+              const layers = this._layerEngine.getCurrentLayerState?.();
+              if (layers) this._layerEngine.syncAllToggles(this._map, layers);
+            } catch (err) {
+              log.warn('LayerEngine sync after style switch failed:', err);
+            }
+          }
           log.info(`Style switch complete (${reason}): ${styleName}`);
         };
       })();

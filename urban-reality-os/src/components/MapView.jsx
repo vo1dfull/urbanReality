@@ -50,17 +50,19 @@ import DataEngine from '../engines/DataEngine';
 import FrameController from '../core/FrameController';
 
 // UI Components
-import TerrainController from './terrain/TerrainController';
 import CoordinateDisplay from './CoordinateDisplay';
-import SearchBar from './SearchBar';
-import TimeSlider from './TimeSlider';
-import MapMenu from './MapMenu';
-import EconomicPanel from './EconomicPanel';
-import InsightPanel from './InsightPanel';
 import CitySuggestions from './CitySuggestions';
-import FacilityStatsPanel from './FacilityStatsPanel';
 import FacilityListPanel from './FacilityListPanel';
 import DebugPanel from './DebugPanel';
+import BottomBar from '../ui/layout/BottomBar';
+import LayerSwitcher from '../ui/controls/LayerSwitcher';
+import TerrainPanelUI from '../ui/panels/TerrainPanel';
+import FacilityPanelUI from '../ui/panels/FacilityPanel';
+import TrafficPanelUI from '../ui/panels/TrafficPanel';
+import { panelSlideLeft } from '../ui/animations/transitions';
+import Sidebar from '../ui/layout/Sidebar';
+import TopSearch from '../ui/layout/TopSearch';
+import ContextCard from '../ui/layout/ContextCard';
 
 import { BASE_YEAR, MAX_YEAR, IMPACT_MODEL } from '../constants/mapConstants';
 
@@ -80,11 +82,11 @@ export default function MapView() {
   );
   const layers = useLayers();
   const { floodMode } = useFloodState();
-  const { facilityCheckOpen, facilityViewMode } = useFacilityState();
+  const { facilityViewMode } = useFacilityState();
   const { activePanel, appMode, buildMode } = usePanelState();
   const dataReady = useMapStore((s) => s.dataReady);
   const facilityData = dataReady ? DataEngine.getFacilityData() : null;
-  const { showLayersMenu, showSuggestions } = useUIToggles();
+  const { showSuggestions } = useUIToggles();
 
   // ✅ Grouped analysis selector — 1 subscription instead of 4 separate ones
   const { impactData, demographics, urbanAnalysis, analysisLoading } = useMapStore(
@@ -95,13 +97,13 @@ export default function MapView() {
       analysisLoading: s.analysisLoading,
     }))
   );
+  const activeLocation = useMapStore((s) => s.activeLocation);
+  const year = useMapStore((s) => s.year);
 
   // ── Individual setters (stable refs — won't cause re-renders) ──
   const setError = useMapStore((s) => s.setError);
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const setLayers = useMapStore((s) => s.setLayers);
-  const setFacilityCheckOpen = useMapStore((s) => s.setFacilityCheckOpen);
-  const setShowLayersMenu = useMapStore((s) => s.setShowLayersMenu);
   const setFacilityViewMode = useMapStore((s) => s.setFacilityViewMode);
   const setFloodMode = useMapStore((s) => s.setFloodMode);
   const setActivePanel = useMapStore((s) => s.setActivePanel);
@@ -158,6 +160,8 @@ export default function MapView() {
       {/* ── MAP CANVAS (bottom layer) — 🔥 CSS containment prevents layout thrashing ── */}
       <div ref={mapContainerRef} style={{
         width: '100%', height: '100%', position: 'fixed', top: 0, left: 0,
+        zIndex: 0,
+        pointerEvents: 'auto',
         background: '#020617',
         contain: 'strict',            /* 🔥 Prevents layout/paint from propagating */
         willChange: 'transform',      /* 🔥 Forces GPU compositing layer */
@@ -165,8 +169,8 @@ export default function MapView() {
 
       <MapSyncOrchestrator />
 
-      {/* ── PANEL ROOT (mid layer — isolated from map re-renders) ── */}
-      <PanelRoot
+      {/* ── MODERN LAYOUT ROOT (strict non-overlapping zones) ── */}
+      <ModernLayoutRoot
         loading={loading}
         error={error}
         setError={setError}
@@ -175,15 +179,13 @@ export default function MapView() {
         layers={layers}
         setLayers={setLayers}
         mapRef={mapRef}
-        facilityCheckOpen={facilityCheckOpen}
-        setFacilityCheckOpen={setFacilityCheckOpen}
-        showLayersMenu={showLayersMenu}
-        setShowLayersMenu={setShowLayersMenu}
+        activeLocation={activeLocation}
         showSuggestions={showSuggestions}
         facilityViewMode={facilityViewMode}
         setFacilityViewMode={setFacilityViewMode}
         floodMode={floodMode}
         facilityData={facilityData}
+        year={year}
         impactData={impactData}
         demographics={demographics}
         urbanAnalysis={urbanAnalysis}
@@ -198,15 +200,6 @@ export default function MapView() {
         onLocationSelect={handleLocationSelect}
         onToggleFlood={toggleFloodMode}
         startCityFlyThrough={startCityFlyThrough}
-      />
-
-      {/* Global map menu (AQI, Flood, Flood Depth, account) */}
-      <MapMenu
-        layers={layers}
-        setLayers={setLayers}
-        mapStyle={mapStyle}
-        setMapStyle={setMapStyle}
-        mapRef={mapRef}
       />
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
@@ -284,7 +277,7 @@ const FPSHUD = memo(function FPSHUD() {
   if (!debugMode) return null;
 
   return (
-    <div ref={containerRef} style={{
+      <div ref={containerRef} style={{
       position: 'fixed', top: 12, left: 12, zIndex: 10000,
       background: 'rgba(5, 8, 16, 0.7)', padding: '4px 8px',
       borderRadius: '6px', fontFamily: "'Inter', sans-serif",
@@ -296,6 +289,118 @@ const FPSHUD = memo(function FPSHUD() {
     </div>
   );
 });
+
+const ModernLayoutRoot = memo(function ModernLayoutRoot({
+  loading, error, setError,
+  mapStyle, setMapStyle, layers, setLayers, mapRef,
+  activeLocation,
+  year,
+  showSuggestions,
+  facilityViewMode, setFacilityViewMode,
+  floodMode, facilityData,
+  impactData, demographics, urbanAnalysis, analysisLoading,
+  activePanel, appMode, buildMode,
+  setActivePanel, setAppMode,
+  mapReady, onLocationSelect, onToggleFlood, startCityFlyThrough,
+}) {
+  _ensureDockPolishStyle();
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10, pointerEvents: 'none' }}>
+      {loading && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 11, background: 'rgba(2, 6, 23, 0.62)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', color: '#e2e8f0', pointerEvents: 'none' }}>
+          Loading map data...
+        </div>
+      )}
+      {error && (
+        <div style={{ position: 'fixed', top: 76, left: 84, zIndex: 20, background: 'rgba(220, 38, 38, 0.85)', border: '1px solid rgba(255,255,255,0.16)', borderRadius: 10, color: '#fff', padding: '8px 12px', pointerEvents: 'auto' }}>
+          {error}
+          <button onClick={() => setError(null)} style={{ marginLeft: 10, background: 'transparent', color: '#fff', border: 0, cursor: 'pointer' }}>x</button>
+        </div>
+      )}
+
+      <Sidebar onAction={(key) => {
+        if (key === 'saved-places' || key === 'bookmarks' || key === 'recent-searches') useMapStore.getState().setShowSuggestions(true);
+        if (key === 'projects') useMapStore.getState().setActivePanel('facility');
+        if (key === 'settings') useMapStore.getState().setNotification('Settings panel coming next refinement.');
+        if (key === 'plugins') useMapStore.getState().setNotification('Plugin marketplace hook is ready.');
+        if (key === 'signin') useMapStore.getState().setNotification('Use account menu to sign in.');
+      }} />
+      <div style={{ position: 'fixed', top: 14, left: 80, zIndex: 20, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
+        <TopSearch onLocationSelect={onLocationSelect} />
+        <button className="interactive ui-dock-btn" onClick={startCityFlyThrough} style={floatingBtnStyle}>Fly Through</button>
+        <button className="interactive ui-dock-btn" onClick={onToggleFlood} style={floatingBtnStyle}>{floodMode ? 'Stop Simulation' : 'Start Simulation'}</button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activePanel && (
+          <motion.div
+            key={activePanel}
+            {...panelSlideLeft}
+            style={{
+              position: 'fixed',
+              top: 76,
+              left: 80,
+              width: 312,
+              maxHeight: 'calc(100vh - 168px)',
+              zIndex: 20,
+              borderRadius: 16,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background: 'rgba(20,20,30,0.65)',
+              backdropFilter: 'blur(16px)',
+              boxShadow: '0 8px 20px rgba(2,6,23,0.24)',
+              padding: 12,
+              overflow: 'auto',
+              pointerEvents: 'auto',
+            }}
+          >
+            {activePanel === 'terrain' && <TerrainPanelUI map={mapRef.current} isActive={mapStyle === 'terrain'} />}
+            {activePanel === 'traffic' && <TrafficPanelUI layers={layers} setLayers={setLayers} />}
+            {activePanel === 'facility' && (
+              <FacilityPanelUI layers={layers} setLayers={setLayers} facilityData={facilityData} facilityViewMode={facilityViewMode} setFacilityViewMode={setFacilityViewMode} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <LayerSwitcher mapStyle={mapStyle} layers={layers} setLayers={setLayers} setMapStyle={setMapStyle} />
+      <ContextCard
+        activeLocation={activeLocation}
+        impactData={impactData}
+        demographics={demographics}
+        facilityData={facilityData}
+        year={year}
+        onClose={() => useMapStore.getState().setActiveLocation(null)}
+      />
+      <BottomBar />
+      <CitySuggestions map={mapRef.current} visible={showSuggestions} />
+      <CoordinateDisplay mapRef={mapRef} />
+      <FacilityListPanel facilityData={facilityData} layers={layers} mapRef={mapRef} />
+    </div>
+  );
+});
+
+let _dockPolishStyleInjected = false;
+function _ensureDockPolishStyle() {
+  if (_dockPolishStyleInjected || typeof document === 'undefined') return;
+  _dockPolishStyleInjected = true;
+  const style = document.createElement('style');
+  style.textContent = `
+    .ui-dock-btn:hover { transform: scale(1.08); }
+    .ui-dock-btn:active { transform: scale(0.97); }
+  `;
+  document.head.appendChild(style);
+}
+
+const floatingBtnStyle = {
+  border: '1px solid rgba(255,255,255,0.12)',
+  background: 'rgba(15,23,42,0.78)',
+  color: '#e2e8f0',
+  padding: '8px 12px',
+  borderRadius: 12,
+  cursor: 'pointer',
+  backdropFilter: 'blur(12px)',
+  boxShadow: '0 8px 18px rgba(2,6,23,0.2)',
+};
 
 // ══════════════════════════════════════════════════
 // PanelRoot — All UI panels in one isolated subtree
@@ -679,7 +784,7 @@ const OverlayRoot = memo(function OverlayRoot({ mapStyle, mapRef }) {
         position: 'fixed', left: 0, top: 0,
         background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)',
         border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
-        padding: '12px 16px', color: '#f8fafc', zIndex: 1000,
+        padding: '12px 16px', color: '#f8fafc', zIndex: 30,
         pointerEvents: 'none', minWidth: 180, boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
         willChange: 'transform',
       }}>

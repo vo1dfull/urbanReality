@@ -24,6 +24,9 @@ const DEPTH_OPACITY = [
 export default class FloodLayerPlugin extends BaseLayerPlugin {
   constructor() {
     super('flood');
+    this._floodVisible = null;
+    this._depthVisible = null;
+    this._depthInitialized = false;
   }
 
   /**
@@ -69,6 +72,8 @@ export default class FloodLayerPlugin extends BaseLayerPlugin {
       });
 
       this.initialized = true;
+      this._floodVisible = data?.floodVisible !== false;
+      this._depthVisible = !!data?.depthVisible;
     } catch (err) {
       console.error('[FloodLayerPlugin] init error:', err);
     }
@@ -83,6 +88,8 @@ export default class FloodLayerPlugin extends BaseLayerPlugin {
     if (!map) return;
     try {
       if (map.getLayer('flood-layer')) {
+        if (this._floodVisible === visible) return;
+        this._floodVisible = visible;
         map.setLayoutProperty('flood-layer', 'visibility', visible ? 'visible' : 'none');
       }
     } catch (err) {
@@ -97,6 +104,8 @@ export default class FloodLayerPlugin extends BaseLayerPlugin {
     if (!map) return;
     try {
       if (map.getLayer('flood-depth-layer')) {
+        if (this._depthVisible === visible) return;
+        this._depthVisible = visible;
         map.setLayoutProperty('flood-depth-layer', 'visibility', visible ? 'visible' : 'none');
       }
     } catch (err) {
@@ -117,6 +126,7 @@ export default class FloodLayerPlugin extends BaseLayerPlugin {
    * After this, animation only uses map.setFeatureState().
    */
   initDepthGeometry(map) {
+    if (this._depthInitialized) return;
     const source = map.getSource('flood-depth');
     if (!source) return;
     source.setData({
@@ -127,5 +137,6 @@ export default class FloodLayerPlugin extends BaseLayerPlugin {
         geometry: { type: 'Polygon', coordinates: [FLOOD_DEPTH_POLYGON] },
       }],
     });
+    this._depthInitialized = true;
   }
 }

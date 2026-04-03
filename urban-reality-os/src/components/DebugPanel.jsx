@@ -15,6 +15,8 @@ import CacheEngine from '../core/CacheEngine';
 import eventBus from '../core/EventBus';
 import MapEngine from '../engines/MapEngine';
 import InteractionEngine from '../engines/InteractionEngine';
+import DataEngine from '../engines/DataEngine';
+import PerformanceManager from '../core/PerformanceManager';
 import { useDebugMode } from '../store/selectors';
 
 const DebugPanel = memo(function DebugPanel() {
@@ -32,6 +34,11 @@ const DebugPanel = memo(function DebugPanel() {
         eventBus: eventBus.getStats(),
         map: MapEngine.getStats(),
         interactions: InteractionEngine.getStats(),
+        dataEngine: DataEngine.getStats(),
+        perfManager: {
+          tier: PerformanceManager.getTier(),
+          safeMode: PerformanceManager.isSafeMode(),
+        },
         memory: performance?.memory ? {
           usedJS: Math.round(performance.memory.usedJSHeapSize / 1048576),
           totalJS: Math.round(performance.memory.totalJSHeapSize / 1048576),
@@ -40,9 +47,10 @@ const DebugPanel = memo(function DebugPanel() {
     };
 
     updateStats();
-    // 🔥 PERF: 2.5s polling (was 1s) — debug panel doesn't need 1fps updates
-    const interval = setInterval(updateStats, 2500);
-    return () => clearInterval(interval);
+    const taskId = FrameController.add(updateStats, 2500, 'debug-panel-stats', 'idle');
+    return () => {
+      if (taskId !== -1) FrameController.remove(taskId);
+    };
   }, [debugMode]);
 
   // FPS from FrameController
@@ -89,6 +97,8 @@ const DebugPanel = memo(function DebugPanel() {
       <Section title="Performance">
         <Row label="FPS" value={<span style={{ color: fpsColor, fontWeight: 700 }}>{fps}</span>} />
         <Row label="Quality" value={qualityLevel} />
+        <Row label="Tier" value={stats.perfManager.tier} />
+        <Row label="Safe Mode" value={stats.perfManager.safeMode ? 'ON' : 'OFF'} />
         {stats.memory && (
           <Row label="Memory" value={`${stats.memory.usedJS}/${stats.memory.totalJS} MB`} />
         )}
@@ -114,6 +124,12 @@ const DebugPanel = memo(function DebugPanel() {
         <Row label="Hit Rate" value={stats.cache.hitRate} />
         <Row label="Hits/Miss" value={`${stats.cache.hits}/${stats.cache.misses}`} />
         <Row label="Inflight" value={stats.cache.inflightCount} />
+      </Section>
+
+      <Section title="DataEngine">
+        <Row label="Req Avg ms" value={Math.round(stats.dataEngine.avgResponseTime || 0)} />
+        <Row label="Pending" value={stats.dataEngine.pendingRequests} />
+        <Row label="Dedup Rate" value={`${stats.dataEngine.deduplicationRate}%`} />
       </Section>
 
       {/* EventBus */}

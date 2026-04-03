@@ -1,5 +1,5 @@
 self.onmessage = (event) => {
-  const { center, rainIntensity, waterLevel, mapBounds, terrainMetrics, quality = 'medium' } = event.data;
+  const { center, rainIntensity, waterLevel, mapBounds, terrainMetrics, quality = 'medium', perfMode = 'balanced' } = event.data;
 
   const elevationFactor = terrainMetrics?.elevation ?? 0;
   const slopeFactor = terrainMetrics?.slope ?? 0;
@@ -15,7 +15,9 @@ self.onmessage = (event) => {
 
   const radius = Math.min(0.02, (waterLevel + rainIntensity / 200) * 0.02);
   let step = Math.max(0.0004, radius / (isHigh ? 22 : isLow ? 12 : 18));
-  const maxPoints = isLow ? 900 : isHigh ? 2600 : 2000;
+  let maxPoints = isLow ? 900 : isHigh ? 2600 : 2000;
+  if (perfMode === 'low') maxPoints = Math.min(maxPoints, 700);
+  if (perfMode === 'high') maxPoints = Math.max(maxPoints, 2600);
   const span = radius * 2;
   const estimatedSteps = Math.max(1, Math.ceil(span / step));
   if (estimatedSteps * estimatedSteps > maxPoints) {

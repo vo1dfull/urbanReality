@@ -1,0 +1,49 @@
+"filename", "language", "JavaScript", "JavaScript JSX", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\src\animations\motion.js", "JavaScript", 4, 0, 0, 2, 6
+"f:\urbanReality\urban-reality-os\src\components\CoordinateDisplay.jsx", "JavaScript JSX", 0, 2, 0, 0, 2
+"f:\urbanReality\urban-reality-os\src\components\DebugPanel.jsx", "JavaScript JSX", 0, 16, -1, 1, 16
+"f:\urbanReality\urban-reality-os\src\components\Drawer.jsx", "JavaScript JSX", 0, 102, 0, 9, 111
+"f:\urbanReality\urban-reality-os\src\components\InfoCard.jsx", "JavaScript JSX", 0, 26, 0, 3, 29
+"f:\urbanReality\urban-reality-os\src\components\InsightPanel.jsx", "JavaScript JSX", 0, 45, 0, 9, 54
+"f:\urbanReality\urban-reality-os\src\components\MapMenu.jsx", "JavaScript JSX", 0, 44, -2, 1, 43
+"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 388, -1, 16, 403
+"f:\urbanReality\urban-reality-os\src\components\SearchPanel.jsx", "JavaScript JSX", 0, 44, 0, 4, 48
+"f:\urbanReality\urban-reality-os\src\core\FrameController.js", "JavaScript", 22, 0, 0, 3, 25
+"f:\urbanReality\urban-reality-os\src\core\PerformanceManager.js", "JavaScript", 82, 0, 0, 14, 96
+"f:\urbanReality\urban-reality-os\src\engines\DataEngine.js", "JavaScript", 303, 0, 50, 73, 426
+"f:\urbanReality\urban-reality-os\src\engines\FacilityEngine.js", "JavaScript", 4, 0, 0, 0, 4
+"f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js", "JavaScript", 0, 0, 1, 0, 1
+"f:\urbanReality\urban-reality-os\src\engines\MapEngine.js", "JavaScript", 38, 0, -3, 6, 41
+"f:\urbanReality\urban-reality-os\src\engines\TerrainEngine.js", "JavaScript", 13, 0, 1, 3, 17
+"f:\urbanReality\urban-reality-os\src\hooks\useFloodAnimation.js", "JavaScript", -17, 0, -7, -4, -28
+"f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js", "JavaScript", 14, 0, -1, 1, 14
+"f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js", "JavaScript", 34, 0, -5, 1, 30
+"f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js", "JavaScript", 40, 0, 1, -1, 40
+"f:\urbanReality\urban-reality-os\src\hooks\useOptimizations.js", "JavaScript", -1, 0, 0, 0, -1
+"f:\urbanReality\urban-reality-os\src\layers\AqiLayerPlugin.js", "JavaScript", 8, 0, 0, 0, 8
+"f:\urbanReality\urban-reality-os\src\layers\BuildingsLayerPlugin.js", "JavaScript", 14, 0, 7, 3, 24
+"f:\urbanReality\urban-reality-os\src\layers\FloodLayerPlugin.js", "JavaScript", 11, 0, 0, 0, 11
+"f:\urbanReality\urban-reality-os\src\layers\LayerRegistry.js", "JavaScript", 1, 0, 1, 0, 2
+"f:\urbanReality\urban-reality-os\src\layers\terrain\TerrainFloodPlugin.js", "JavaScript", 6, 0, 1, 1, 8
+"f:\urbanReality\urban-reality-os\src\store\selectors.js", "JavaScript", 8, 0, 1, 1, 10
+"f:\urbanReality\urban-reality-os\src\store\slices\mapSlice.js", "JavaScript", 51, 0, 0, 3, 54
+"f:\urbanReality\urban-reality-os\src\store\slices\simulationSlice.js", "JavaScript", 15, 0, 0, 2, 17
+"f:\urbanReality\urban-reality-os\src\store\slices\uiSlice.js", "JavaScript", 42, 0, 0, 3, 45
+"f:\urbanReality\urban-reality-os\src\store\slices\utils.js", "JavaScript", 2, 0, 0, 1, 3
+"f:\urbanReality\urban-reality-os\src\store\useMapStore.js", "JavaScript", -114, 0, -21, -20, -155
+"f:\urbanReality\urban-reality-os\src\ui\animations\transitions.js", "JavaScript", 16, 0, 0, 3, 19
+"f:\urbanReality\urban-reality-os\src\ui\controls\LayerSwitcher.jsx", "JavaScript JSX", 0, 113, 0, 9, 122
+"f:\urbanReality\urban-reality-os\src\ui\layout\BottomBar.jsx", "JavaScript JSX", 0, 25, 0, 3, 28
+"f:\urbanReality\urban-reality-os\src\ui\layout\ContextCard.jsx", "JavaScript JSX", 0, 83, 0, 11, 94
+"f:\urbanReality\urban-reality-os\src\ui\layout\LeftDock.jsx", "JavaScript JSX", 0, 79, 0, 8, 87
+"f:\urbanReality\urban-reality-os\src\ui\layout\RightPanel.jsx", "JavaScript JSX", 0, 66, 0, 4, 70
+"f:\urbanReality\urban-reality-os\src\ui\layout\Sidebar.jsx", "JavaScript JSX", 0, 35, 0, 4, 39
+"f:\urbanReality\urban-reality-os\src\ui\layout\TopBar.jsx", "JavaScript JSX", 0, 67, 0, 4, 71
+"f:\urbanReality\urban-reality-os\src\ui\layout\TopSearch.jsx", "JavaScript JSX", 0, 50, 0, 6, 56
+"f:\urbanReality\urban-reality-os\src\ui\panels\FacilityPanel.jsx", "JavaScript JSX", 0, 69, 0, 7, 76
+"f:\urbanReality\urban-reality-os\src\ui\panels\TerrainPanel.jsx", "JavaScript JSX", 0, 17, 0, 4, 21
+"f:\urbanReality\urban-reality-os\src\ui\panels\TrafficPanel.jsx", "JavaScript JSX", 0, 32, 0, 4, 36
+"f:\urbanReality\urban-reality-os\src\workers\buildingSubmersionWorker.js", "JavaScript", 19, 0, 0, 2, 21
+"f:\urbanReality\urban-reality-os\src\workers\floodWorker.js", "JavaScript", 11, 0, 3, 2, 16
+"f:\urbanReality\urban-reality-os\vite.config.js", "JavaScript", 1, 0, 0, 0, 1
+"Total", "-", 627, 1303, 25, 206, 2161

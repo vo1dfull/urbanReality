@@ -12,11 +12,12 @@ import FacilityEngine from '../engines/FacilityEngine';
 import DataEngine from '../engines/DataEngine';
 import eventBus, { EVENTS } from '../core/EventBus';
 import { OPENWEATHER_KEY } from '../constants/mapConstants';
+import FrameController from '../core/FrameController';
 
 export default function useLayerSync() {
   const styleRef = useRef(null);
   const isInitialLoad = useRef(true);
-  const aqiRefreshIntervalRef = useRef(null);
+  const aqiRefreshTaskRef = useRef(null);
   const aqiDigestRef = useRef('');
   const lastStateRef = useRef({
     layers: null,
@@ -138,14 +139,14 @@ export default function useLayerSync() {
     };
 
     refreshAQIData();
-    aqiRefreshIntervalRef.current = setInterval(() => {
+    aqiRefreshTaskRef.current = FrameController.add(() => {
       if (!document.hidden) refreshAQIData();
-    }, 300000);
+    }, 300000, 'aqi-refresh', 'idle');
 
     return () => {
-      if (aqiRefreshIntervalRef.current) {
-        clearInterval(aqiRefreshIntervalRef.current);
-        aqiRefreshIntervalRef.current = null;
+      if (aqiRefreshTaskRef.current !== null) {
+        FrameController.remove(aqiRefreshTaskRef.current);
+        aqiRefreshTaskRef.current = null;
       }
     };
   }, []);

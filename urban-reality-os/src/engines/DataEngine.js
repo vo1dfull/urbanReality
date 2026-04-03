@@ -16,6 +16,7 @@ import { MAJOR_INDIAN_CITIES, OPENWEATHER_KEY, TOMTOM_KEY } from '../constants/m
 import PERFORMANCE_CONFIG from '../config/performance';
 import CacheEngine from '../core/CacheEngine';
 import { createLogger } from '../core/Logger';
+import FrameController from '../core/FrameController';
 
 const log = createLogger('DataEngine');
 
@@ -112,7 +113,7 @@ class DataEngine {
     };
 
     // Memory management
-    this._memoryCheckInterval = null;
+    this._memoryCheckTaskId = null;
     this._startMemoryMonitoring();
   }
 
@@ -673,10 +674,11 @@ class DataEngine {
   // ──────────────────────────────────────────────────
 
   _startMemoryMonitoring() {
-    // Check memory every 30 seconds
-    this._memoryCheckInterval = setInterval(() => {
+    if (this._memoryCheckTaskId !== null) return;
+    // Check memory every 30 seconds via global FrameController
+    this._memoryCheckTaskId = FrameController.add(() => {
       this._checkMemoryPressure();
-    }, 30000);
+    }, 30000, 'dataengine-memory-check', 'idle');
   }
 
   _checkMemoryPressure() {
@@ -732,9 +734,9 @@ class DataEngine {
 
   destroy() {
     this.abortAll();
-    if (this._memoryCheckInterval) {
-      clearInterval(this._memoryCheckInterval);
-      this._memoryCheckInterval = null;
+    if (this._memoryCheckTaskId !== null) {
+      FrameController.remove(this._memoryCheckTaskId);
+      this._memoryCheckTaskId = null;
     }
   }
 }

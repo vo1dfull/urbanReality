@@ -13,6 +13,7 @@ import DataEngine from '../engines/DataEngine';
 import eventBus from '../core/EventBus';
 import FrameController from '../core/FrameController';
 import { createLogger } from '../core/Logger';
+import useMapStore from '../store/useMapStore';
 
 const log = createLogger('BuildingsLayerPlugin');
 const TERRAIN_EXAGGERATION = 1.4;
@@ -465,6 +466,10 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
    * devices and under sustained low FPS.
    */
   _getAdaptiveBuildingCap() {
+    const perfMode = useMapStore.getState().perfMode;
+    if (perfMode === 'low') return MAX_BUILDINGS_LOW;
+    if (perfMode === 'high') return MAX_BUILDINGS_PER_UPDATE;
+
     const quality = FrameController.getQualityHint();
     if (quality === 'low') return MAX_BUILDINGS_LOW;
     if (quality === 'medium') return MAX_BUILDINGS_MEDIUM;
