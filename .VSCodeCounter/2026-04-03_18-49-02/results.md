@@ -1,31 +1,31 @@
 # Summary
 
-Date : 2026-04-03 17:18:39
+Date : 2026-04-03 18:49:02
 
 Directory f:\\urbanReality
 
-Total : 151 files,  22739 codes, 1331 comments, 1989 blanks, all 26059 lines
+Total : 182 files,  31304 codes, 2258 comments, 3352 blanks, all 36914 lines
 
 Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-details.md)
 
 ## Languages
 | language | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
+| JavaScript | 96 | 11,631 | 1,946 | 2,102 | 15,679 |
 | JSON | 13 | 9,135 | 0 | 11 | 9,146 |
-| JavaScript | 77 | 7,214 | 1,139 | 1,307 | 9,660 |
-| JavaScript JSX | 52 | 6,087 | 181 | 587 | 6,855 |
-| Markdown | 6 | 170 | 0 | 55 | 225 |
-| PostCSS | 1 | 111 | 9 | 25 | 145 |
+| JavaScript JSX | 56 | 7,457 | 267 | 706 | 8,430 |
+| Markdown | 10 | 1,775 | 0 | 293 | 2,068 |
+| PostCSS | 5 | 1,284 | 43 | 236 | 1,563 |
 | HTML | 1 | 21 | 2 | 4 | 27 |
 | XML | 1 | 1 | 0 | 0 | 1 |
 
 ## Directories
 | path | files | code | comment | blank | total |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| . | 151 | 22,739 | 1,331 | 1,989 | 26,059 |
+| . | 182 | 31,304 | 2,258 | 3,352 | 36,914 |
 | . (Files) | 4 | 1,987 | 0 | 5 | 1,992 |
-| urban-reality-os | 147 | 20,752 | 1,331 | 1,984 | 24,067 |
-| urban-reality-os (Files) | 7 | 4,601 | 4 | 29 | 4,634 |
+| urban-reality-os | 178 | 29,317 | 2,258 | 3,347 | 34,922 |
+| urban-reality-os (Files) | 12 | 6,393 | 42 | 297 | 6,732 |
 | urban-reality-os\\.VSCodeCounter | 5 | 124 | 0 | 26 | 150 |
 | urban-reality-os\\.VSCodeCounter\\2026-03-27_01-44-12 | 5 | 124 | 0 | 26 | 150 |
 | urban-reality-os\\backend | 9 | 2,638 | 8 | 59 | 2,705 |
@@ -41,33 +41,33 @@ Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-
 | urban-reality-os\\server (Files) | 2 | 84 | 4 | 15 | 103 |
 | urban-reality-os\\server\\models | 1 | 10 | 0 | 3 | 13 |
 | urban-reality-os\\server\\routes | 2 | 134 | 3 | 30 | 167 |
-| urban-reality-os\\src | 115 | 12,897 | 1,312 | 1,818 | 16,027 |
+| urban-reality-os\\src | 141 | 19,670 | 2,201 | 2,913 | 24,784 |
 | urban-reality-os\\src (Files) | 3 | 161 | 13 | 37 | 211 |
 | urban-reality-os\\src\\animations | 1 | 4 | 0 | 2 | 6 |
-| urban-reality-os\\src\\components | 37 | 5,352 | 176 | 501 | 6,029 |
-| urban-reality-os\\src\\components (Files) | 29 | 4,068 | 164 | 380 | 4,612 |
-| urban-reality-os\\src\\components\\terrain | 8 | 1,284 | 12 | 121 | 1,417 |
+| urban-reality-os\\src\\components | 45 | 7,565 | 292 | 817 | 8,674 |
+| urban-reality-os\\src\\components (Files) | 37 | 6,247 | 280 | 696 | 7,223 |
+| urban-reality-os\\src\\components\\terrain | 8 | 1,318 | 12 | 121 | 1,451 |
 | urban-reality-os\\src\\config | 1 | 86 | 14 | 12 | 112 |
-| urban-reality-os\\src\\constants | 1 | 85 | 3 | 12 | 100 |
+| urban-reality-os\\src\\constants | 1 | 84 | 3 | 13 | 100 |
 | urban-reality-os\\src\\context | 1 | 41 | 1 | 8 | 50 |
 | urban-reality-os\\src\\core | 5 | 648 | 199 | 119 | 966 |
-| urban-reality-os\\src\\engines | 8 | 1,548 | 297 | 296 | 2,141 |
-| urban-reality-os\\src\\hooks | 10 | 1,421 | 147 | 258 | 1,826 |
-| urban-reality-os\\src\\hooks (Files) | 9 | 1,359 | 139 | 246 | 1,744 |
+| urban-reality-os\\src\\engines | 13 | 3,338 | 713 | 634 | 4,685 |
+| urban-reality-os\\src\\hooks | 11 | 1,696 | 194 | 296 | 2,186 |
+| urban-reality-os\\src\\hooks (Files) | 10 | 1,634 | 186 | 284 | 2,104 |
 | urban-reality-os\\src\\hooks\\map | 1 | 62 | 8 | 12 | 82 |
-| urban-reality-os\\src\\layers | 13 | 1,527 | 237 | 233 | 1,997 |
-| urban-reality-os\\src\\layers (Files) | 7 | 810 | 187 | 119 | 1,116 |
-| urban-reality-os\\src\\layers\\terrain | 6 | 717 | 50 | 114 | 881 |
+| urban-reality-os\\src\\layers | 17 | 2,815 | 423 | 442 | 3,680 |
+| urban-reality-os\\src\\layers (Files) | 11 | 1,794 | 350 | 303 | 2,447 |
+| urban-reality-os\\src\\layers\\terrain | 6 | 1,021 | 73 | 139 | 1,233 |
 | urban-reality-os\\src\\pages | 1 | 8 | 0 | 2 | 10 |
-| urban-reality-os\\src\\store | 6 | 209 | 21 | 29 | 259 |
+| urban-reality-os\\src\\store | 6 | 234 | 23 | 30 | 287 |
 | urban-reality-os\\src\\store (Files) | 2 | 99 | 21 | 20 | 140 |
-| urban-reality-os\\src\\store\\slices | 4 | 110 | 0 | 9 | 119 |
-| urban-reality-os\\src\\ui | 12 | 652 | 0 | 67 | 719 |
+| urban-reality-os\\src\\store\\slices | 4 | 135 | 2 | 10 | 147 |
+| urban-reality-os\\src\\ui | 12 | 982 | 4 | 81 | 1,067 |
 | urban-reality-os\\src\\ui\\animations | 1 | 16 | 0 | 3 | 19 |
-| urban-reality-os\\src\\ui\\controls | 1 | 113 | 0 | 9 | 122 |
-| urban-reality-os\\src\\ui\\layout | 7 | 405 | 0 | 40 | 445 |
-| urban-reality-os\\src\\ui\\panels | 3 | 118 | 0 | 15 | 133 |
+| urban-reality-os\\src\\ui\\controls | 1 | 313 | 4 | 15 | 332 |
+| urban-reality-os\\src\\ui\\layout | 7 | 534 | 0 | 48 | 582 |
+| urban-reality-os\\src\\ui\\panels | 3 | 119 | 0 | 15 | 134 |
 | urban-reality-os\\src\\utils | 12 | 887 | 192 | 193 | 1,272 |
-| urban-reality-os\\src\\workers | 4 | 268 | 12 | 49 | 329 |
+| urban-reality-os\\src\\workers | 12 | 1,121 | 130 | 227 | 1,478 |
 
 Summary / [Details](details.md) / [Diff Summary](diff.md) / [Diff Details](diff-details.md)

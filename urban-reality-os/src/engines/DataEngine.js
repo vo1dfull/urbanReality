@@ -690,17 +690,18 @@ class DataEngine {
   }
 
   async _fetchOpenAQ(lat, lng, signal) {
-    const urlV3 = `https://api.openaq.org/v3/locations?coordinates=${lat},${lng}&radius=10000&limit=20`;
-    const urlV2 = `https://api.openaq.org/v2/latest?coordinates=${lat},${lng}&radius=10000&limit=20`;
+    const proxyUrl = `/api/openaq/locations?lat=${lat}&lng=${lng}&radius=10000&limit=20`;
+
     try {
-      const res = await fetch(urlV3, { signal });
-      if (res.ok) return await res.json();
-    } catch {
-      // fallback to v2 below
+      const res = await fetch(proxyUrl, { signal });
+      if (!res.ok) {
+        throw new Error(`OpenAQ proxy HTTP ${res.status}`);
+      }
+      return await res.json();
+    } catch (err) {
+      console.warn('[DataEngine] OpenAQ proxy fetch failed:', err.message);
+      return null;
     }
-    const res2 = await fetch(urlV2, { signal });
-    if (!res2.ok) throw new Error(`OpenAQ HTTP ${res2.status}`);
-    return await res2.json();
   }
 
   async _fetchOpenWeather(lat, lng, signal) {

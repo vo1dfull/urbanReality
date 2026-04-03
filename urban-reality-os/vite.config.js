@@ -7,7 +7,15 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     hmr: { protocol: 'ws', host: 'localhost', port: 5173 },
-    middlewareMode: false
+    middlewareMode: false,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path,
+      },
+    },
   },
   build: {
     target: 'esnext',

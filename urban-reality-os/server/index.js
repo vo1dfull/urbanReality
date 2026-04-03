@@ -38,46 +38,9 @@ app.use('/api/auth', authRoutes);
 const geminiRoutes = express.Router();
 geminiRoutes.post('/analysis', analyze);
 app.use('/api/gemini', geminiRoutes);
-  try {
-    const { data, year, metrics } = req.body;
-    // metrics = { aqi: number, traffic: number, floodDepth: number, weather: string }
 
-    if (!genAI) {
-      return res.json({ analysis: `Urban analysis (Offline). Metrics: AQI ${metrics?.aqi || 'N/A'}, Traffic ${Math.round((metrics?.traffic || 0) * 100)}%, Flood Depth ${metrics?.floodDepth || 0}m. Population: 2500000 people. Economic impact estimated based on local models.` });
-    }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-
-    const prompt = `
-      Act as an advanced Urban Economist and City Planner AI. 
-      Analyze the Real-Time Economic Impact for a zone in Delhi for the year ${year}.
-      
-      Real-Time Data:
-      - Persons Affected: ${data.people}
-      - Estimated Baseline Loss: ₹${data.loss} Cr (Local Model)
-      - Risk Level: ${data.risk}
-      - Current AQI: ${metrics?.aqi || 90} (Air Quality Index)
-      - Traffic Congestion: ${Math.round((metrics?.traffic || 0) * 100)}%
-      - Flood Depth: ${metrics?.floodDepth || 0} meters
-      
-      Task:
-      1. Re-calculate or refine the "Economic Loss" considering the *real-time* AQI and Traffic multipliers (e.g., high AQI reduces productivity, high traffic delays logistics). State the "Real-Time Economic Loss".
-      2. Provide a brief, 2-sentence executive summary of *why* the loss is at this level.
-      3. Suggest one immediate intervention.
-
-      **Mandatory Output Format:**
-      "Real-Time Loss: ₹[Amount] Cr. Population: ${data.people} people. [Summary]. [Intervention]."
-    `;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-
-    res.json({ analysis: text });
-  } catch (err) {
-    console.error('Gemini backend error:', err);
-    res.status(500).json({ error: 'Gemini analysis failed' });
-  }
-});
+// alias compatibility path for frontend utility
+app.post('/api/urban-analysis', analyze);
 
 const port = process.env.PORT || 3001;
 app.listen(port, () => {

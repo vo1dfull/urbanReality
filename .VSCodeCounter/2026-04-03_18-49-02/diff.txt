@@ -1,0 +1,43 @@
+Date : 2026-04-03 18:49:02
+Directory : f:\urbanReality
+Total : 11 files,  2951 codes, 174 comments, 444 blanks, all 3569 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| Markdown       |          4 |      1,605 |          0 |        238 |      1,843 |
+| PostCSS        |          2 |        496 |         31 |         94 |        621 |
+| JavaScript JSX |          3 |        457 |         59 |         47 |        563 |
+| JavaScript     |          2 |        393 |         84 |         65 |        542 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                           | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                              |         11 |      2,951 |        174 |        444 |      3,569 |
+| urban-reality-os                                                               |         11 |      2,951 |        174 |        444 |      3,569 |
+| urban-reality-os (Files)                                                       |          5 |      1,792 |         38 |        268 |      2,098 |
+| urban-reality-os\src                                                           |          6 |      1,159 |        136 |        176 |      1,471 |
+| urban-reality-os\src\components                                                |          5 |        953 |         90 |        141 |      1,184 |
+| urban-reality-os\src\hooks                                                     |          1 |        206 |         46 |         35 |        287 |
++--------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                       | language       | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\ARCHITECTURE_REFERENCE.md                     | Markdown       |        641 |          0 |         14 |        655 |
+| f:\urbanReality\urban-reality-os\INTEGRATION_SUMMARY.md                        | Markdown       |        241 |          0 |         56 |        297 |
+| f:\urbanReality\urban-reality-os\QUICKSTART.md                                 | Markdown       |        216 |          0 |         68 |        284 |
+| f:\urbanReality\urban-reality-os\URBAN_INTELLIGENCE_INTEGRATION.md             | Markdown       |        507 |          0 |        100 |        607 |
+| f:\urbanReality\urban-reality-os\integrationTest.js                            | JavaScript     |        187 |         38 |         30 |        255 |
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx                    | JavaScript JSX |         26 |          2 |          2 |         30 |
+| f:\urbanReality\urban-reality-os\src\components\PredictionViewer.jsx           | JavaScript JSX |        225 |         18 |         23 |        266 |
+| f:\urbanReality\urban-reality-os\src\components\PredictionViewer.module.css    | PostCSS        |        312 |          2 |         57 |        371 |
+| f:\urbanReality\urban-reality-os\src\components\UrbanIntelligenceUI.jsx        | JavaScript JSX |        206 |         39 |         22 |        267 |
+| f:\urbanReality\urban-reality-os\src\components\UrbanIntelligenceUI.module.css | PostCSS        |        184 |         29 |         37 |        250 |
+| f:\urbanReality\urban-reality-os\src\hooks\useUrbanIntelligence.js             | JavaScript     |        206 |         46 |         35 |        287 |
+| Total                                                                          |                |      2,951 |        174 |        444 |      3,569 |
++--------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

@@ -1,16 +1,16 @@
-Date : 2026-03-31 19:44:54
+Date : 2026-04-03 18:29:15
 Directory : f:\urbanReality
-Total : 130 files,  20809 codes, 1306 comments, 1783 blanks, all 23898 lines
+Total : 172 files,  28353 codes, 2084 comments, 2908 blanks, all 33345 lines
 
 Languages
 +----------------+------------+------------+------------+------------+------------+
 | language       | files      | code       | comment    | blank      | total      |
 +----------------+------------+------------+------------+------------+------------+
+| JavaScript     |         94 |     11,238 |      1,862 |      2,037 |     15,137 |
 | JSON           |         13 |      9,135 |          0 |         11 |      9,146 |
-| JavaScript     |         70 |      6,587 |      1,110 |      1,208 |      8,905 |
-| JavaScript JSX |         38 |      4,784 |        185 |        480 |      5,449 |
+| JavaScript JSX |         54 |      7,000 |        208 |        659 |      7,867 |
+| PostCSS        |          3 |        788 |         12 |        142 |        942 |
 | Markdown       |          6 |        170 |          0 |         55 |        225 |
-| PostCSS        |          1 |        111 |          9 |         25 |        145 |
 | HTML           |          1 |         21 |          2 |          4 |         27 |
 | XML            |          1 |          1 |          0 |          0 |          1 |
 +----------------+------------+------------+------------+------------+------------+
@@ -19,10 +19,10 @@ Directories
 +-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
 | path                                                                                | files      | code       | comment    | blank      | total      |
 +-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
-| .                                                                                   |        130 |     20,809 |      1,306 |      1,783 |     23,898 |
+| .                                                                                   |        172 |     28,353 |      2,084 |      2,908 |     33,345 |
 | . (Files)                                                                           |          4 |      1,987 |          0 |          5 |      1,992 |
-| urban-reality-os                                                                    |        126 |     18,822 |      1,306 |      1,778 |     21,906 |
-| urban-reality-os (Files)                                                            |          7 |      4,600 |          4 |         29 |      4,633 |
+| urban-reality-os                                                                    |        168 |     26,366 |      2,084 |      2,903 |     31,353 |
+| urban-reality-os (Files)                                                            |          7 |      4,601 |          4 |         29 |      4,634 |
 | urban-reality-os\.VSCodeCounter                                                     |          5 |        124 |          0 |         26 |        150 |
 | urban-reality-os\.VSCodeCounter\2026-03-27_01-44-12                                 |          5 |        124 |          0 |         26 |        150 |
 | urban-reality-os\backend                                                            |          9 |      2,638 |          8 |         59 |      2,705 |
@@ -38,26 +38,34 @@ Directories
 | urban-reality-os\server (Files)                                                     |          2 |         84 |          4 |         15 |        103 |
 | urban-reality-os\server\models                                                      |          1 |         10 |          0 |          3 |         13 |
 | urban-reality-os\server\routes                                                      |          2 |        134 |          3 |         30 |        167 |
-| urban-reality-os\src                                                                |         94 |     10,968 |      1,287 |      1,612 |     13,867 |
+| urban-reality-os\src                                                                |        136 |     18,511 |      2,065 |      2,737 |     23,313 |
 | urban-reality-os\src (Files)                                                        |          3 |        161 |         13 |         37 |        211 |
-| urban-reality-os\src\components                                                     |         34 |      4,685 |        180 |        458 |      5,323 |
-| urban-reality-os\src\components (Files)                                             |         26 |      3,401 |        168 |        337 |      3,906 |
-| urban-reality-os\src\components\terrain                                             |          8 |      1,284 |         12 |        121 |      1,417 |
+| urban-reality-os\src\animations                                                     |          1 |          4 |          0 |          2 |          6 |
+| urban-reality-os\src\components                                                     |         41 |      6,612 |        202 |        676 |      7,490 |
+| urban-reality-os\src\components (Files)                                             |         33 |      5,294 |        190 |        555 |      6,039 |
+| urban-reality-os\src\components\terrain                                             |          8 |      1,318 |         12 |        121 |      1,451 |
 | urban-reality-os\src\config                                                         |          1 |         86 |         14 |         12 |        112 |
-| urban-reality-os\src\constants                                                      |          1 |         85 |          3 |         12 |        100 |
+| urban-reality-os\src\constants                                                      |          1 |         84 |          3 |         13 |        100 |
 | urban-reality-os\src\context                                                        |          1 |         41 |          1 |          8 |         50 |
-| urban-reality-os\src\core                                                           |          4 |        544 |        199 |        102 |        845 |
-| urban-reality-os\src\engines                                                        |          8 |      1,190 |        248 |        214 |      1,652 |
-| urban-reality-os\src\hooks                                                          |         10 |      1,351 |        159 |        261 |      1,771 |
-| urban-reality-os\src\hooks (Files)                                                  |          9 |      1,289 |        151 |        249 |      1,689 |
+| urban-reality-os\src\core                                                           |          5 |        648 |        199 |        119 |        966 |
+| urban-reality-os\src\engines                                                        |         13 |      3,338 |        713 |        634 |      4,685 |
+| urban-reality-os\src\hooks                                                          |         10 |      1,490 |        148 |        261 |      1,899 |
+| urban-reality-os\src\hooks (Files)                                                  |          9 |      1,428 |        140 |        249 |      1,817 |
 | urban-reality-os\src\hooks\map                                                      |          1 |         62 |          8 |         12 |         82 |
-| urban-reality-os\src\layers                                                         |         13 |      1,487 |        228 |        229 |      1,944 |
-| urban-reality-os\src\layers (Files)                                                 |          7 |        776 |        179 |        116 |      1,071 |
-| urban-reality-os\src\layers\terrain                                                 |          6 |        711 |         49 |        113 |        873 |
+| urban-reality-os\src\layers                                                         |         17 |      2,815 |        423 |        442 |      3,680 |
+| urban-reality-os\src\layers (Files)                                                 |         11 |      1,794 |        350 |        303 |      2,447 |
+| urban-reality-os\src\layers\terrain                                                 |          6 |      1,021 |         73 |        139 |      1,233 |
 | urban-reality-os\src\pages                                                          |          1 |          8 |          0 |          2 |         10 |
-| urban-reality-os\src\store                                                          |          2 |        205 |         41 |         39 |        285 |
+| urban-reality-os\src\store                                                          |          6 |        234 |         23 |         30 |        287 |
+| urban-reality-os\src\store (Files)                                                  |          2 |         99 |         21 |         20 |        140 |
+| urban-reality-os\src\store\slices                                                   |          4 |        135 |          2 |         10 |        147 |
+| urban-reality-os\src\ui                                                             |         12 |        982 |          4 |         81 |      1,067 |
+| urban-reality-os\src\ui\animations                                                  |          1 |         16 |          0 |          3 |         19 |
+| urban-reality-os\src\ui\controls                                                    |          1 |        313 |          4 |         15 |        332 |
+| urban-reality-os\src\ui\layout                                                      |          7 |        534 |          0 |         48 |        582 |
+| urban-reality-os\src\ui\panels                                                      |          3 |        119 |          0 |         15 |        134 |
 | urban-reality-os\src\utils                                                          |         12 |        887 |        192 |        193 |      1,272 |
-| urban-reality-os\src\workers                                                        |          4 |        238 |          9 |         45 |        292 |
+| urban-reality-os\src\workers                                                        |         12 |      1,121 |        130 |        227 |      1,478 |
 +-------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
 
 Files
@@ -98,83 +106,117 @@ Files
 | f:\urbanReality\urban-reality-os\server\routes\auth.js                              | JavaScript     |         79 |          3 |         18 |        100 |
 | f:\urbanReality\urban-reality-os\server\routes\gemini.js                            | JavaScript     |         55 |          0 |         12 |         67 |
 | f:\urbanReality\urban-reality-os\src\App.jsx                                        | JavaScript JSX |          4 |          0 |          2 |          6 |
+| f:\urbanReality\urban-reality-os\src\animations\motion.js                           | JavaScript     |          4 |          0 |          2 |          6 |
 | f:\urbanReality\urban-reality-os\src\components\AuthModal.jsx                       | JavaScript JSX |        147 |          1 |         16 |        164 |
 | f:\urbanReality\urban-reality-os\src\components\BottomLayers.jsx                    | JavaScript JSX |        120 |          4 |          8 |        132 |
+| f:\urbanReality\urban-reality-os\src\components\BuilderUI.jsx                       | JavaScript JSX |        191 |         12 |         26 |        229 |
+| f:\urbanReality\urban-reality-os\src\components\BuilderUI.module.css                | PostCSS        |        306 |          1 |         55 |        362 |
 | f:\urbanReality\urban-reality-os\src\components\CitySuggestions.jsx                 | JavaScript JSX |        118 |         11 |         12 |        141 |
 | f:\urbanReality\urban-reality-os\src\components\CommandBar.jsx                      | JavaScript JSX |        114 |          1 |         12 |        127 |
 | f:\urbanReality\urban-reality-os\src\components\ContextEngine.jsx                   | JavaScript JSX |         58 |          1 |          5 |         64 |
 | f:\urbanReality\urban-reality-os\src\components\ControlDock.jsx                     | JavaScript JSX |        148 |          4 |         10 |        162 |
-| f:\urbanReality\urban-reality-os\src\components\CoordinateDisplay.jsx               | JavaScript JSX |         59 |          2 |         10 |         71 |
-| f:\urbanReality\urban-reality-os\src\components\DebugPanel.jsx                      | JavaScript JSX |        134 |         21 |         19 |        174 |
+| f:\urbanReality\urban-reality-os\src\components\CoordinateDisplay.jsx               | JavaScript JSX |         61 |          2 |         10 |         73 |
+| f:\urbanReality\urban-reality-os\src\components\DebugPanel.jsx                      | JavaScript JSX |        150 |         20 |         20 |        190 |
+| f:\urbanReality\urban-reality-os\src\components\Drawer.jsx                          | JavaScript JSX |        142 |          0 |          9 |        151 |
 | f:\urbanReality\urban-reality-os\src\components\EconomicImpact.jsx                  | JavaScript JSX |         56 |          4 |          9 |         69 |
 | f:\urbanReality\urban-reality-os\src\components\EconomicPanel.jsx                   | JavaScript JSX |         84 |          3 |          7 |         94 |
 | f:\urbanReality\urban-reality-os\src\components\FacilityListPanel.jsx               | JavaScript JSX |        212 |          2 |         18 |        232 |
 | f:\urbanReality\urban-reality-os\src\components\FacilityStatsPanel.jsx              | JavaScript JSX |        110 |          4 |         17 |        131 |
+| f:\urbanReality\urban-reality-os\src\components\InfoCard.jsx                        | JavaScript JSX |         26 |          0 |          3 |         29 |
 | f:\urbanReality\urban-reality-os\src\components\InfoPanel.jsx                       | JavaScript JSX |         57 |          5 |          9 |         71 |
-| f:\urbanReality\urban-reality-os\src\components\InsightPanel.jsx                    | JavaScript JSX |         58 |          0 |          3 |         61 |
+| f:\urbanReality\urban-reality-os\src\components\InsightPanel.jsx                    | JavaScript JSX |        184 |          0 |         19 |        203 |
+| f:\urbanReality\urban-reality-os\src\components\InsightsPanel.jsx                   | JavaScript JSX |        181 |         11 |         24 |        216 |
+| f:\urbanReality\urban-reality-os\src\components\InsightsPanel.module.css            | PostCSS        |        371 |          2 |         62 |        435 |
 | f:\urbanReality\urban-reality-os\src\components\LayerToggle.jsx                     | JavaScript JSX |        215 |          3 |         10 |        228 |
 | f:\urbanReality\urban-reality-os\src\components\LocationPanel.jsx                   | JavaScript JSX |        137 |          4 |         17 |        158 |
 | f:\urbanReality\urban-reality-os\src\components\LocationPopup.jsx                   | JavaScript JSX |        181 |          9 |         24 |        214 |
-| f:\urbanReality\urban-reality-os\src\components\MapMenu.jsx                         | JavaScript JSX |        163 |          5 |         11 |        179 |
-| f:\urbanReality\urban-reality-os\src\components\MapView.jsx                         | JavaScript JSX |        595 |         55 |         53 |        703 |
+| f:\urbanReality\urban-reality-os\src\components\MapMenu.jsx                         | JavaScript JSX |        207 |          3 |         12 |        222 |
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx                         | JavaScript JSX |      1,027 |         54 |         69 |      1,150 |
 | f:\urbanReality\urban-reality-os\src\components\MetricBar.jsx                       | JavaScript JSX |         16 |          0 |          4 |         20 |
 | f:\urbanReality\urban-reality-os\src\components\MetrixHover.jsx                     | JavaScript JSX |          0 |          0 |          1 |          1 |
 | f:\urbanReality\urban-reality-os\src\components\ResponsiveLocationPanel.jsx         | JavaScript JSX |         52 |          7 |          9 |         68 |
 | f:\urbanReality\urban-reality-os\src\components\SearchBar.jsx                       | JavaScript JSX |        307 |         12 |         26 |        345 |
+| f:\urbanReality\urban-reality-os\src\components\SearchPanel.jsx                     | JavaScript JSX |         44 |          0 |          4 |         48 |
 | f:\urbanReality\urban-reality-os\src\components\TerrainPanel.jsx                    | JavaScript JSX |        139 |          5 |          9 |        153 |
-| f:\urbanReality\urban-reality-os\src\components\TimeSlider.jsx                      | JavaScript JSX |         50 |          0 |          5 |         55 |
+| f:\urbanReality\urban-reality-os\src\components\TimeSlider.jsx                      | JavaScript JSX |         62 |          0 |          6 |         68 |
 | f:\urbanReality\urban-reality-os\src\components\TimelineBar.jsx                     | JavaScript JSX |         71 |          5 |         13 |         89 |
 | f:\urbanReality\urban-reality-os\src\components\terrain\ElevationLayer.jsx          | JavaScript JSX |        133 |          3 |         10 |        146 |
 | f:\urbanReality\urban-reality-os\src\components\terrain\FloodSimulationLayer.jsx    | JavaScript JSX |        140 |          4 |         16 |        160 |
-| f:\urbanReality\urban-reality-os\src\components\terrain\GreenCoverLayer.jsx         | JavaScript JSX |        135 |          0 |         15 |        150 |
-| f:\urbanReality\urban-reality-os\src\components\terrain\HeatLayer.jsx               | JavaScript JSX |        141 |          0 |         15 |        156 |
+| f:\urbanReality\urban-reality-os\src\components\terrain\GreenCoverLayer.jsx         | JavaScript JSX |        138 |          0 |         15 |        153 |
+| f:\urbanReality\urban-reality-os\src\components\terrain\HeatLayer.jsx               | JavaScript JSX |        132 |          0 |         13 |        145 |
 | f:\urbanReality\urban-reality-os\src\components\terrain\RoadPlannerLayer.jsx        | JavaScript JSX |        229 |          0 |         24 |        253 |
 | f:\urbanReality\urban-reality-os\src\components\terrain\SuitabilityLayer.jsx        | JavaScript JSX |        131 |          0 |         13 |        144 |
-| f:\urbanReality\urban-reality-os\src\components\terrain\TerrainController.jsx       | JavaScript JSX |        144 |          2 |         15 |        161 |
+| f:\urbanReality\urban-reality-os\src\components\terrain\TerrainController.jsx       | JavaScript JSX |        184 |          2 |         17 |        203 |
 | f:\urbanReality\urban-reality-os\src\components\terrain\TerrainLayer.jsx            | JavaScript JSX |        231 |          3 |         13 |        247 |
 | f:\urbanReality\urban-reality-os\src\config\performance.js                          | JavaScript     |         86 |         14 |         12 |        112 |
-| f:\urbanReality\urban-reality-os\src\constants\mapConstants.js                      | JavaScript     |         85 |          3 |         12 |        100 |
+| f:\urbanReality\urban-reality-os\src\constants\mapConstants.js                      | JavaScript     |         84 |          3 |         13 |        100 |
 | f:\urbanReality\urban-reality-os\src\context\AuthContext.jsx                        | JavaScript JSX |         41 |          1 |          8 |         50 |
 | f:\urbanReality\urban-reality-os\src\core\CacheEngine.js                            | JavaScript     |        106 |         73 |         20 |        199 |
 | f:\urbanReality\urban-reality-os\src\core\EventBus.js                               | JavaScript     |        141 |         36 |         16 |        193 |
-| f:\urbanReality\urban-reality-os\src\core\FrameController.js                        | JavaScript     |        207 |         48 |         44 |        299 |
+| f:\urbanReality\urban-reality-os\src\core\FrameController.js                        | JavaScript     |        229 |         48 |         47 |        324 |
 | f:\urbanReality\urban-reality-os\src\core\Logger.js                                 | JavaScript     |         90 |         42 |         22 |        154 |
-| f:\urbanReality\urban-reality-os\src\engines\CityBrain.js                           | JavaScript     |         29 |          0 |          7 |         36 |
-| f:\urbanReality\urban-reality-os\src\engines\DataEngine.js                          | JavaScript     |        224 |         56 |         39 |        319 |
-| f:\urbanReality\urban-reality-os\src\engines\FacilityEngine.js                      | JavaScript     |        214 |         26 |         46 |        286 |
+| f:\urbanReality\urban-reality-os\src\core\PerformanceManager.js                     | JavaScript     |         82 |          0 |         14 |         96 |
+| f:\urbanReality\urban-reality-os\src\engines\AIAssistant.js                         | JavaScript     |        281 |         68 |         43 |        392 |
+| f:\urbanReality\urban-reality-os\src\engines\BuildEngine.js                         | JavaScript     |        276 |        106 |         78 |        460 |
+| f:\urbanReality\urban-reality-os\src\engines\CityBrain.js                           | JavaScript     |        166 |         49 |         38 |        253 |
+| f:\urbanReality\urban-reality-os\src\engines\DataEngine.js                          | JavaScript     |        667 |        107 |        123 |        897 |
+| f:\urbanReality\urban-reality-os\src\engines\FacilityEngine.js                      | JavaScript     |        259 |         26 |         47 |        332 |
 | f:\urbanReality\urban-reality-os\src\engines\InteractionEngine.js                   | JavaScript     |        147 |         67 |         27 |        241 |
-| f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js                         | JavaScript     |        106 |         39 |         19 |        164 |
-| f:\urbanReality\urban-reality-os\src\engines\MapEngine.js                           | JavaScript     |        203 |         46 |         31 |        280 |
-| f:\urbanReality\urban-reality-os\src\engines\SimulationEngine.js                    | JavaScript     |         81 |         12 |         14 |        107 |
-| f:\urbanReality\urban-reality-os\src\engines\TerrainEngine.js                       | JavaScript     |        186 |          2 |         31 |        219 |
+| f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js                         | JavaScript     |        245 |         33 |         31 |        309 |
+| f:\urbanReality\urban-reality-os\src\engines\MapEngine.js                           | JavaScript     |        306 |         43 |         40 |        389 |
+| f:\urbanReality\urban-reality-os\src\engines\PlanningEngine.js                      | JavaScript     |        195 |         70 |         50 |        315 |
+| f:\urbanReality\urban-reality-os\src\engines\PredictionEngine.js                    | JavaScript     |        219 |         53 |         52 |        324 |
+| f:\urbanReality\urban-reality-os\src\engines\SatelliteEngine.js                     | JavaScript     |        193 |         74 |         51 |        318 |
+| f:\urbanReality\urban-reality-os\src\engines\SimulationEngine.js                    | JavaScript     |        171 |         14 |         20 |        205 |
+| f:\urbanReality\urban-reality-os\src\engines\TerrainEngine.js                       | JavaScript     |        213 |          3 |         34 |        250 |
 | f:\urbanReality\urban-reality-os\src\hooks\map\useCinematic.js                      | JavaScript     |         62 |          8 |         12 |         82 |
 | f:\urbanReality\urban-reality-os\src\hooks\useCameraControls.js                     | JavaScript     |        287 |         25 |         45 |        357 |
-| f:\urbanReality\urban-reality-os\src\hooks\useFloodAnimation.js                     | JavaScript     |         91 |         15 |         20 |        126 |
-| f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js                       | JavaScript     |        298 |         20 |         51 |        369 |
+| f:\urbanReality\urban-reality-os\src\hooks\useFloodAnimation.js                     | JavaScript     |         74 |          8 |         16 |         98 |
+| f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js                       | JavaScript     |        312 |         19 |         52 |        383 |
 | f:\urbanReality\urban-reality-os\src\hooks\useKeyboardShortcuts.js                  | JavaScript     |         62 |         16 |         14 |         92 |
-| f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js                          | JavaScript     |        118 |         14 |         32 |        164 |
+| f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js                          | JavaScript     |        183 |         10 |         35 |        228 |
 | f:\urbanReality\urban-reality-os\src\hooks\useLocationMetrics.js                    | JavaScript     |        122 |         13 |         22 |        157 |
-| f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js                          | JavaScript     |        172 |         19 |         32 |        223 |
-| f:\urbanReality\urban-reality-os\src\hooks\useOptimizations.js                      | JavaScript     |         60 |         13 |         16 |         89 |
+| f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js                          | JavaScript     |        250 |         20 |         32 |        302 |
+| f:\urbanReality\urban-reality-os\src\hooks\useOptimizations.js                      | JavaScript     |         59 |         13 |         16 |         88 |
 | f:\urbanReality\urban-reality-os\src\hooks\useYearProjection.js                     | JavaScript     |         79 |         16 |         17 |        112 |
 | f:\urbanReality\urban-reality-os\src\index.css                                      | PostCSS        |        111 |          9 |         25 |        145 |
-| f:\urbanReality\urban-reality-os\src\layers\AqiLayerPlugin.js                       | JavaScript     |         54 |         10 |          6 |         70 |
+| f:\urbanReality\urban-reality-os\src\layers\AqiLayerPlugin.js                       | JavaScript     |         62 |         10 |          6 |         78 |
 | f:\urbanReality\urban-reality-os\src\layers\BaseLayerPlugin.js                      | JavaScript     |         62 |         36 |          9 |        107 |
-| f:\urbanReality\urban-reality-os\src\layers\BuildingsLayerPlugin.js                 | JavaScript     |        366 |         31 |         58 |        455 |
-| f:\urbanReality\urban-reality-os\src\layers\FacilityLayerPlugin.js                  | JavaScript     |         76 |         23 |         12 |        111 |
-| f:\urbanReality\urban-reality-os\src\layers\FloodLayerPlugin.js                     | JavaScript     |         96 |         25 |         11 |        132 |
-| f:\urbanReality\urban-reality-os\src\layers\LayerRegistry.js                        | JavaScript     |         55 |         42 |         10 |        107 |
+| f:\urbanReality\urban-reality-os\src\layers\BuildLayerPlugin.js                     | JavaScript     |        309 |         52 |         62 |        423 |
+| f:\urbanReality\urban-reality-os\src\layers\BuildingsLayerPlugin.js                 | JavaScript     |        416 |         40 |         63 |        519 |
+| f:\urbanReality\urban-reality-os\src\layers\FacilityLayerPlugin.js                  | JavaScript     |        120 |         23 |         13 |        156 |
+| f:\urbanReality\urban-reality-os\src\layers\FloodLayerPlugin.js                     | JavaScript     |        107 |         25 |         11 |        143 |
+| f:\urbanReality\urban-reality-os\src\layers\LayerRegistry.js                        | JavaScript     |         56 |         43 |         10 |        109 |
+| f:\urbanReality\urban-reality-os\src\layers\NDVILayerPlugin.js                      | JavaScript     |        191 |         37 |         41 |        269 |
+| f:\urbanReality\urban-reality-os\src\layers\PlanningLayerPlugin.js                  | JavaScript     |        212 |         38 |         42 |        292 |
+| f:\urbanReality\urban-reality-os\src\layers\PredictionLayerPlugin.js                | JavaScript     |        192 |         34 |         36 |        262 |
 | f:\urbanReality\urban-reality-os\src\layers\TrafficLayerPlugin.js                   | JavaScript     |         67 |         12 |         10 |         89 |
-| f:\urbanReality\urban-reality-os\src\layers\terrain\ElevationLayerPlugin.js         | JavaScript     |         95 |         16 |         11 |        122 |
+| f:\urbanReality\urban-reality-os\src\layers\terrain\ElevationLayerPlugin.js         | JavaScript     |        237 |         25 |         25 |        287 |
 | f:\urbanReality\urban-reality-os\src\layers\terrain\GreenCoverLayerPlugin.js        | JavaScript     |        120 |          4 |         19 |        143 |
-| f:\urbanReality\urban-reality-os\src\layers\terrain\HeatLayerPlugin.js              | JavaScript     |        114 |          5 |         17 |        136 |
+| f:\urbanReality\urban-reality-os\src\layers\terrain\HeatLayerPlugin.js              | JavaScript     |        155 |          6 |         16 |        177 |
 | f:\urbanReality\urban-reality-os\src\layers\terrain\RoadPlannerLayerPlugin.js       | JavaScript     |        139 |          4 |         27 |        170 |
 | f:\urbanReality\urban-reality-os\src\layers\terrain\SuitabilityLayerPlugin.js       | JavaScript     |        138 |          4 |         23 |        165 |
-| f:\urbanReality\urban-reality-os\src\layers\terrain\TerrainFloodPlugin.js           | JavaScript     |        105 |         16 |         16 |        137 |
+| f:\urbanReality\urban-reality-os\src\layers\terrain\TerrainFloodPlugin.js           | JavaScript     |        232 |         30 |         29 |        291 |
 | f:\urbanReality\urban-reality-os\src\main.jsx                                       | JavaScript JSX |         46 |          4 |         10 |         60 |
 | f:\urbanReality\urban-reality-os\src\pages\Dashboard.jsx                            | JavaScript JSX |          8 |          0 |          2 |         10 |
-| f:\urbanReality\urban-reality-os\src\store\selectors.js                             | JavaScript     |         81 |         20 |         16 |        117 |
-| f:\urbanReality\urban-reality-os\src\store\useMapStore.js                           | JavaScript     |        124 |         21 |         23 |        168 |
+| f:\urbanReality\urban-reality-os\src\store\selectors.js                             | JavaScript     |         89 |         21 |         17 |        127 |
+| f:\urbanReality\urban-reality-os\src\store\slices\mapSlice.js                       | JavaScript     |         70 |          2 |          4 |         76 |
+| f:\urbanReality\urban-reality-os\src\store\slices\simulationSlice.js                | JavaScript     |         21 |          0 |          2 |         23 |
+| f:\urbanReality\urban-reality-os\src\store\slices\uiSlice.js                        | JavaScript     |         42 |          0 |          3 |         45 |
+| f:\urbanReality\urban-reality-os\src\store\slices\utils.js                          | JavaScript     |          2 |          0 |          1 |          3 |
+| f:\urbanReality\urban-reality-os\src\store\useMapStore.js                           | JavaScript     |         10 |          0 |          3 |         13 |
+| f:\urbanReality\urban-reality-os\src\ui\animations\transitions.js                   | JavaScript     |         16 |          0 |          3 |         19 |
+| f:\urbanReality\urban-reality-os\src\ui\controls\LayerSwitcher.jsx                  | JavaScript JSX |        313 |          4 |         15 |        332 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\BottomBar.jsx                        | JavaScript JSX |         25 |          0 |          3 |         28 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\ContextCard.jsx                      | JavaScript JSX |        150 |          0 |         15 |        165 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\LeftDock.jsx                         | JavaScript JSX |         79 |          0 |          8 |         87 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\RightPanel.jsx                       | JavaScript JSX |         68 |          0 |          4 |         72 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\Sidebar.jsx                          | JavaScript JSX |         35 |          0 |          4 |         39 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\TopBar.jsx                           | JavaScript JSX |         67 |          0 |          4 |         71 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\TopSearch.jsx                        | JavaScript JSX |        110 |          0 |         10 |        120 |
+| f:\urbanReality\urban-reality-os\src\ui\panels\FacilityPanel.jsx                    | JavaScript JSX |         70 |          0 |          7 |         77 |
+| f:\urbanReality\urban-reality-os\src\ui\panels\TerrainPanel.jsx                     | JavaScript JSX |         17 |          0 |          4 |         21 |
+| f:\urbanReality\urban-reality-os\src\ui\panels\TrafficPanel.jsx                     | JavaScript JSX |         32 |          0 |          4 |         36 |
 | f:\urbanReality\urban-reality-os\src\utils\aqi.js                                   | JavaScript     |         52 |          6 |         11 |         69 |
 | f:\urbanReality\urban-reality-os\src\utils\cache.js                                 | JavaScript     |        130 |         21 |         28 |        179 |
 | f:\urbanReality\urban-reality-os\src\utils\demographics.js                          | JavaScript     |         32 |         21 |         12 |         65 |
@@ -187,12 +229,20 @@ Files
 | f:\urbanReality\urban-reality-os\src\utils\rainfall.js                              | JavaScript     |         23 |          0 |          4 |         27 |
 | f:\urbanReality\urban-reality-os\src\utils\safeFetch.js                             | JavaScript     |         77 |         42 |         24 |        143 |
 | f:\urbanReality\urban-reality-os\src\utils\worldBank.js                             | JavaScript     |        111 |         17 |         26 |        154 |
-| f:\urbanReality\urban-reality-os\src\workers\buildingSubmersionWorker.js            | JavaScript     |        126 |          0 |         20 |        146 |
-| f:\urbanReality\urban-reality-os\src\workers\floodWorker.js                         | JavaScript     |         32 |          0 |          7 |         39 |
+| f:\urbanReality\urban-reality-os\src\workers\buildingSubmersionWorker.js            | JavaScript     |        145 |          0 |         22 |        167 |
+| f:\urbanReality\urban-reality-os\src\workers\elevationIntelligenceWorker.js         | JavaScript     |         54 |          1 |          8 |         63 |
+| f:\urbanReality\urban-reality-os\src\workers\floodPropagationWorker.js              | JavaScript     |        149 |          8 |         30 |        187 |
+| f:\urbanReality\urban-reality-os\src\workers\floodWorker.js                         | JavaScript     |         43 |          3 |          9 |         55 |
+| f:\urbanReality\urban-reality-os\src\workers\geospatialIngestWorker.js              | JavaScript     |         74 |          0 |         11 |         85 |
+| f:\urbanReality\urban-reality-os\src\workers\heatDynamicsWorker.js                  | JavaScript     |         59 |          2 |         11 |         72 |
 | f:\urbanReality\urban-reality-os\src\workers\impactWorker.js                        | JavaScript     |         50 |          9 |         12 |         71 |
-| f:\urbanReality\urban-reality-os\src\workers\terrainWorker.js                       | JavaScript     |         30 |          0 |          6 |         36 |
+| f:\urbanReality\urban-reality-os\src\workers\planningWorker.js                      | JavaScript     |        203 |         36 |         40 |        279 |
+| f:\urbanReality\urban-reality-os\src\workers\predictionWorker.js                    | JavaScript     |        155 |         38 |         39 |        232 |
+| f:\urbanReality\urban-reality-os\src\workers\satelliteWorker.js                     | JavaScript     |        111 |         28 |         30 |        169 |
+| f:\urbanReality\urban-reality-os\src\workers\simulationWorker.js                    | JavaScript     |         42 |          5 |          9 |         56 |
+| f:\urbanReality\urban-reality-os\src\workers\terrainWorker.js                       | JavaScript     |         36 |          0 |          6 |         42 |
 | f:\urbanReality\urban-reality-os\tailwind.config.js                                 | JavaScript     |         11 |          2 |          2 |         15 |
-| f:\urbanReality\urban-reality-os\vite.config.js                                     | JavaScript     |         32 |          0 |          2 |         34 |
+| f:\urbanReality\urban-reality-os\vite.config.js                                     | JavaScript     |         33 |          0 |          2 |         35 |
 | f:\urbanReality\vite.config.js                                                      | JavaScript     |          5 |          0 |          2 |          7 |
-| Total                                                                               |                |     20,809 |      1,306 |      1,783 |     23,898 |
+| Total                                                                               |                |     28,353 |      2,084 |      2,908 |     33,345 |
 +-------------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

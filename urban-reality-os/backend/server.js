@@ -11,7 +11,8 @@ const start = async () => {
   try {
     await connectDB();
   } catch (e) {
-    console.error("⚠️ DB not connected, starting server anyway", e && e.message ? e.message : e);
+    console.error("⚠️ DB not connected - aborting startup", e && e.message ? e.message : e);
+    process.exit(1); // Must not start without DB to avoid downstream failures
   }
 
   const app = express();
@@ -22,6 +23,27 @@ const start = async () => {
   // Health check / root route
   app.get("/", (req, res) => {
     res.json({ status: "Backend is running 🚀" });
+  });
+
+  // OpenAQ proxy (CORS-safe)
+  app.get('/api/openaq/locations', async (req, res) => {
+    try {
+      const { lat, lng, radius = 10000, limit = 20 } = req.query;
+      if (!lat || !lng) return res.status(400).json({ error: 'lat and lng are required' });
+
+      const openAqKey = process.env.OPENAQ_API_KEY;
+      const url = `https://api.openaq.org/v3/locations?coordinates=${lat},${lng}&radius=${radius}&limit=${limit}`;
+      const headers = { 'Accept': 'application/json' };
+      if (openAqKey) headers['X-API-Key'] = openAqKey;
+
+      const response = await fetch(url, { headers });
+      const data = await response.json();
+
+      return res.status(response.status).json(data);
+    } catch (err) {
+      console.error('OpenAQ proxy error:', err);
+      return res.status(500).json({ error: 'OpenAQ proxy failed' });
+    }
   });
 
   app.use("/api/auth", authRoutes);

@@ -42,6 +42,7 @@ import useCameraControls from '../hooks/useCameraControls';
 import useFloodAnimation from '../hooks/useFloodAnimation';
 import useYearProjection from '../hooks/useYearProjection';
 import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
+import useUrbanIntelligence from '../hooks/useUrbanIntelligence';
 
 // Engines
 import MapEngine from '../engines/MapEngine';
@@ -53,6 +54,7 @@ import FrameController from '../core/FrameController';
 import CoordinateDisplay from './CoordinateDisplay';
 import CitySuggestions from './CitySuggestions';
 import FacilityListPanel from './FacilityListPanel';
+import UrbanIntelligenceUI from './UrbanIntelligenceUI';
 import DebugPanel from './DebugPanel';
 import BottomBar from '../ui/layout/BottomBar';
 import LayerSwitcher from '../ui/controls/LayerSwitcher';
@@ -70,6 +72,10 @@ export default function MapView() {
   // ── Hooks ──
   const { mapContainerRef } = useMapEngine();
   const { startCityFlyThrough } = useCameraControls();
+  
+  // ── Urban Intelligence System ──
+  const { engines: urbanEngines, isReady: urbanReady, isInitialized: urbanInitialized, initError } = useUrbanIntelligence();
+  console.log('[MapView] urbanInitialized:', urbanInitialized, 'urbanReady:', urbanReady, 'urbanEngines:', urbanEngines, 'initError:', initError);
 
   // ── Grouped selectors (minimal re-renders) ──
   const { loading, error, mapReady, mapStyle } = useMapStore(
@@ -214,6 +220,32 @@ export default function MapView() {
 
       {/* ── NOTIFICATION TOAST ── */}
       {notification && <NotificationToast message={notification} />}
+
+      {/* ── URBAN INTELLIGENCE UI ── */}
+      {urbanInitialized && (
+        <div style={{ position: 'relative', zIndex: 900 }}>
+          <UrbanIntelligenceUI
+            engines={(urbanEngines && Object.keys(urbanEngines).length > 0) ? urbanEngines : null}
+            initError={initError}
+            onPanelChange={(panel) => console.log('[UI] Panel changed:', panel)}
+          />
+        </div>
+      )}
+      {!urbanReady && urbanInitialized && !initError && (
+        <div style={{
+          position: 'fixed',
+          bottom: 120,
+          right: 20,
+          padding: '12px 16px',
+          background: 'rgba(255, 100, 100, 0.9)',
+          color: 'white',
+          borderRadius: '6px',
+          fontSize: '12px',
+          zIndex: 900,
+        }}>
+          ⚠️ Urban Intelligence initializing...
+        </div>
+      )}
 
       {/* ── DEBUG PANEL (Phase B) ── */}
       <DebugPanel />

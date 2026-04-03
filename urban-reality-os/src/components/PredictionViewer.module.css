@@ -1,0 +1,370 @@
+/* PredictionViewer.module.css */
+
+.predictionViewer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 8px;
+  color: #e0e0e0;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.header {
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(76, 175, 80, 0.3);
+}
+
+.header h2 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: #aaa;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scenarioButtons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.scenarioBtn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.scenarioBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.scenarioBtn.active {
+  background: rgba(76, 175, 80, 0.2);
+}
+
+.scenarioLabel {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scenarioDesc {
+  font-size: 10px;
+  color: #aaa;
+}
+
+.yearGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+  gap: 6px;
+}
+
+.yearBtn {
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  color: #aaa;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.yearBtn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}
+
+.yearBtn.active {
+  background: #4caf50;
+  border-color: #4caf50;
+  color: white;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+}
+
+.spinner {
+  font-size: 32px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading p {
+  margin: 0;
+  color: #aaa;
+  font-size: 14px;
+}
+
+.error {
+  padding: 12px;
+  background: rgba(244, 67, 54, 0.15);
+  border-left: 3px solid #f44336;
+  border-radius: 4px;
+  color: #ffb3ba;
+  font-size: 12px;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border-left: 3px solid rgba(76, 175, 80, 0.5);
+}
+
+.metricHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metricHeader h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.metricUnit {
+  font-size: 10px;
+  color: #aaa;
+  text-transform: uppercase;
+}
+
+.metricContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.largeNumber {
+  font-size: 28px;
+  font-weight: 700;
+  color: #4caf50;
+}
+
+.largeNumber.positive {
+  color: #4caf50;
+}
+
+.largeNumber.negative {
+  color: #f44336;
+}
+
+.metricDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.detail .label {
+  color: #aaa;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.detail .value {
+  color: #e0e0e0;
+  font-weight: 600;
+}
+
+.factorGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.factor {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 2px;
+  font-size: 10px;
+}
+
+.factorLabel {
+  color: #aaa;
+  text-transform: capitalize;
+}
+
+.factorValue {
+  color: #64b5f6;
+  font-weight: 600;
+}
+
+.recommendedZones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(33, 150, 243, 0.08);
+  border-left: 3px solid #2196f3;
+  border-radius: 6px;
+}
+
+.recommendedZones h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64b5f6;
+}
+
+.zonesList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.zoneItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.zoneRank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  color: white;
+}
+
+.zoneInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.zoneName {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.zoneDetails {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.zonePriority {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.zonePriority.high {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ffb3ba;
+}
+
+.zonePriority.medium {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffb74d;
+}
+
+.zonePriority.low {
+  background: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+}
+
+.zoneSuitability {
+  color: #aaa;
+}
+
+/* Scrollbar */
+.predictionViewer::-webkit-scrollbar {
+  width: 6px;
+}
+
+.predictionViewer::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.predictionViewer::-webkit-scrollbar-thumb {
+  background: rgba(76, 175, 80, 0.3);
+  border-radius: 3px;
+}
+
+.predictionViewer::-webkit-scrollbar-thumb:hover {
+  background: rgba(76, 175, 80, 0.5);
+}

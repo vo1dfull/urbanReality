@@ -81,6 +81,27 @@ export default class BaseLayerPlugin {
   }
 
   /**
+   * Return canonical source id for a plugin layer.
+   */
+  sourceId(suffix = 'source') {
+    return `${this.id}-${suffix}`;
+  }
+
+  /**
+   * Return canonical layer id for a plugin layer.
+   */
+  layerId(suffix = 'layer') {
+    return `${this.id}-${suffix}`;
+  }
+
+  /**
+   * Return a base layer id (for insertion ordering as reference).
+   */
+  baseLayerId() {
+    return `${this.id}-base`;
+  }
+
+  /**
    * Safe helper to add source only if it doesn't exist.
    */
   _addSource(map, id, config) {

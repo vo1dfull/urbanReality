@@ -68,9 +68,10 @@ function LocationPopup({
 
     const pm25 = realTimeAQI?.pm25 ?? realTimeAQI?.components?.pm25;
     const pm10 = realTimeAQI?.pm10 ?? realTimeAQI?.components?.pm10;
-    const aqiValue = finalAQI ?? realTimeAQI?.aqi ?? "N/A";
+    const rawAqi = finalAQI ?? realTimeAQI?.aqi;
+    const aqiValue = Number.isFinite(rawAqi) ? rawAqi : "N/A";
 
-    const aqiNum = typeof aqiValue === 'number' ? aqiValue : parseInt(aqiValue);
+    const aqiNum = Number.isFinite(aqiValue) ? aqiValue : NaN;
 
     const getAQIColor = () => {
         if (isNaN(aqiNum)) return "text-gray-400";
