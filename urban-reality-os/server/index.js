@@ -1,8 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
-import authRoutes from './routes/auth.js';
+import authRoutes from './routes/authRoutes.js';
 import { analyze } from './routes/gemini.js';
 
 // Load environment variables from server/.env or process env
@@ -25,6 +26,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Connect to MongoDB
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/urbanReality';

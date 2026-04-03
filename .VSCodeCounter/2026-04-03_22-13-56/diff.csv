@@ -1,0 +1,21 @@
+"filename", "language", "JavaScript", "JavaScript JSX", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\server\middleware\auth.js", "JavaScript", 15, 0, 0, 4, 19
+"f:\urbanReality\urban-reality-os\server\models\User.js", "JavaScript", 4, 0, 0, 0, 4
+"f:\urbanReality\urban-reality-os\server\utils\hash.js", "JavaScript", 8, 0, 0, 3, 11
+"f:\urbanReality\urban-reality-os\server\utils\tokens.js", "JavaScript", 23, 0, 0, 6, 29
+"f:\urbanReality\urban-reality-os\src\components\AuthModal.jsx", "JavaScript JSX", 0, 35, 0, 6, 41
+"f:\urbanReality\urban-reality-os\src\components\Drawer.jsx", "JavaScript JSX", 0, -12, 2, 1, -9
+"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 17, 4, 4, 25
+"f:\urbanReality\urban-reality-os\src\engines\InteractionEngine.js", "JavaScript", 349, 0, 100, 96, 545
+"f:\urbanReality\urban-reality-os\src\engines\SimulationEngine.js", "JavaScript", 192, 0, 107, 61, 360
+"f:\urbanReality\urban-reality-os\src\hooks\useAuthSync.js", "JavaScript", 26, 0, 13, 9, 48
+"f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js", "JavaScript", 8, 0, 3, 1, 12
+"f:\urbanReality\urban-reality-os\src\store\slices\authSlice.js", "JavaScript", 243, 0, 28, 39, 310
+"f:\urbanReality\urban-reality-os\src\store\useMapStore.js", "JavaScript", 2, 0, 0, 0, 2
+"f:\urbanReality\urban-reality-os\src\ui\components\AccountSection.jsx", "JavaScript JSX", 0, 226, 23, 17, 266
+"f:\urbanReality\urban-reality-os\src\ui\components\LoginModal.jsx", "JavaScript JSX", 0, 563, 22, 35, 620
+"f:\urbanReality\urban-reality-os\src\ui\components\LoginModalNew.jsx", "JavaScript JSX", 0, 515, 18, 25, 558
+"f:\urbanReality\urban-reality-os\src\ui\components\LoginModal_backup.jsx", "JavaScript JSX", 0, 0, 1, 1, 2
+"f:\urbanReality\urban-reality-os\src\ui\components\ToastContainer.jsx", "JavaScript JSX", 0, 198, 27, 19, 244
+"f:\urbanReality\urban-reality-os\src\ui\layout\Sidebar.jsx", "JavaScript JSX", 0, 1, 0, 0, 1
+"Total", "-", 870, 1543, 348, 327, 3088

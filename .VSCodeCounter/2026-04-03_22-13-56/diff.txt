@@ -1,0 +1,59 @@
+Date : 2026-04-03 22:13:56
+Directory : f:\urbanReality
+Total : 19 files,  2413 codes, 348 comments, 327 blanks, all 3088 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| JavaScript JSX |          9 |      1,543 |         97 |        108 |      1,748 |
+| JavaScript     |         10 |        870 |        251 |        219 |      1,340 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                     | files      | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                        |         19 |      2,413 |        348 |        327 |      3,088 |
+| urban-reality-os                                                         |         19 |      2,413 |        348 |        327 |      3,088 |
+| urban-reality-os\server                                                  |          4 |         50 |          0 |         13 |         63 |
+| urban-reality-os\server\middleware                                       |          1 |         15 |          0 |          4 |         19 |
+| urban-reality-os\server\models                                           |          1 |          4 |          0 |          0 |          4 |
+| urban-reality-os\server\utils                                            |          2 |         31 |          0 |          9 |         40 |
+| urban-reality-os\src                                                     |         15 |      2,363 |        348 |        314 |      3,025 |
+| urban-reality-os\src\components                                          |          3 |         40 |          6 |         11 |         57 |
+| urban-reality-os\src\engines                                             |          2 |        541 |        207 |        157 |        905 |
+| urban-reality-os\src\hooks                                               |          2 |         34 |         16 |         10 |         60 |
+| urban-reality-os\src\store                                               |          2 |        245 |         28 |         39 |        312 |
+| urban-reality-os\src\store (Files)                                       |          1 |          2 |          0 |          0 |          2 |
+| urban-reality-os\src\store\slices                                        |          1 |        243 |         28 |         39 |        310 |
+| urban-reality-os\src\ui                                                  |          6 |      1,503 |         91 |         97 |      1,691 |
+| urban-reality-os\src\ui\components                                       |          5 |      1,502 |         91 |         97 |      1,690 |
+| urban-reality-os\src\ui\layout                                           |          1 |          1 |          0 |          0 |          1 |
++--------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++--------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                 | language       | code       | comment    | blank      | total      |
++--------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\server\middleware\auth.js               | JavaScript     |         15 |          0 |          4 |         19 |
+| f:\urbanReality\urban-reality-os\server\models\User.js                   | JavaScript     |          4 |          0 |          0 |          4 |
+| f:\urbanReality\urban-reality-os\server\utils\hash.js                    | JavaScript     |          8 |          0 |          3 |         11 |
+| f:\urbanReality\urban-reality-os\server\utils\tokens.js                  | JavaScript     |         23 |          0 |          6 |         29 |
+| f:\urbanReality\urban-reality-os\src\components\AuthModal.jsx            | JavaScript JSX |         35 |          0 |          6 |         41 |
+| f:\urbanReality\urban-reality-os\src\components\Drawer.jsx               | JavaScript JSX |        -12 |          2 |          1 |         -9 |
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx              | JavaScript JSX |         17 |          4 |          4 |         25 |
+| f:\urbanReality\urban-reality-os\src\engines\InteractionEngine.js        | JavaScript     |        349 |        100 |         96 |        545 |
+| f:\urbanReality\urban-reality-os\src\engines\SimulationEngine.js         | JavaScript     |        192 |        107 |         61 |        360 |
+| f:\urbanReality\urban-reality-os\src\hooks\useAuthSync.js                | JavaScript     |         26 |         13 |          9 |         48 |
+| f:\urbanReality\urban-reality-os\src\hooks\useInteractions.js            | JavaScript     |          8 |          3 |          1 |         12 |
+| f:\urbanReality\urban-reality-os\src\store\slices\authSlice.js           | JavaScript     |        243 |         28 |         39 |        310 |
+| f:\urbanReality\urban-reality-os\src\store\useMapStore.js                | JavaScript     |          2 |          0 |          0 |          2 |
+| f:\urbanReality\urban-reality-os\src\ui\components\AccountSection.jsx    | JavaScript JSX |        226 |         23 |         17 |        266 |
+| f:\urbanReality\urban-reality-os\src\ui\components\LoginModal.jsx        | JavaScript JSX |        563 |         22 |         35 |        620 |
+| f:\urbanReality\urban-reality-os\src\ui\components\LoginModalNew.jsx     | JavaScript JSX |        515 |         18 |         25 |        558 |
+| f:\urbanReality\urban-reality-os\src\ui\components\LoginModal_backup.jsx | JavaScript JSX |          0 |          1 |          1 |          2 |
+| f:\urbanReality\urban-reality-os\src\ui\components\ToastContainer.jsx    | JavaScript JSX |        198 |         27 |         19 |        244 |
+| f:\urbanReality\urban-reality-os\src\ui\layout\Sidebar.jsx               | JavaScript JSX |          1 |          0 |          0 |          1 |
+| Total                                                                    |                |      2,413 |        348 |        327 |      3,088 |
++--------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

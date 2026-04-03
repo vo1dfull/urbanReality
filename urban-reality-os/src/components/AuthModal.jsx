@@ -7,28 +7,59 @@ export default function AuthModal({ onClose }) {
   const API = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
   const [isLogin, setIsLogin] = useState(true);
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const validateForm = () => {
+    const errors = { email: '', password: '' };
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = 'Invalid email';
+    }
+    if (!form.password || form.password.trim() === '') {
+      errors.password = 'Password required';
+    }
+    setFieldErrors(errors);
+    return !errors.email && !errors.password;
+  };
 
   const submit = async () => {
-    const url = isLogin ? `${API}/api/auth/login` : `${API}/api/auth/signup`;
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setErrorMessage('');
+
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("Auth failed:", data);
-        alert(data.msg || data.message || "Auth failed");
-        return;
+      if (isLogin) {
+        await login(form.email, form.password);
+      } else {
+        const res = await fetch(`${API}/api/auth/register`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          const msg = data.message || 'Signup failed';
+          setErrorMessage(msg);
+          return;
+        }
+
+        await login(form.email, form.password);
       }
-      if (data.token) {
-        login(data.token);
-        if (onClose) onClose();
-      }
-      if (data.user) setUser(data.user);
+
+      if (onClose) onClose();
+      window.location.href = '/dashboard';
     } catch (err) {
-      console.error("Auth error:", err);
+      const message = err.message || 'Network error. Please try again.';
+      setErrorMessage(message);
+      if (message.toLowerCase().includes('invalid')) {
+        setFieldErrors({ email: 'Invalid email or password', password: 'Invalid email or password' });
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -92,34 +123,45 @@ export default function AuthModal({ onClose }) {
           />
         )}
 
-        <input
-          placeholder="Email"
-          type="email"
-          value={form.email}
-          onChange={e => setForm({ ...form, email: e.target.value })}
-          style={{ padding: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "14px" }}
-        />
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input
+            placeholder="Email"
+            type="email"
+            value={form.email}
+            onChange={e => setForm({ ...form, email: e.target.value })}
+            style={{ padding: "10px", borderRadius: "6px", border: fieldErrors.email ? "1px solid #ef4444" : "1px solid #ddd", fontSize: "14px" }}
+          />
+          {fieldErrors.email && <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.email}</span>}
 
-        <input
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={e => setForm({ ...form, password: e.target.value })}
-          style={{ padding: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "14px" }}
-        />
+          <input
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={e => setForm({ ...form, password: e.target.value })}
+            style={{ padding: "10px", borderRadius: "6px", border: fieldErrors.password ? "1px solid #ef4444" : "1px solid #ddd", fontSize: "14px" }}
+          />
+          {fieldErrors.password && <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.password}</span>}
+        </div>
+
+        {errorMessage && <div style={{ color: '#ef4444', fontSize: 12, textAlign: 'center', marginTop: 8 }}>{errorMessage}</div>}
 
         <button 
           onClick={submit}
+          disabled={isLoading}
           style={{
             padding: "10px",
             borderRadius: "6px",
             border: "none",
-            background: "#2563eb",
+            background: isLoading ? "#93c5fd" : "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
             color: "#fff",
             fontSize: "14px",
             fontWeight: 500,
-            cursor: "pointer"
+            cursor: isLoading ? "not-allowed" : "pointer",
+            transform: isLoading ? 'none' : 'scale(1)',
+            transition: 'transform 200ms ease, background 200ms ease',
           }}
+          onMouseEnter={e => { if (!isLoading) e.currentTarget.style.transform = 'scale(1.02)'; }}
+          onMouseLeave={e => { if (!isLoading) e.currentTarget.style.transform = 'scale(1)'; }}
         >
           {isLogin ? "Login" : "Sign up"}
         </button>

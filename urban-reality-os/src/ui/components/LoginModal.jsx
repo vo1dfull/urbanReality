@@ -27,12 +27,13 @@ export function LoginModal({ onClose, isOpen }) {
   const error = useToastStore((s) => s.error);
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const validatePassword = (password) => password.length >= 6;
+  const validatePassword = (password) => !!password && password.trim().length > 0;
+
   const validateForm = () => {
     const newErrors = {};
-    if (!validateEmail(email)) newErrors.email = 'Invalid email address';
-    if (!validatePassword(password)) newErrors.password = 'Min 6 characters';
-    if (mode === 'signup' && name.trim().length < 2) newErrors.name = 'Min 2 characters';
+    if (!validateEmail(email)) newErrors.email = 'Invalid email';
+    if (!validatePassword(password)) newErrors.password = 'Password required';
+    if (mode === 'signup' && name.trim().length < 2) newErrors.name = 'Name must have at least 2 characters';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -45,19 +46,28 @@ export function LoginModal({ onClose, isOpen }) {
     setIsLoading(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
+        await login(email.trim(), password);
         success('Welcome back! 🎉', 3000);
       } else {
-        await signup(email, password, name);
+        await signup(email.trim(), password, name.trim());
         success('Account created! 🚀', 3000);
       }
+
       setEmail('');
       setPassword('');
       setName('');
       setErrors({});
-      setTimeout(() => onClose?.(), 1000);
+      setTimeout(() => onClose?.(), 300);
+
+      // If app has a dashboard route, navigate user there
+      window.location.href = '/dashboard';
     } catch (err) {
-      error(err?.message || 'Auth failed', 5000);
+      if (err?.message?.toLowerCase().includes('invalid credentials') || err?.message?.toLowerCase().includes('user not found')) {
+        setErrors((previous) => ({ ...previous, email: 'Invalid email or password', password: 'Invalid email or password' }));
+        error('Invalid email or password', 5000);
+      } else {
+        error(err?.message || 'Auth failed', 5000);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -112,21 +112,33 @@ export const createAuthSlice = (set, get) => ({
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await mockAuthAPI.login(email, password);
-      
-      // Store token in localStorage
-      localStorage.setItem('auth-token', response.token);
-      localStorage.setItem('auth-user', JSON.stringify(response.user));
-      
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const message = data.msg || data.error || 'Invalid email or password';
+        throw new Error(message);
+      }
+
+      const accessToken = data.accessToken || data.token;
+      const user = data.user || { email };
+
+      localStorage.setItem('auth-token', accessToken);
+      localStorage.setItem('auth-user', JSON.stringify(user));
+
       set({
         isAuthenticated: true,
-        user: response.user,
-        token: response.token,
+        user,
+        token: accessToken,
         isLoading: false,
         lastSyncTime: new Date().toISOString(),
       });
-      
-      return response.user;
+
+      return data.user;
     } catch (error) {
       const message = error.message || 'Login failed';
       set({
@@ -142,21 +154,30 @@ export const createAuthSlice = (set, get) => ({
   signup: async (email, password, name) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await mockAuthAPI.signup(email, password, name);
-      
-      // Store token in localStorage
-      localStorage.setItem('auth-token', response.token);
-      localStorage.setItem('auth-user', JSON.stringify(response.user));
-      
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const message = data.msg || data.error || 'Signup failed';
+        throw new Error(message);
+      }
+
+      localStorage.setItem('auth-token', data.token);
+      localStorage.setItem('auth-user', JSON.stringify(data.user));
+
       set({
         isAuthenticated: true,
-        user: response.user,
-        token: response.token,
+        user: data.user,
+        token: data.token,
         isLoading: false,
         lastSyncTime: new Date().toISOString(),
       });
-      
-      return response.user;
+
+      return data.user;
     } catch (error) {
       const message = error.message || 'Signup failed';
       set({
@@ -172,21 +193,30 @@ export const createAuthSlice = (set, get) => ({
   loginWithGoogle: async (googleToken) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await mockAuthAPI.googleLogin(googleToken);
-      
-      // Store token in localStorage
-      localStorage.setItem('auth-token', response.token);
-      localStorage.setItem('auth-user', JSON.stringify(response.user));
-      
+      const response = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: googleToken }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        const message = data.msg || data.error || 'Google login failed';
+        throw new Error(message);
+      }
+
+      localStorage.setItem('auth-token', data.token);
+      localStorage.setItem('auth-user', JSON.stringify(data.user));
+
       set({
         isAuthenticated: true,
-        user: response.user,
-        token: response.token,
+        user: data.user,
+        token: data.token,
         isLoading: false,
         lastSyncTime: new Date().toISOString(),
       });
-      
-      return response.user;
+
+      return data.user;
     } catch (error) {
       const message = error.message || 'Google login failed';
       set({
