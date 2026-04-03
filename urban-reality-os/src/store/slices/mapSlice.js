@@ -34,6 +34,9 @@ export const createMapSlice = (set) => ({
   qualityLevel: 'high',
   safeMode: true,
   perfMode: 'balanced',
+  // Shared “green intervention” state (used by Heat + Flood + Green modules)
+  // Stored as stable string keys: "lngKey,latKey" (rounded to 1e-3 deg)
+  greenZones: [],
 
   setMapReady: (ready) => set({ mapReady: ready }),
   setLoading: (loading) => set({ loading }),
@@ -52,4 +55,21 @@ export const createMapSlice = (set) => ({
   setQualityLevel: (level) => set({ qualityLevel: level }),
   setSafeMode: (enabled) => set({ safeMode: !!enabled }),
   setPerfMode: (mode) => set({ perfMode: mode }),
+
+  addGreenZone: (lng, lat) => set((state) => {
+    const key = `${Math.round(lng * 1000)},${Math.round(lat * 1000)}`;
+    if (state.greenZones.includes(key)) return state;
+    const next = [key, ...state.greenZones].slice(0, 500);
+    return { greenZones: next };
+  }),
+  removeGreenZone: (lng, lat) => set((state) => {
+    const key = `${Math.round(lng * 1000)},${Math.round(lat * 1000)}`;
+    return { greenZones: state.greenZones.filter((k) => k !== key) };
+  }),
+  toggleGreenZone: (lng, lat) => set((state) => {
+    const key = `${Math.round(lng * 1000)},${Math.round(lat * 1000)}`;
+    const has = state.greenZones.includes(key);
+    return { greenZones: has ? state.greenZones.filter((k) => k !== key) : [key, ...state.greenZones].slice(0, 500) };
+  }),
+  clearGreenZones: () => set({ greenZones: [] }),
 });
