@@ -11,12 +11,13 @@ const FacilityPanel = memo(function FacilityPanel({
     hospitals: facilityData?.hospitals?.length || 0,
     policeStations: facilityData?.policeStations?.length || 0,
     fireStations: facilityData?.fireStations?.length || 0,
+    schools: facilityData?.schools?.length || 0,
   };
 
   return (
     <div>
       <Header title="Facility Intelligence" subtitle="Coverage, critical gaps, and response overlays" />
-      {['hospitals', 'policeStations', 'fireStations'].map((key) => (
+      {['hospitals', 'policeStations', 'fireStations', 'schools'].map((key) => (
         <button
           key={key}
           onClick={() => setLayers((prev) => ({ ...prev, [key]: !prev[key] }))}

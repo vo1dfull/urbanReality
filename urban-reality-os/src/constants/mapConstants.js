@@ -31,18 +31,18 @@ export const IMPACT_MODEL = {
   populationGrowth: 6000,
 };
 
+export const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_API_KEY || 'UQBNCVHquLf1PybiywBt';
+export const SATELLITE_RASTER_TILE_URL = `https://api.maptiler.com/tiles/satellite/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`;
+
 export const STYLE_URLS = {
-  default:
-    'https://api.maptiler.com/maps/streets-v2/style.json?key=UQBNCVHquLf1PybiywBt',
-  satellite:
-    'https://api.maptiler.com/maps/hybrid/style.json?key=UQBNCVHquLf1PybiywBt',
-  terrain:
-    'https://api.maptiler.com/maps/topo-v2/style.json?key=UQBNCVHquLf1PybiywBt',
+  default: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
+  satellite: `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`,
+  terrain: `https://api.maptiler.com/maps/topo-v2/style.json?key=${MAPTILER_KEY}`,
 };
 
 export const TERRAIN_SOURCE_ID = 'urbanRealityTerrain';
 export const TERRAIN_SOURCE_URL =
-  'https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=UQBNCVHquLf1PybiywBt';
+  `https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=${MAPTILER_KEY}`;
 
 export const TOMTOM_KEY = import.meta.env.VITE_TOMTOM_API_KEY;
 export const OPENWEATHER_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY || '';

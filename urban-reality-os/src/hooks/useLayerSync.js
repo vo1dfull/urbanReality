@@ -79,6 +79,8 @@ export default function useLayerSync() {
         const roadPlugin = LayerEngine.getPlugin('terrainRoad');
         if (roadPlugin && !state.terrainSubLayers.road) roadPlugin.clearPath(map);
 
+        syncHillshade(map, state.terrainSubLayers.hillshade);
+
         eventBus.emitDeferred(EVENTS.LAYERS_SYNCED, null);
       }
 
@@ -166,7 +168,7 @@ export default function useLayerSync() {
 
     renderFn();
     const currentState = useMapStore.getState();
-    const shouldAnimate = currentState.layers.hospitals || currentState.layers.policeStations || currentState.layers.fireStations;
+    const shouldAnimate = currentState.layers.hospitals || currentState.layers.policeStations || currentState.layers.fireStations || currentState.layers.schools;
     if (shouldAnimate) {
       FacilityEngine.attachListeners(map, renderFn);
     } else {
@@ -176,7 +178,7 @@ export default function useLayerSync() {
 
     const unsub = useMapStore.subscribe(() => {
       const state = useMapStore.getState();
-      const active = state.layers.hospitals || state.layers.policeStations || state.layers.fireStations;
+      const active = state.layers.hospitals || state.layers.policeStations || state.layers.fireStations || state.layers.schools;
       if (active) {
         FacilityEngine.attachListeners(map, renderFn);
       } else {
@@ -190,4 +192,33 @@ export default function useLayerSync() {
       FacilityEngine.detachListeners(map);
     };
   }, []);
+}
+
+function syncHillshade(map, enabled) {
+  if (!map) return;
+  try {
+    if (!map.getSource('terrain-rgb-dem')) {
+      map.addSource('terrain-rgb-dem', {
+        type: 'raster-dem',
+        url: 'https://api.maptiler.com/tiles/terrain-rgb/tiles.json?key=UQBNCVHquLf1PybiywBt',
+        tileSize: 256,
+      });
+    }
+    if (!map.getLayer('terrain-hillshade')) {
+      map.addLayer({
+        id: 'terrain-hillshade',
+        type: 'hillshade',
+        source: 'terrain-rgb-dem',
+        paint: {
+          'hillshade-exaggeration': 0.55,
+          'hillshade-illumination-direction': 325,
+        },
+        layout: { visibility: enabled ? 'visible' : 'none' },
+      });
+    } else {
+      map.setLayoutProperty('terrain-hillshade', 'visibility', enabled ? 'visible' : 'none');
+    }
+  } catch (_) {
+    // ignore unsupported runtime/style states
+  }
 }

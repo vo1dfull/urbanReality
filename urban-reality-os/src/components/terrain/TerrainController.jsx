@@ -20,6 +20,8 @@ const SUB_LAYERS = [
 export default function TerrainController({ map, isActive }) {
   const terrainSubLayers = useMapStore(useShallow((s) => s.terrainSubLayers));
   const toggleTerrainSubLayer = useMapStore((s) => s.toggleTerrainSubLayer);
+  const setTerrainMode = useMapStore((s) => s.setTerrainMode);
+  const terrainMode = useMapStore((s) => s.terrainMode);
   const year = useMapStore((s) => s.year);
 
   const [openPanel, setOpenPanel] = useState(true);
@@ -91,6 +93,29 @@ export default function TerrainController({ map, isActive }) {
         overflow: 'hidden',
         transition: 'max-height 480ms cubic-bezier(0.23,1,0.32,1)'
       }}>
+        <div style={{ marginBottom: 10, border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: 8 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Terrain Core</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            <button
+              onClick={() => { if (!terrainSubLayers.elevation) toggleTerrainSubLayer('elevation'); setTerrainMode('elevation'); }}
+              style={{ ...modeBtn, ...(terrainSubLayers.elevation && terrainMode === 'elevation' ? modeBtnActive : null) }}
+            >
+              Elevation
+            </button>
+            <button
+              onClick={() => { if (!terrainSubLayers.elevation) toggleTerrainSubLayer('elevation'); setTerrainMode('slope'); }}
+              style={{ ...modeBtn, ...(terrainSubLayers.elevation && terrainMode === 'slope' ? modeBtnActive : null) }}
+            >
+              Slope
+            </button>
+            <button
+              onClick={() => toggleTerrainSubLayer('hillshade')}
+              style={{ ...modeBtn, ...(terrainSubLayers.hillshade ? modeBtnActive : null) }}
+            >
+              Hillshade
+            </button>
+          </div>
+        </div>
         {SUB_LAYERS.map((layer) => {
           const active = terrainSubLayers[layer.id];
           return (
@@ -159,3 +184,20 @@ export default function TerrainController({ map, isActive }) {
     </div>
   );
 }
+
+const modeBtn = {
+  border: '1px solid rgba(255,255,255,0.14)',
+  borderRadius: 8,
+  background: 'rgba(255,255,255,0.04)',
+  color: '#cbd5e1',
+  fontSize: 11,
+  fontWeight: 700,
+  padding: '7px 6px',
+  cursor: 'pointer',
+};
+
+const modeBtnActive = {
+  border: '1px solid rgba(96,165,250,0.8)',
+  background: 'rgba(59,130,246,0.22)',
+  color: '#e2e8f0',
+};

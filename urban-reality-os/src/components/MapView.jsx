@@ -325,11 +325,45 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
       )}
 
       <Sidebar onAction={(key) => {
-        if (key === 'saved-places' || key === 'bookmarks' || key === 'recent-searches') useMapStore.getState().setShowSuggestions(true);
-        if (key === 'projects') useMapStore.getState().setActivePanel('facility');
-        if (key === 'settings') useMapStore.getState().setNotification('Settings panel coming next refinement.');
-        if (key === 'plugins') useMapStore.getState().setNotification('Plugin marketplace hook is ready.');
-        if (key === 'signin') useMapStore.getState().setNotification('Use account menu to sign in.');
+        const store = useMapStore.getState();
+        if (key === 'saved-places' || key === 'bookmarks' || key === 'recent-searches') {
+          store.setShowSuggestions(true);
+          return;
+        }
+        if (key === 'projects') {
+          const current = {
+            id: `proj-${Date.now()}`,
+            name: `Scenario ${new Date().toLocaleString()}`,
+            mapStyle: store.mapStyle,
+            layers: store.layers,
+            terrainSubLayers: store.terrainSubLayers,
+            year: store.year,
+          };
+          const prev = JSON.parse(localStorage.getItem('projects') || '[]');
+          localStorage.setItem('projects', JSON.stringify([current, ...prev].slice(0, 20)));
+          store.setNotification('Project snapshot saved.');
+          return;
+        }
+        if (key === 'settings') {
+          const units = localStorage.getItem('units') === 'miles' ? 'km' : 'miles';
+          localStorage.setItem('units', units);
+          store.setNotification(`Units switched to ${units}.`);
+          return;
+        }
+        if (key === 'performance-mode') {
+          const heavyOff = !store.safeMode;
+          if (heavyOff) {
+            store.setLayers((prev) => ({ ...prev, traffic: false, flood: false, floodDepth: false }));
+            store.setTerrainSubLayers((prev) => ({ ...prev, heat: false, flood: false }));
+          }
+          store.setNotification(store.safeMode ? 'Performance mode enabled.' : 'Performance mode disabled.');
+          return;
+        }
+        if (key === 'plugins') {
+          store.setNotification('Plugin marketplace hook is ready.');
+          return;
+        }
+        if (key === 'signin') store.setNotification('Use account menu to sign in.');
       }} />
       <div style={{ position: 'fixed', top: 14, left: 80, zIndex: 20, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
         <TopSearch onLocationSelect={onLocationSelect} />

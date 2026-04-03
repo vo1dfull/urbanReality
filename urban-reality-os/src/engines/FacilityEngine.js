@@ -20,6 +20,12 @@ const CANVAS_SIZE = 512;
 
 /** @type {number} Debounce interval for move/zoom redraws in ms */
 const RENDER_DEBOUNCE_MS = 150;
+const DEFAULT_COVERAGE_KM = {
+  hospitals: 4,
+  policeStations: 2.5,
+  fireStations: 3,
+  schools: 1.5,
+};
 
 class FacilityEngine {
   constructor() {
@@ -138,19 +144,29 @@ class FacilityEngine {
     if (layers.hospitals && facilityData.hospitals) {
       const arr = facilityData.hospitals;
       for (let i = 0; i < arr.length; i++) {
-        active.push(arr[i].lng, arr[i].lat, arr[i].coverageRadius, 0x06, 0xb6, 0xd4); // 6 values per facility
+        const rKm = arr[i].coverageRadius || DEFAULT_COVERAGE_KM.hospitals;
+        active.push(arr[i].lng, arr[i].lat, rKm, 0x06, 0xb6, 0xd4, 0); // 7 values per facility
       }
     }
     if (layers.policeStations && facilityData.policeStations) {
       const arr = facilityData.policeStations;
       for (let i = 0; i < arr.length; i++) {
-        active.push(arr[i].lng, arr[i].lat, arr[i].coverageRadius, 0x8b, 0x5c, 0xf6);
+        const rKm = arr[i].coverageRadius || DEFAULT_COVERAGE_KM.policeStations;
+        active.push(arr[i].lng, arr[i].lat, rKm, 0x8b, 0x5c, 0xf6, 1);
       }
     }
     if (layers.fireStations && facilityData.fireStations) {
       const arr = facilityData.fireStations;
       for (let i = 0; i < arr.length; i++) {
-        active.push(arr[i].lng, arr[i].lat, arr[i].coverageRadius, 0xf9, 0x73, 0x16);
+        const rKm = arr[i].coverageRadius || DEFAULT_COVERAGE_KM.fireStations;
+        active.push(arr[i].lng, arr[i].lat, rKm, 0xf9, 0x73, 0x16, 2);
+      }
+    }
+    if (layers.schools && facilityData.schools) {
+      const arr = facilityData.schools;
+      for (let i = 0; i < arr.length; i++) {
+        const rKm = arr[i].coverageRadius || DEFAULT_COVERAGE_KM.schools;
+        active.push(arr[i].lng, arr[i].lat, rKm, 0x22, 0xc5, 0x5e, 3);
       }
     }
 
@@ -176,8 +192,8 @@ class FacilityEngine {
     const pulseScale = this._pulseScale;
     const pulseOpacity = this._pulseOpacity;
 
-    // ── Render loop — 6 values per facility (flat array) ──
-    for (let f = 0; f < active.length; f += 6) {
+    // ── Render loop — 7 values per facility (flat array) ──
+    for (let f = 0; f < active.length; f += 7) {
       const fLng = active[f];
       const fLat = active[f + 1];
       const fCoverage = active[f + 2];
@@ -191,7 +207,7 @@ class FacilityEngine {
       // Viewport culling
       if (x < -80 || x > CANVAS_SIZE + 80 || y < -80 || y > CANVAS_SIZE + 80) continue;
 
-      if (viewMode === 'coverage') {
+      if (viewMode === 'coverage' || viewMode === 'heatmap') {
         const colorStr = `#${HEX_TABLE[r]}${HEX_TABLE[g]}${HEX_TABLE[b]}`;
 
         // Only 2 rings instead of 3 (saves 33% of gradient ops)
@@ -214,6 +230,24 @@ class FacilityEngine {
           ctx.arc(x, y, radius, 0, 6.2832); // 2 * PI = 6.2832
           ctx.fillStyle = gradient;
           ctx.fill();
+        }
+      }
+    }
+    if (viewMode === 'gap') {
+      const step = 44;
+      for (let gx = 0; gx < CANVAS_SIZE; gx += step) {
+        for (let gy = 0; gy < CANVAS_SIZE; gy += step) {
+          const lng = bWest + (gx / CANVAS_SIZE) * lngRange;
+          const lat = bNorth - (gy / CANVAS_SIZE) * latRange;
+          let minKm = Infinity;
+          for (let f = 0; f < active.length; f += 7) {
+            const dKm = this._distanceKm(lat, lng, active[f + 1], active[f]);
+            const norm = dKm / (active[f + 2] || 1);
+            if (norm < minKm) minKm = norm;
+          }
+          const tone = minKm <= 1 ? 'rgba(34,197,94,0.18)' : (minKm <= 1.8 ? 'rgba(234,179,8,0.22)' : 'rgba(239,68,68,0.24)');
+          ctx.fillStyle = tone;
+          ctx.fillRect(gx, gy, step - 6, step - 6);
         }
       }
     }
@@ -262,8 +296,16 @@ class FacilityEngine {
       canvasReady: !!this._canvas,
       canvasSize: CANVAS_SIZE,
       listenersAttached: this._listenersAttached,
-      activeFacilities: this._activeFacilities.length / 6,
+      activeFacilities: this._activeFacilities.length / 7,
     };
+  }
+
+  _distanceKm(lat1, lon1, lat2, lon2) {
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
   destroy(map) {

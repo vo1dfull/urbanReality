@@ -56,6 +56,7 @@ class LayerEngine {
     this.registerLayer('facilities.hospital', { group: 'facilities', zIndex: 40, mode: 'facility', facilityType: 'hospitals', enabled: false });
     this.registerLayer('facilities.police', { group: 'facilities', zIndex: 41, mode: 'facility', facilityType: 'policeStations', enabled: false });
     this.registerLayer('facilities.fire', { group: 'facilities', zIndex: 42, mode: 'facility', facilityType: 'fireStations', enabled: false });
+    this.registerLayer('facilities.school', { group: 'facilities', zIndex: 43, mode: 'facility', facilityType: 'schools', enabled: false });
     this.registerLayer('analytics.population', { group: 'analytics', zIndex: 61, pluginId: 'terrainSuitability', enabled: false });
     this.registerLayer('analytics.risk', { group: 'analytics', zIndex: 62, pluginId: 'terrainFlood', enabled: false });
     this.registerLayer('analytics.economy', { group: 'analytics', zIndex: 63, pluginId: 'terrainGreen', enabled: false });
@@ -280,6 +281,7 @@ class LayerEngine {
     this.toggleLayer('facilities.hospital', map, !!layers.hospitals);
     this.toggleLayer('facilities.police', map, !!layers.policeStations);
     this.toggleLayer('facilities.fire', map, !!layers.fireStations);
+    this.toggleLayer('facilities.school', map, !!layers.schools);
   }
 
   getCurrentLayerState() {

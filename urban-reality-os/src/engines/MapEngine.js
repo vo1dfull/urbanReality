@@ -3,7 +3,7 @@
 // Pure JS — no React dependency
 // ================================================
 import maplibregl from 'maplibre-gl';
-import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL, TERRAIN_SOURCE_ID } from '../constants/mapConstants';
+import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL, TERRAIN_SOURCE_ID, SATELLITE_RASTER_TILE_URL } from '../constants/mapConstants';
 import PERFORMANCE_CONFIG from '../config/performance';
 import { throttle } from '../utils/cache';
 import { createLogger } from '../core/Logger';
@@ -95,6 +95,41 @@ class MapEngine {
     }
   }
 
+  _ensureSatelliteRasterLayer() {
+    if (!this._map) return;
+    try {
+      if (!this._map.getSource('satellite')) {
+        this._map.addSource('satellite', {
+          type: 'raster',
+          tiles: [SATELLITE_RASTER_TILE_URL],
+          tileSize: 256,
+        });
+      }
+      if (!this._map.getLayer('satellite-raster-layer')) {
+        this._map.addLayer({
+          id: 'satellite-raster-layer',
+          type: 'raster',
+          source: 'satellite',
+          paint: {
+            'raster-opacity': 1,
+            'raster-fade-duration': 0,
+          },
+          layout: {
+            visibility: this._currentStyle === 'satellite' ? 'visible' : 'none',
+          },
+        });
+      } else {
+        this._map.setLayoutProperty(
+          'satellite-raster-layer',
+          'visibility',
+          this._currentStyle === 'satellite' ? 'visible' : 'none'
+        );
+      }
+    } catch (err) {
+      log.warn('satellite raster source setup failed:', err);
+    }
+  }
+
   /**
    * Wait for the map to be fully loaded.
    * @returns {Promise<void>}
@@ -176,6 +211,7 @@ class MapEngine {
           } else {
             this.removeTerrain();
           }
+          this._ensureSatelliteRasterLayer();
           this._applySceneLighting();
           if (onRecovery) onRecovery(this._map, styleName);
           if (this._layerEngine?.syncAllToggles) {

@@ -20,6 +20,11 @@ const FACILITY_CONFIGS = {
     layerId: 'fire-layer',
     color: '#f97316',
   },
+  schools: {
+    sourceId: 'schools',
+    layerId: 'schools-layer',
+    color: '#22c55e',
+  },
 };
 
 export default class FacilityLayerPlugin extends BaseLayerPlugin {
@@ -98,6 +103,46 @@ export default class FacilityLayerPlugin extends BaseLayerPlugin {
       }
     } catch (err) {
       console.warn(`[FacilityLayerPlugin] toggleByType(${type}) error:`, err);
+    }
+  }
+
+  update(map, facilityData = {}, layers = {}) {
+    if (!map) return;
+    for (const [key, config] of Object.entries(FACILITY_CONFIGS)) {
+      const items = facilityData[key] || [];
+      const source = map.getSource(config.sourceId);
+      const geojson = {
+        type: 'FeatureCollection',
+        features: items.map((item) => ({
+          type: 'Feature',
+          properties: item,
+          geometry: { type: 'Point', coordinates: [item.lng, item.lat] },
+        })),
+      };
+      try {
+        if (source?.setData) {
+          source.setData(geojson);
+        } else if (items.length) {
+          this._addSource(map, config.sourceId, { type: 'geojson', data: geojson });
+          this._addLayer(map, {
+            id: config.layerId,
+            type: 'circle',
+            source: config.sourceId,
+            paint: {
+              'circle-radius': 8,
+              'circle-color': config.color,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#ffffff',
+              'circle-opacity': 0.9,
+            },
+            layout: {
+              visibility: layers[key] ? 'visible' : 'none',
+            },
+          });
+        }
+      } catch (err) {
+        console.warn(`[FacilityLayerPlugin] update(${key}) error:`, err);
+      }
     }
   }
 

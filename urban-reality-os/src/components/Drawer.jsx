@@ -1,11 +1,25 @@
-import { memo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { MEDIUM } from '../animations/motion';
+import useMapStore from '../store/useMapStore';
 
 const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAction }) {
   const { user, logout } = useAuth();
+  const setMapStyle = useMapStore((s) => s.setMapStyle);
+  const [units, setUnits] = useState(() => localStorage.getItem('units') || 'km');
   const initials = (user?.name || 'Guest').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+  const stats = useMemo(() => {
+    const read = (k) => {
+      try { return JSON.parse(localStorage.getItem(k) || '[]').length; } catch { return 0; }
+    };
+    return {
+      saved: read('savedLocations'),
+      bookmarks: read('bookmarks'),
+      recents: read('recentSearches'),
+      projects: read('projects'),
+    };
+  }, [open]);
 
   const handleAction = (key) => {
     onAction?.(key);
@@ -56,10 +70,10 @@ const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAc
             <Section
               title="Places"
               items={[
-                ['Saved Places', 'saved-places'],
-                ['Bookmarks', 'bookmarks'],
-                ['Recent Searches', 'recent-searches'],
-                ['Your Projects', 'projects'],
+                [`Saved Places (${stats.saved})`, 'saved-places'],
+                [`Bookmarks (${stats.bookmarks})`, 'bookmarks'],
+                [`Recent Searches (${stats.recents})`, 'recent-searches'],
+                [`Your Projects (${stats.projects})`, 'projects'],
               ]}
               onAction={handleAction}
             />
@@ -73,9 +87,28 @@ const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAc
             />
 
             <section style={{ marginTop: 10 }}>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 10, fontSize: 13 }}>
+                <span>Base Map</span>
+                <select onChange={(e) => setMapStyle(e.target.value)} defaultValue="default" style={selectStyle}>
+                  <option value="default">Street</option>
+                  <option value="satellite">Satellite</option>
+                  <option value="terrain">Terrain</option>
+                </select>
+              </label>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
                 <span>Performance Mode</span>
                 <input type="checkbox" checked={safeMode} onChange={() => { setSafeMode(!safeMode); onAction?.('performance-mode'); }} />
+              </label>
+              <label style={{ display: 'grid', gap: 6, marginTop: 10, fontSize: 13 }}>
+                <span>Units</span>
+                <select
+                  value={units}
+                  onChange={(e) => { setUnits(e.target.value); localStorage.setItem('units', e.target.value); }}
+                  style={selectStyle}
+                >
+                  <option value="km">Kilometers</option>
+                  <option value="miles">Miles</option>
+                </select>
               </label>
             </section>
           </motion.aside>
@@ -105,6 +138,13 @@ const btnStyle = {
 const rowStyle = {
   textAlign: 'left', borderRadius: 9, border: '1px solid rgba(255,255,255,0.1)',
   background: 'rgba(255,255,255,0.03)', color: '#e2e8f0', padding: '8px 10px', cursor: 'pointer',
+};
+const selectStyle = {
+  borderRadius: 8,
+  border: '1px solid rgba(255,255,255,0.14)',
+  background: 'rgba(255,255,255,0.05)',
+  color: '#e2e8f0',
+  padding: '6px 8px',
 };
 
 export default Drawer;

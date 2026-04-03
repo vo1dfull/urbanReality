@@ -56,6 +56,8 @@ export default function useMapEngine() {
       if (facilityPlugin && facilityData) {
         if (!facilityPlugin.isInitialized()) {
           facilityPlugin.init(liveMap, { facilityData, layers: useMapStore.getState().layers });
+        } else {
+          facilityPlugin.update(liveMap, facilityData, useMapStore.getState().layers);
         }
       }
     });

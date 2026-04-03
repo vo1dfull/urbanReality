@@ -40,9 +40,10 @@ function ensureLayerStripStyles() {
 
     .layer-card {
       pointer-events: auto;
-      min-width: 96px;
-      height: 74px;
-      border-radius: 14px;
+      width: 80px;
+      min-width: 80px;
+      height: 65px;
+      border-radius: 12px;
       overflow: hidden;
       cursor: pointer;
       user-select: none;
@@ -79,7 +80,7 @@ function ensureLayerStripStyles() {
     }
 
     .layer-card__preview {
-      height: 46px;
+      height: 41px;
       width: 100%;
       position: relative;
       background: rgba(255,255,255,0.06);
@@ -93,7 +94,7 @@ function ensureLayerStripStyles() {
     }
 
     .layer-card__label {
-      height: 28px;
+      height: 24px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -252,7 +253,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     if (mapStyle === 'terrain') return 'terrain';
     if (mapStyle === 'satellite') return 'satellite';
     if (layers.traffic) return 'traffic';
-    if (layers.hospitals || layers.policeStations || layers.fireStations) return 'facilities';
+    if (layers.hospitals || layers.policeStations || layers.fireStations || layers.schools) return 'facilities';
     return null;
   }, [mapStyle, layers]);
 
@@ -282,17 +283,18 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
       return;
     }
     if (id === 'facilities') {
-      const enabled = layers.hospitals || layers.policeStations || layers.fireStations;
+      const enabled = layers.hospitals || layers.policeStations || layers.fireStations || layers.schools;
       setLayers((prev) => ({
         ...prev,
         hospitals: !enabled,
         policeStations: !enabled,
         fireStations: !enabled,
+        schools: !enabled,
       }));
       return;
     }
     // Transit is optional and not yet wired in this build.
-  }, [layers.fireStations, layers.hospitals, layers.policeStations, mapStyle, setLayers, setMapStyle]);
+  }, [layers.fireStations, layers.hospitals, layers.policeStations, layers.schools, mapStyle, setLayers, setMapStyle]);
 
   const handleSelect = useCallback((id) => {
     setActiveLayer(id);

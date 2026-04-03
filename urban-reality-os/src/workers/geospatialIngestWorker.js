@@ -74,10 +74,10 @@ function normalizeOverpassFacilities(overpass) {
     const tags = e.tags || {};
     const amenity = (tags.amenity || '').toLowerCase();
     const item = { lat, lng, name: tags.name || amenity || 'Unnamed' };
-    if (amenity === 'hospital') hospitals.push(item);
-    else if (amenity === 'police') policeStations.push(item);
-    else if (amenity === 'fire_station') fireStations.push(item);
-    else if (amenity === 'school') schools.push(item);
+    if (amenity === 'hospital') hospitals.push({ ...item, coverageRadius: 4 });
+    else if (amenity === 'police') policeStations.push({ ...item, coverageRadius: 2.5 });
+    else if (amenity === 'fire_station') fireStations.push({ ...item, coverageRadius: 3 });
+    else if (amenity === 'school') schools.push({ ...item, coverageRadius: 1.5 });
   }
 
   return { hospitals, policeStations, fireStations, schools };
