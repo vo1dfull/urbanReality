@@ -86,7 +86,7 @@ export default function useLayerSync() {
         if (!isInitialLoad.current) {
           eventBus.emit(EVENTS.MAP_STYLE_CHANGE, state.mapStyle);
 
-          MapEngine.switchStyle(map, (recoveredMap) => {
+          MapEngine.switchStyle(state.mapStyle, (recoveredMap) => {
             const currentState = useMapStore.getState();
             LayerEngine.recoverAllLayers(recoveredMap, currentState);
 
