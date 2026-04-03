@@ -40,7 +40,7 @@ export default class BuildLayerPlugin extends BaseLayerPlugin {
         'fill-color': '#8B4513',  // Brown
         'fill-opacity': 0.7,
       },
-    }, 'buildings');
+    });
 
     map.addLayer({
       id: this.layerId('buildings-outline'),
@@ -73,7 +73,7 @@ export default class BuildLayerPlugin extends BaseLayerPlugin {
         'line-color': '#888888',
         'line-width': ['interpolate', ['linear'], ['zoom'], 8, 2, 14, 6],
       },
-    }, this.layerId('buildings'));
+    });
 
     // Green zones source
     const greenSourceId = this.sourceId('green');
@@ -96,7 +96,7 @@ export default class BuildLayerPlugin extends BaseLayerPlugin {
         'fill-color': '#00AA00',
         'fill-opacity': 0.5,
       },
-    }, this.layerId('roads'));
+    });
 
     map.addLayer({
       id: this.layerId('green-outline'),
@@ -106,7 +106,7 @@ export default class BuildLayerPlugin extends BaseLayerPlugin {
         'line-color': '#006600',
         'line-width': 1,
       },
-    }, this.layerId('green'));
+    });
 
     // Facilities source
     const facilitiesSourceId = this.sourceId('facilities');
@@ -132,7 +132,7 @@ export default class BuildLayerPlugin extends BaseLayerPlugin {
         'circle-stroke-width': 2,
         'circle-stroke-color': '#fff',
       },
-    }, this.layerId('green'));
+    });
 
     // Interactive events
     map.on('click', [this.layerId('buildings'), this.layerId('roads'), this.layerId('green'), this.layerId('facilities')], (e) => {

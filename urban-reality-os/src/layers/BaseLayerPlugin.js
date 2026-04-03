@@ -124,4 +124,12 @@ export default class BaseLayerPlugin {
     }
     if (!this.layerIds.includes(config.id)) this.layerIds.push(config.id);
   }
+
+  /**
+   * Set the initialization state of this plugin.
+   * @param {boolean} initialized
+   */
+  _setInitialized(initialized) {
+    this.initialized = !!initialized;
+  }
 }

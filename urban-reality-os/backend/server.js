@@ -33,16 +33,35 @@ const start = async () => {
 
       const openAqKey = process.env.OPENAQ_API_KEY;
       const url = `https://api.openaq.org/v3/locations?coordinates=${lat},${lng}&radius=${radius}&limit=${limit}`;
-      const headers = { 'Accept': 'application/json' };
+      
+      const headers = { 
+        'Accept': 'application/json',
+        'User-Agent': 'UrbanRealityOS/2.0'
+      };
       if (openAqKey) headers['X-API-Key'] = openAqKey;
 
-      const response = await fetch(url, { headers });
-      const data = await response.json();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-      return res.status(response.status).json(data);
+      const response = await fetch(url, { headers, signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = await response.text().catch(() => null);
+        console.warn(`OpenAQ API error ${response.status}:`, errorData);
+        return res.status(response.status).json({ 
+          error: `OpenAQ API error: ${response.status}`,
+          details: errorData 
+        });
+      }
+
+      const data = await response.json();
+      return res.status(200).json(data);
     } catch (err) {
-      console.error('OpenAQ proxy error:', err);
-      return res.status(500).json({ error: 'OpenAQ proxy failed' });
+      const isTimeout = err.name === 'AbortError';
+      const errorMsg = isTimeout ? 'OpenAQ request timeout' : err.message;
+      console.error('OpenAQ proxy error:', errorMsg);
+      return res.status(isTimeout ? 408 : 500).json({ error: errorMsg });
     }
   });
 

@@ -32,7 +32,7 @@ export default class NDVILayerPlugin extends BaseLayerPlugin {
     }
 
     // NDVI heatmap layer
-    map.addLayer({
+    this._addLayer(map, {
       id: this.layerId('heatmap'),
       type: 'heatmap',
       source: sourceId,
@@ -68,7 +68,7 @@ export default class NDVILayerPlugin extends BaseLayerPlugin {
       });
     }
 
-    map.addLayer({
+    this._addLayer(map, {
       id: this.layerId('classified'),
       type: 'fill',
       source: classSourceId,

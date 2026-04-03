@@ -54,7 +54,7 @@ export default class PlanningLayerPlugin extends BaseLayerPlugin {
         'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 2, 9, 20],
         'heatmap-opacity': this.opacity,
       },
-    }, 'buildings');
+    });
 
     // Recommendations marker source
     const markerSourceId = this.sourceId('recommendations');
@@ -80,7 +80,7 @@ export default class PlanningLayerPlugin extends BaseLayerPlugin {
         'circle-stroke-width': 2,
         'circle-stroke-color': '#fff',
       },
-    }, 'buildings');
+    });
 
     // Popup on click
     map.on('click', this.layerId('recommendations'), (e) => {

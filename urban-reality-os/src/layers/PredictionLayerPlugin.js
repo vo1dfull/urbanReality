@@ -34,7 +34,7 @@ export default class PredictionLayerPlugin extends BaseLayerPlugin {
     }
 
     // Heatmap layer
-    map.addLayer({
+    this._addLayer(map, {
       id: this.layerId('heatmap'),
       type: 'heatmap',
       source: sourceId,
@@ -69,7 +69,7 @@ export default class PredictionLayerPlugin extends BaseLayerPlugin {
       });
     }
 
-    map.addLayer({
+    this._addLayer(map, {
       id: this.layerId('sprawl'),
       type: 'fill',
       source: sprawlSourceId,
@@ -80,7 +80,7 @@ export default class PredictionLayerPlugin extends BaseLayerPlugin {
     }, this.baseLayerId());
 
     // Outline
-    map.addLayer({
+    this._addLayer(map, {
       id: this.layerId('sprawl-outline'),
       type: 'line',
       source: sprawlSourceId,

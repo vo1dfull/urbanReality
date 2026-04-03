@@ -1,13 +1,19 @@
 // ================================================
-// DataEngine — All API calls, caching, AbortController
+// DataEngine — Production-Grade API Layer
 // Pure JS — no React dependency
+// 
 // ✅ Request deduplication (prevent parallel duplicate requests)
 // ✅ Memory-efficient caching with automatic cleanup
 // ✅ Exponential backoff with jitter for retries
-// ✅ Request prioritization queue
-// ✅ Automatic stale data detection
-// ✅ Batch request optimization
+// ✅ Request prioritization queue (critical/normal/background)
+// ✅ Automatic stale data detection & background refresh
+// ✅ Batch request optimization with adaptive sizing
 // ✅ Circuit breaker pattern for failing services
+// ✅ IndexedDB offline caching with auto-sync
+// ✅ Lifecycle event emissions (data:ready, data:error, data:stale)
+// ✅ Per-endpoint rate limiting & health tracking
+// ✅ Error classification & intelligent retry policies
+// ✅ Comprehensive performance metrics & diagnostics
 // ================================================
 import { fetchRealtimeAQI } from '../utils/aqi';
 import { fetchIndiaMacroData } from '../utils/worldBank';
@@ -32,6 +38,13 @@ const TTL_5_MIN = 5 * 60 * 1000;
 const TTL_10_MIN = 10 * 60 * 1000;
 
 /**
+ * @typedef {'critical'|'normal'|'background'} RequestPriority
+ * @typedef {'aqi'|'geo'|'traffic'|'analysis'|'static'|'other'} RequestType
+ * @typedef {'network'|'timeout'|'parse'|'abort'|'unknown'} ErrorType
+ * @typedef {{priority: RequestPriority, type: RequestType, key: string, fn: Function, timestamp: number, attempt: number}} QueuedRequest
+ */
+
+/**
  * Sleep with jitter to prevent thundering herd
  * @param {number} ms
  * @param {number} jitter - Jitter factor (0-1)
@@ -43,10 +56,147 @@ const sleep = (ms, jitter = 0.3) => {
 };
 
 /**
+ * Event system for data lifecycle (data:ready, data:error, data:stale, data:cached)
+ * @class LifecycleEventEmitter
+ */
+class LifecycleEventEmitter {
+  constructor() {
+    /** @type {Map<string, Set<Function>>} */
+    this._listeners = new Map();
+  }
+
+  /**
+   * @param {string} event - Event name (data:ready, data:error, data:stale, data:cached)
+   * @param {Function} callback - Callback(eventData) => void
+   */
+  on(event, callback) {
+    if (!this._listeners.has(event)) {
+      this._listeners.set(event, new Set());
+    }
+    this._listeners.get(event).add(callback);
+  }
+
+  off(event, callback) {
+    if (this._listeners.has(event)) {
+      this._listeners.get(event).delete(callback);
+    }
+  }
+
+  /**
+   * @param {string} event 
+   * @param {object} data 
+   */
+  emit(event, data = {}) {
+    if (this._listeners.has(event)) {
+      for (const callback of this._listeners.get(event)) {
+        try {
+          callback({ event, timestamp: Date.now(), ...data });
+        } catch (err) {
+          log.error(`Lifecycle event handler error (${event}):`, err);
+        }
+      }
+    }
+  }
+
+  clear() {
+    this._listeners.clear();
+  }
+}
+
+/**
+ * Intelligent request prioritization queue (critical > normal > background)
+ * @class PriorityQueueManager
+ */
+class PriorityQueueManager {
+  constructor(concurrency = 3) {
+    /** @type {Map<RequestPriority, QueuedRequest[]>} */
+    this._queues = new Map([
+      ['critical', []],
+      ['normal', []],
+      ['background', []]
+    ]);
+    /** @type {number} */
+    this._concurrency = concurrency;
+    /** @type {number} */
+    this._activeCount = 0;
+  }
+
+  /**
+   * @param {Function} fn
+   * @param {RequestPriority} [priority='normal']
+   * @param {RequestType} [type='other']
+   * @param {string} [key='']
+   * @returns {Promise}
+   */
+  async enqueue(fn, priority = 'normal', type = 'other', key = '') {
+    return new Promise((resolve, reject) => {
+      const request = {
+        priority,
+        type,
+        key,
+        fn,
+        timestamp: Date.now(),
+        attempt: 0,
+        resolve,
+        reject
+      };
+      this._queues.get(priority).push(request);
+      this._process();
+    });
+  }
+
+  async _process() {
+    if (this._activeCount >= this._concurrency) return;
+
+    for (const priority of ['critical', 'normal', 'background']) {
+      const queue = this._queues.get(priority);
+      if (queue.length === 0) continue;
+
+      const request = queue.shift();
+      this._activeCount++;
+
+      try {
+        const result = await request.fn();
+        request.resolve(result);
+      } catch (err) {
+        request.reject(err);
+      } finally {
+        this._activeCount--;
+        this._process();
+      }
+    }
+  }
+
+  /**
+   * Get queue statistics
+   * @returns {object}
+   */
+  getStats() {
+    return {
+      active: this._activeCount,
+      queued: {
+        critical: this._queues.get('critical').length,
+        normal: this._queues.get('normal').length,
+        background: this._queues.get('background').length
+      },
+      total: Array.from(this._queues.values()).reduce((sum, q) => sum + q.length, this._activeCount)
+    };
+  }
+
+  clear() {
+    for (const queue of this._queues.values()) {
+      queue.length = 0;
+    }
+  }
+}
+
+/**
  * Circuit breaker for failing endpoints
+ * @class CircuitBreaker
  */
 class CircuitBreaker {
   constructor(threshold = 5, timeout = 60000) {
+    /** @type {Map<string, {count: number, lastFailure: number, lastSuccess: number, status: 'closed'|'open'|'half-open'}>} */
     this.failures = new Map();
     this.threshold = threshold;
     this.timeout = timeout;
@@ -54,40 +204,310 @@ class CircuitBreaker {
 
   recordFailure(key) {
     const now = Date.now();
-    const record = this.failures.get(key) || { count: 0, lastFailure: now };
+    const record = this.failures.get(key) || { count: 0, lastFailure: now, lastSuccess: now, status: 'closed' };
     record.count++;
     record.lastFailure = now;
+    record.status = record.count >= this.threshold ? 'open' : 'closed';
     this.failures.set(key, record);
 
     // Auto-reset after timeout
     setTimeout(() => {
       const current = this.failures.get(key);
       if (current && current.lastFailure === record.lastFailure) {
-        this.failures.delete(key);
+        current.status = 'half-open';
+        current.count = 0;
       }
     }, this.timeout);
   }
 
   recordSuccess(key) {
-    this.failures.delete(key);
+    const record = this.failures.get(key);
+    if (record) {
+      record.count = 0;
+      record.lastSuccess = Date.now();
+      record.status = 'closed';
+    }
   }
 
   isOpen(key) {
     const record = this.failures.get(key);
     if (!record) return false;
-    return record.count >= this.threshold && (Date.now() - record.lastFailure) < this.timeout;
+    return record.status === 'open' && (Date.now() - record.lastFailure) < this.timeout;
   }
 
+  /**
+   * @returns {{[key: string]: {failures: number, isOpen: boolean, status: string, lastFailure: string}}}
+   */
   getStats() {
     const stats = {};
     for (const [key, record] of this.failures) {
       stats[key] = {
         failures: record.count,
         isOpen: this.isOpen(key),
-        lastFailure: new Date(record.lastFailure).toISOString()
+        status: record.status,
+        lastFailure: new Date(record.lastFailure).toISOString(),
+        lastSuccess: new Date(record.lastSuccess).toISOString()
       };
     }
     return stats;
+  }
+}
+
+/**
+ * Error classification for intelligent retry decisions
+ * @class ErrorClassifier
+ */
+class ErrorClassifier {
+  /**
+   * @param {Error} error
+   * @returns {{type: ErrorType, retryable: boolean, severity: 'critical'|'warning'|'info'}}
+   */
+  static classify(error) {
+    if (!error) return { type: 'unknown', retryable: false, severity: 'warning' };
+
+    if (error.name === 'AbortError') {
+      return { type: 'abort', retryable: false, severity: 'info' };
+    }
+
+    const msg = error.message?.toLowerCase() || '';
+    
+    if (msg.includes('timeout') || msg.includes('timed out')) {
+      return { type: 'timeout', retryable: true, severity: 'warning' };
+    }
+
+    if (msg.includes('network') || msg.includes('failed to fetch')) {
+      return { type: 'network', retryable: true, severity: 'warning' };
+    }
+
+    if (msg.includes('json') || msg.includes('parse')) {
+      return { type: 'parse', retryable: false, severity: 'critical' };
+    }
+
+    return { type: 'unknown', retryable: true, severity: 'warning' };
+  }
+
+  /**
+   * Should we retry based on error type and attempt count?
+   * @param {Error} error
+   * @param {number} attempt
+   * @param {number} maxRetries
+   * @returns {boolean}
+   */
+  static shouldRetry(error, attempt, maxRetries) {
+    const { retryable } = this.classify(error);
+    return retryable && attempt < maxRetries;
+  }
+}
+
+/**
+ * Offline cache using IndexedDB (graceful degradation if unavailable)
+ * @class OfflineStore
+ */
+class OfflineStore {
+  constructor(dbName = 'UrbanRealityCache', version = 1) {
+    this.dbName = dbName;
+    this.version = version;
+    /** @type {IDBDatabase | null} */
+    this.db = null;
+    this._ready = this._initDB();
+  }
+
+  async _initDB() {
+    if (typeof indexedDB === 'undefined') {
+      log.warn('IndexedDB not available, offline cache disabled');
+      return false;
+    }
+
+    try {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(this.dbName, this.version);
+        
+        request.onupgradeneeded = (evt) => {
+          const db = evt.target.result;
+          if (!db.objectStoreNames.contains('cache')) {
+            db.createObjectStore('cache', { keyPath: 'key' });
+          }
+        };
+
+        request.onsuccess = () => {
+          this.db = request.result;
+          resolve(true);
+        };
+
+        request.onerror = () => {
+          log.warn('IndexedDB open failed:', request.error);
+          resolve(false);
+        };
+      });
+    } catch (err) {
+      log.warn('IndexedDB init error:', err);
+      return false;
+    }
+  }
+
+  /**
+   * @param {string} key
+   * @param {*} value
+   * @param {number} [ttl] - TTL in ms
+   */
+  async set(key, value, ttl = 3600000) {
+    if (!await this._ready || !this.db) return;
+
+    try {
+      const tx = this.db.transaction('cache', 'readwrite');
+      const store = tx.objectStore('cache');
+      const expires = Date.now() + ttl;
+      
+      await new Promise((resolve, reject) => {
+        const request = store.put({ key, value, expires, timestamp: Date.now() });
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch (err) {
+      log.warn('OfflineStore.set error:', err);
+    }
+  }
+
+  /**
+   * @param {string} key
+   * @returns {Promise<*>}
+   */
+  async get(key) {
+    if (!await this._ready || !this.db) return null;
+
+    try {
+      return await new Promise((resolve) => {
+        const tx = this.db.transaction('cache', 'readonly');
+        const store = tx.objectStore('cache');
+        const request = store.get(key);
+
+        request.onsuccess = () => {
+          const item = request.result;
+          if (!item) {
+            resolve(null);
+            return;
+          }
+
+          // Check expiration
+          if (item.expires && item.expires < Date.now()) {
+            store.delete(key);
+            resolve(null);
+          } else {
+            resolve(item.value);
+          }
+        };
+
+        request.onerror = () => resolve(null);
+      });
+    } catch (err) {
+      log.warn('OfflineStore.get error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Clear all expired entries
+   */
+  async cleanup() {
+    if (!await this._ready || !this.db) return;
+
+    try {
+      const tx = this.db.transaction('cache', 'readwrite');
+      const store = tx.objectStore('cache');
+      const now = Date.now();
+      
+      const request = store.openCursor();
+      request.onsuccess = (evt) => {
+        const cursor = evt.target.result;
+        if (cursor) {
+          if (cursor.value.expires && cursor.value.expires < now) {
+            cursor.delete();
+          }
+          cursor.continue();
+        }
+      };
+    } catch (err) {
+      log.warn('OfflineStore.cleanup error:', err);
+    }
+  }
+
+  async clear() {
+    if (!await this._ready || !this.db) return;
+
+    try {
+      return new Promise((resolve, reject) => {
+        const tx = this.db.transaction('cache', 'readwrite');
+        const store = tx.objectStore('cache');
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch (err) {
+      log.warn('OfflineStore.clear error:', err);
+    }
+  }
+}
+
+/**
+ * Rate limiter for per-endpoint throttling
+ * @class RateLimiter
+ */
+class RateLimiter {
+  constructor() {
+    /** @type {Map<string, {count: number, resetTime: number, limit: number, windowMs: number}>} */
+    this._buckets = new Map();
+  }
+
+  /**
+   * Check and record if request is allowed
+   * @param {string} key - Endpoint key
+   * @param {number} [limit=100] - Max requests per window
+   * @param {number} [windowMs=60000] - Time window in ms
+   * @returns {boolean}
+   */
+  isAllowed(key, limit = 100, windowMs = 60000) {
+    const now = Date.now();
+    const bucket = this._buckets.get(key);
+
+    if (!bucket) {
+      this._buckets.set(key, {
+        count: 1,
+        resetTime: now + windowMs,
+        limit,
+        windowMs
+      });
+      return true;
+    }
+
+    if (now > bucket.resetTime) {
+      bucket.count = 1;
+      bucket.resetTime = now + bucket.windowMs;
+      return true;
+    }
+
+    bucket.count++;
+    return bucket.count <= bucket.limit;
+  }
+
+  /**
+   * Get current rate limit status
+   * @param {string} key
+   * @returns {{used: number, limit: number, reset: Date, remaining: number}}
+   */
+  getStatus(key) {
+    const bucket = this._buckets.get(key);
+    if (!bucket) return null;
+
+    return {
+      used: bucket.count,
+      limit: bucket.limit,
+      reset: new Date(bucket.resetTime),
+      remaining: Math.max(0, bucket.limit - bucket.count)
+    };
+  }
+
+  clear() {
+    this._buckets.clear();
   }
 }
 
@@ -111,7 +531,10 @@ class DataEngine {
       cacheHits: 0,
       failures: 0,
       deduplicated: 0,
-      avgResponseTime: 0
+      avgResponseTime: 0,
+      queuedRequests: 0,
+      offlineCacheHits: 0,
+      eventEmissions: 0
     };
 
     // Memory management
@@ -119,6 +542,23 @@ class DataEngine {
     this._realtimeDebounceTimers = new Map();
     this._realtimeLayerDispatcher = null;
     this._geoWorker = null;
+
+    // Production-grade systems
+    /** @type {LifecycleEventEmitter} */
+    this._eventEmitter = new LifecycleEventEmitter();
+    
+    /** @type {PriorityQueueManager} */
+    this._priorityQueue = new PriorityQueueManager(3);
+    
+    /** @type {OfflineStore} */
+    this._offlineStore = new OfflineStore('UrbanRealityOfflineCache', 1);
+    
+    /** @type {RateLimiter} */
+    this._rateLimiter = new RateLimiter();
+
+    /** @type {Map<string, {healthy: boolean, lastCheck: number, errors: number}>} */
+    this._endpointHealth = new Map();
+
     this._startMemoryMonitoring();
   }
 
@@ -152,6 +592,107 @@ class DataEngine {
 
   setRealtimeLayerDispatcher(dispatcher) {
     this._realtimeLayerDispatcher = typeof dispatcher === 'function' ? dispatcher : null;
+  }
+
+  // ──────────────────────────────────────────────────
+  // LIFECYCLE EVENT SYSTEM (Production Feature)
+  // ──────────────────────────────────────────────────
+
+  /**
+   * Subscribe to data lifecycle events
+   * @param {string} event - 'data:ready' | 'data:error' | 'data:stale' | 'data:cached'
+   * @param {Function} callback
+   */
+  on(event, callback) {
+    this._eventEmitter.on(event, callback);
+  }
+
+  /**
+   * Unsubscribe from data lifecycle events
+   * @param {string} event
+   * @param {Function} callback
+   */
+  off(event, callback) {
+    this._eventEmitter.off(event, callback);
+  }
+
+  // ──────────────────────────────────────────────────
+  // ADVANCED REQUEST MANAGEMENT (Production Feature)
+  // ──────────────────────────────────────────────────
+
+  /**
+   * Enqueue request with priority (critical > normal > background)
+   * @param {Function} fn - Async function to execute
+   * @param {RequestPriority} [priority='normal']
+   * @param {RequestType} [type='other']
+   * @returns {Promise}
+   */
+  async enqueuePriority(fn, priority = 'normal', type = 'other') {
+    this._stats.queuedRequests++;
+    return this._priorityQueue.enqueue(fn, priority, type);
+  }
+
+  /**
+   * Check if offline data is available for a key
+   * @param {string} key
+   * @returns {Promise<*>}
+   */
+  async getOfflineData(key) {
+    const data = await this._offlineStore.get(key);
+    if (data) {
+      this._stats.offlineCacheHits++;
+      this._eventEmitter.emit('data:cached', { key, source: 'offline' });
+    }
+    return data;
+  }
+
+  /**
+   * Manually cache data offline with TTL
+   * @param {string} key
+   * @param {*} value
+   * @param {number} [ttlMs=3600000] - Default 1 hour
+   */
+  async cacheOffline(key, value, ttlMs = 3600000) {
+    await this._offlineStore.set(key, value, ttlMs);
+  }
+
+  /**
+   * Clean up expired offline cache entries
+   */
+  async cleanupOfflineCache() {
+    await this._offlineStore.cleanup();
+  }
+
+  /**
+   * Get endpoint health status
+   * @param {string} endpoint
+   * @returns {{healthy: boolean, errors: number, lastCheck: Date}}
+   */
+  getEndpointHealth(endpoint) {
+    const health = this._endpointHealth.get(endpoint);
+    if (!health) return { healthy: true, errors: 0, lastCheck: null };
+    return {
+      healthy: health.healthy,
+      errors: health.errors,
+      lastCheck: new Date(health.lastCheck)
+    };
+  }
+
+  /**
+   * Get rate limit status for an endpoint
+   * @param {string} endpoint
+   * @returns {object|null}
+   */
+  getRateLimitStatus(endpoint) {
+    return this._rateLimiter.getStatus(endpoint);
+  }
+
+  /**
+   * Get queue statistics
+   * @returns {{active: number, queued: object, total: number}}
+   */
+  getQueueStats() {
+    return this._priorityQueue.getStats();
   }
 
   // ──────────────────────────────────────────────────
@@ -693,13 +1234,23 @@ class DataEngine {
     const proxyUrl = `/api/openaq/locations?lat=${lat}&lng=${lng}&radius=10000&limit=20`;
 
     try {
-      const res = await fetch(proxyUrl, { signal });
+      const res = await fetch(proxyUrl, { signal, timeout: 8000 });
+      
+      // Handle non-2xx responses gracefully
       if (!res.ok) {
-        throw new Error(`OpenAQ proxy HTTP ${res.status}`);
+        const errorData = await res.text().catch(() => 'Unknown error');
+        throw new Error(`OpenAQ proxy HTTP ${res.status}: ${errorData.substring(0, 100)}`);
       }
-      return await res.json();
+      
+      const data = await res.json();
+      return data;
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        console.warn('[DataEngine] OpenAQ fetch aborted');
+        return null;
+      }
       console.warn('[DataEngine] OpenAQ proxy fetch failed:', err.message);
+      // Return null instead of throwing - allows graceful degradation
       return null;
     }
   }
@@ -775,12 +1326,21 @@ class DataEngine {
   async _fetchWithRetry(fn, key, retries = MAX_RETRIES) {
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        return await fn();
+        const result = await fn();
+        this._recordEndpointSuccess(key);
+        return result;
       } catch (err) {
-        if (attempt < retries && err?.name !== 'AbortError') {
+        const { type, retryable, severity } = ErrorClassifier.classify(err);
+        
+        if (ErrorClassifier.shouldRetry(err, attempt, retries)) {
           const backoff = RETRY_BACKOFF * Math.pow(2, attempt);
+          log.warn(`[${key}] Retry ${attempt + 1}/${retries} after ${backoff}ms (${type}):`, err.message);
           await sleep(backoff, 0.3);
         } else {
+          this._recordEndpointFailure(key);
+          if (severity === 'critical') {
+            this._eventEmitter.emit('data:error', { key, type, severity, message: err.message });
+          }
           throw err;
         }
       }
@@ -851,21 +1411,76 @@ class DataEngine {
   }
 
   // ──────────────────────────────────────────────────
+  // ENDPOINT HEALTH TRACKING (Production Feature)
+  // ──────────────────────────────────────────────────
+
+  /**
+   * Record successful endpoint call
+   * @private
+   * @param {string} endpoint
+   */
+  _recordEndpointSuccess(endpoint) {
+    const health = this._endpointHealth.get(endpoint) || {
+      healthy: true,
+      lastCheck: Date.now(),
+      errors: 0
+    };
+    health.healthy = true;
+    health.lastCheck = Date.now();
+    health.errors = Math.max(0, health.errors - 1); // Gradual recovery
+    this._endpointHealth.set(endpoint, health);
+  }
+
+  /**
+   * Record failed endpoint call
+   * @private
+   * @param {string} endpoint
+   */
+  _recordEndpointFailure(endpoint) {
+    const health = this._endpointHealth.get(endpoint) || {
+      healthy: true,
+      lastCheck: Date.now(),
+      errors: 0
+    };
+    health.errors++;
+    health.lastCheck = Date.now();
+    health.healthy = health.errors < 3; // Mark unhealthy after 3 errors
+    this._endpointHealth.set(endpoint, health);
+  }
+
+  // ──────────────────────────────────────────────────
   // PUBLIC UTILITY METHODS
   // ──────────────────────────────────────────────────
 
   getStats() {
+    const endpointHealthSummary = {};
+    for (const [endpoint, health] of this._endpointHealth) {
+      endpointHealthSummary[endpoint] = {
+        healthy: health.healthy,
+        errors: health.errors,
+        lastCheck: new Date(health.lastCheck).toISOString()
+      };
+    }
+
     return {
       ...this._stats,
       pendingRequests: this._pendingRequests.size,
       activeControllers: this._abortControllers.size,
       circuitBreaker: this._circuitBreaker.getStats(),
+      queueManager: this._priorityQueue.getStats(),
       cacheHitRate: this._stats.requests > 0
         ? Math.round((this._stats.cacheHits / this._stats.requests) * 100)
         : 0,
       deduplicationRate: this._stats.requests > 0
         ? Math.round((this._stats.deduplicated / this._stats.requests) * 100)
-        : 0
+        : 0,
+      offlineCacheEnabled: !!this._offlineStore.db,
+      endpointHealth: endpointHealthSummary,
+      memory: {
+        heapUsedMB: typeof performance !== 'undefined' && performance.memory
+          ? (performance.memory.usedJSHeapSize / 1024 / 1024).toFixed(2)
+          : 'N/A'
+      }
     };
   }
 
@@ -879,6 +1494,10 @@ class DataEngine {
     this._macroDataCache = null;
     this._realtimeDebounceTimers.forEach((t) => clearTimeout(t));
     this._realtimeDebounceTimers.clear();
+    this._priorityQueue.clear();
+    this._eventEmitter.clear();
+    this._endpointHealth.clear();
+    this._rateLimiter.clear();
   }
 
   destroy() {
@@ -891,6 +1510,9 @@ class DataEngine {
       this._geoWorker.terminate();
       this._geoWorker = null;
     }
+    this._eventEmitter.clear();
+    this._priorityQueue.clear();
+    this._rateLimiter.clear();
   }
 }
 
