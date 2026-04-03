@@ -76,6 +76,7 @@ import { LoginModal } from '../ui/components/LoginModal';
 import TopSearch from '../ui/layout/TopSearch';
 import ContextCard from '../ui/layout/ContextCard';
 
+import { addSavedPlace } from '../utils/savedPlaces';
 import { BASE_YEAR, MAX_YEAR, IMPACT_MODEL } from '../constants/mapConstants';
 
 export default function MapView() {
@@ -89,12 +90,23 @@ export default function MapView() {
   console.log('[MapView] urbanInitialized:', urbanInitialized, 'urbanReady:', urbanReady, 'urbanEngines:', urbanEngines, 'initError:', initError);
 
   // ── Grouped selectors (minimal re-renders) ──
-  const { loading, error, mapReady, mapStyle } = useMapStore(
+  const {
+    loading,
+    error,
+    mapReady,
+    mapStyle,
+    savedPlaceDraft,
+    showSaveLocationTooltip,
+    showSaveLocationModal,
+  } = useMapStore(
     useShallow((s) => ({
       loading: s.loading,
       error: s.error,
       mapReady: s.mapReady,
       mapStyle: s.mapStyle,
+      savedPlaceDraft: s.savedPlaceDraft,
+      showSaveLocationTooltip: s.showSaveLocationTooltip,
+      showSaveLocationModal: s.showSaveLocationModal,
     }))
   );
   const layers = useLayers();
@@ -128,6 +140,10 @@ export default function MapView() {
   const setActivePanel = useMapStore((s) => s.setActivePanel);
   const setAppMode = useMapStore((s) => s.setAppMode);
   const setBuildMode = useMapStore((s) => s.setBuildMode);
+  const setSavedPlaceDraft = useMapStore((s) => s.setSavedPlaceDraft);
+  const setShowSaveLocationTooltip = useMapStore((s) => s.setShowSaveLocationTooltip);
+  const setShowSaveLocationModal = useMapStore((s) => s.setShowSaveLocationModal);
+  const setNotification = useMapStore((s) => s.setNotification);
 
   // ── Notification ──
   const notification = useNotification();
@@ -137,6 +153,15 @@ export default function MapView() {
   useEffect(() => {
     mapRef.current = MapEngine.getMap();
   }, [mapReady]);
+
+  const [draftName, setDraftName] = useState('');
+  const [draftType, setDraftType] = useState('custom');
+
+  useEffect(() => {
+    if (!savedPlaceDraft) return;
+    setDraftName(savedPlaceDraft.name || 'Custom Location');
+    setDraftType(savedPlaceDraft.type || 'custom');
+  }, [savedPlaceDraft]);
 
   // ── Callbacks ──
   const handleLocationSelect = useCallback((lng, lat, placeName) => {
@@ -163,6 +188,37 @@ export default function MapView() {
       sessionId,
     });
   }, []);
+
+  const cancelSavePlace = useCallback(() => {
+    setShowSaveLocationTooltip(false);
+    setShowSaveLocationModal(false);
+    setSavedPlaceDraft(null);
+    window.clearSavedPlaceDraft?.();
+  }, [setSavedPlaceDraft, setShowSaveLocationTooltip, setShowSaveLocationModal]);
+
+  const confirmSaveLocation = useCallback(async () => {
+    if (!savedPlaceDraft) return;
+
+    try {
+      const saved = addSavedPlace({
+        ...savedPlaceDraft,
+        name: draftName || 'Custom Location',
+        type: draftType || 'custom',
+      });
+      if (saved) {
+        setNotification('Location saved successfully.');
+      }
+      cancelSavePlace();
+      useMapStore.getState().setShowSuggestions(true);
+    } catch (err) {
+      setNotification(err?.message || 'Failed to save location.');
+    }
+  }, [savedPlaceDraft, draftName, draftType, cancelSavePlace, setNotification]);
+
+  const toggleSaveModal = useCallback(() => {
+    setShowSaveLocationModal(true);
+    setShowSaveLocationTooltip(false);
+  }, [setShowSaveLocationModal, setShowSaveLocationTooltip]);
 
   const toggleFloodMode = useCallback(() => {
     const state = useMapStore.getState();
@@ -226,6 +282,108 @@ export default function MapView() {
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
       <OverlayRoot mapStyle={mapStyle} mapRef={mapRef} />
+
+      {/* ── Save Location Tooltip (minimal, non-invasive) ── */}
+      <AnimatePresence>
+        {showSaveLocationTooltip && savedPlaceDraft && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: 'fixed',
+              bottom: 18,
+              right: 18,
+              zIndex: 10010,
+              background: 'rgba(8, 13, 30, 0.88)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              borderRadius: 12,
+              padding: '12px 14px',
+              color: '#f8fafc',
+              boxShadow: '0 14px 35px rgba(0,0,0,0.3)',
+              minWidth: 220,
+              pointerEvents: 'auto',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <div style={{ flexGrow: 1, fontSize: 13, fontWeight: 600 }}>{savedPlaceDraft.name || 'Custom Location'}</div>
+              <span style={{ fontSize: 12, color: '#a5b4fc' }}>Lat: {savedPlaceDraft.coords.lat.toFixed(5)}</span>
+              <span style={{ fontSize: 12, color: '#a5b4fc' }}>Lng: {savedPlaceDraft.coords.lng.toFixed(5)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={cancelSavePlace} style={{ border: '1px solid rgba(148,163,184,0.35)', background: 'rgba(15,23,42,0.7)', color: '#e2e8f0', borderRadius: 6, padding: '5px 10px', fontSize: 12 }}>Cancel</button>
+              <button onClick={toggleSaveModal} style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 12 }}>Save</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Save Place Modal ── */}
+      <AnimatePresence>
+        {showSaveLocationModal && savedPlaceDraft && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.94 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 10020,
+              background: 'rgba(3,6,15,0.58)',
+              backdropFilter: 'blur(5px)',
+              display: 'grid', placeItems: 'center',
+              pointerEvents: 'auto',
+            }}
+          >
+            <motion.div
+              initial={{ y: 20, opacity: 0, scale: 0.96 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 16, opacity: 0, scale: 0.97 }}
+              transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
+              style={{
+                width: 'min(420px,90vw)',
+                borderRadius: 16,
+                background: 'rgba(11,17,36,0.95)',
+                border: '1px solid rgba(148,163,184,0.2)',
+                boxShadow: '0 20px 38px rgba(0,0,0,0.4)',
+                padding: 20,
+                pointerEvents: 'auto',
+                color: '#ecf2ff',
+              }}
+            >
+              <h3 style={{ margin: 0, marginBottom: 10, fontSize: 18 }}>Save Place</h3>
+              <p style={{ margin: 0, marginBottom: 16, color: '#a5adce', fontSize: 13 }}>Set a friendly name and category for this location.</p>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 12 }}>
+                <span style={{ color: '#dbeafe', fontSize: 12 }}>Name</span>
+                <input
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  placeholder="Custom Location"
+                  style={{ borderRadius: 8, border: '1px solid rgba(148,163,184,0.32)', background: 'rgba(7,12,25,0.88)', color: '#f8fafc', padding: '10px 12px', outline: 'none' }}
+                />
+              </label>
+              <label style={{ display: 'grid', gap: 6, marginBottom: 20 }}>
+                <span style={{ color: '#dbeafe', fontSize: 12 }}>Category</span>
+                <select
+                  value={draftType}
+                  onChange={(e) => setDraftType(e.target.value)}
+                  style={{ borderRadius: 8, border: '1px solid rgba(148,163,184,0.32)', background: 'rgba(7,12,25,0.88)', color: '#f8fafc', padding: '10px 12px', outline: 'none' }}
+                >
+                  <option value="home">Home</option>
+                  <option value="work">Work</option>
+                  <option value="project">Project</option>
+                  <option value="landmark">Landmark</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </label>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={cancelSavePlace} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.4)', background: 'rgba(15,23,42,0.8)', color: '#cbd5e1', fontWeight: 600 }}>Cancel</button>
+                <button onClick={confirmSaveLocation} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#2563eb', color: 'white', fontWeight: 700 }}>Save</button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── FPS HUD ── */}
       <FPSHUD />

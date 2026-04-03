@@ -1,13 +1,42 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import useMapStore from '../store/useMapStore';
+import { readSavedPlaces, removeSavedPlace, updateSavedPlace } from '../utils/savedPlaces';
 import { MEDIUM } from '../animations/motion';
 import { AccountSection } from '../ui/components/AccountSection';
 
 const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAction, onRequestLogin }) {
   const setMapStyle = useMapStore((s) => s.setMapStyle);
   const [units, setUnits] = useState(() => localStorage.getItem('units') || 'km');
-  
+  const [savedPlaces, setSavedPlaces] = useState(() => readSavedPlaces());
+  const [virtualWindow, setVirtualWindow] = useState({ start: 0, end: 20 });
+  const savedListRef = useRef(null);
+
+  useEffect(() => {
+    const update = () => setSavedPlaces(readSavedPlaces());
+    window.addEventListener('savedPlacesUpdated', update);
+    return () => window.removeEventListener('savedPlacesUpdated', update);
+  }, []);
+
+  useEffect(() => {
+    setSavedPlaces(readSavedPlaces());
+  }, [open]);
+
+  const [virtualization, setVirtualization] = useState(false);
+
+  useEffect(() => {
+    setVirtualization(savedPlaces.length > 100);
+  }, [savedPlaces.length]);
+
+  const handleSavedListScroll = useCallback((e) => {
+    if (!virtualization) return;
+    const itemHeight = 56;
+    const scrollTop = e.target.scrollTop;
+    const start = Math.max(0, Math.floor(scrollTop / itemHeight) - 2);
+    const end = Math.min(savedPlaces.length, start + 12);
+    setVirtualWindow({ start, end });
+  }, [savedPlaces.length, virtualization]);
+
   // Get stats from localStorage
   const stats = useMemo(() => {
     const read = (k) => {
@@ -19,7 +48,7 @@ const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAc
       recents: read('recentSearches'),
       projects: read('projects'),
     };
-  }, [open]);
+  }, [open, savedPlaces.length]);
 
   const handleAction = (key) => {
     onAction?.(key);
@@ -57,6 +86,72 @@ const Drawer = memo(function Drawer({ open, onClose, safeMode, setSafeMode, onAc
           >
             {/* New Account Section */}
             <AccountSection onRequestLogin={onRequestLogin} />
+
+            <section style={{ marginTop: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 12, marginBottom: 8, fontWeight: 600 }}>Saved Places</div>
+              <div
+                ref={savedListRef}
+                onScroll={handleSavedListScroll}
+                style={{
+                  maxHeight: 260,
+                  overflowY: 'auto',
+                  border: '1px solid rgba(148,163,184,0.35)',
+                  borderRadius: 10,
+                  padding: 5,
+                  background: 'rgba(15, 23, 42, 0.78)',
+                }}
+              >
+                {savedPlaces.length === 0 && <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: 10 }}>No saved places yet.</div>}
+
+                {savedPlaces.length > 0 && (
+                  <div style={{ position: 'relative', height: savedPlaces.length > 100 ? `${savedPlaces.length * 56}px` : 'auto' }}>
+                    <div style={{ position: 'absolute', top: (virtualization ? virtualWindow.start * 56 : 0), left: 0, right: 0 }}>
+                      { (virtualization ? savedPlaces.slice(virtualWindow.start, virtualWindow.end) : savedPlaces).map((place, index) => (
+                        <motion.div
+                          key={place.id}
+                          initial={{ x: -30, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ duration: 0.25, delay: (virtualization ? index * 0.02 : index * 0.01) }}
+                          onMouseEnter={() => window.highlightSavedPlace?.(place.id)}
+                          onMouseLeave={() => window.highlightSavedPlace?.(null)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '7px 8px',
+                            borderRadius: 8,
+                            marginBottom: 6,
+                            background: 'rgba(100,116,139,0.23)',
+                            border: '1px solid rgba(148,163,184,0.2)'
+                          }}
+                        >
+                          <div>
+                            <span style={{ marginRight: 6 }}>{place.type === 'home' ? '🏠' : place.type === 'work' ? '💼' : place.type === 'landmark' ? '📍' : place.type === 'favorite' ? '⭐' : '📌'}</span>
+                            <strong style={{ color: '#e2e8f0' }}>{place.name}</strong>
+                            <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                              {place.coords && typeof place.coords.lat === 'number' && typeof place.coords.lng === 'number'
+                                ? `${place.coords.lat.toFixed(4)}, ${place.coords.lng.toFixed(4)}`
+                                : 'Coordinates unavailable'}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 5 }}>
+                            <button onClick={() => window.flyToSavedPlace?.(place.id)} style={{ border: 'none', borderRadius: 5, padding: '4px 6px', background: 'rgba(59,130,246,0.8)', color: '#fff', cursor: 'pointer', fontSize: 11 }}>Go</button>
+                            <button onClick={() => {
+                              const newName = window.prompt('Edit place name', place.name);
+                              if (newName) {
+                                updateSavedPlace(place.id, { name: newName });
+                                setSavedPlaces(readSavedPlaces());
+                              }
+                            }} style={{ border: 'none', borderRadius: 5, padding: '4px 6px', background: 'rgba(168,85,247,0.85)', color: '#fff', cursor: 'pointer', fontSize: 11 }}>Edit</button>
+                            <button onClick={() => { removeSavedPlace(place.id); setSavedPlaces(readSavedPlaces()); }} style={{ border: 'none', borderRadius: 5, padding: '4px 6px', background: 'rgba(239,68,68,0.9)', color: '#fff', cursor: 'pointer', fontSize: 11 }}>Del</button>
+                          </div>
+                        </motion.div>
+                      )) }
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
 
             <Section
               title="Places"

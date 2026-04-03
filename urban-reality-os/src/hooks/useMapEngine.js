@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import useMapStore from '../store/useMapStore';
 import MapEngine from '../engines/MapEngine';
 import DataEngine from '../engines/DataEngine';
+import { readSavedPlaces, addSavedPlace, updateSavedPlace, removeSavedPlace } from '../utils/savedPlaces';
 import LayerEngine from '../engines/LayerEngine';
 import FacilityEngine from '../engines/FacilityEngine';
 import InteractionEngine from '../engines/InteractionEngine';
@@ -84,6 +85,141 @@ export default function useMapEngine() {
     // Create popup
     const popup = MapEngine.createPopup();
     InteractionEngine.initPopup(popup);
+
+    // Saved places marker cache
+    const savedPlaceMarkers = new Map();
+
+    const clearSavedMarkers = () => {
+      savedPlaceMarkers.forEach((marker) => marker.remove());
+      savedPlaceMarkers.clear();
+    };
+
+    const createSavedMarker = (place) => {
+      if (!place?.coords || typeof place.coords.lng !== 'number' || typeof place.coords.lat !== 'number') {
+        console.warn('Skipped invalid place coordinates for saved place', place);
+        return null;
+      }
+
+      const el = document.createElement('div');
+      el.style.width = '16px';
+      el.style.height = '16px';
+      el.style.borderRadius = '50%';
+      el.style.backgroundColor = '#f97316';
+      el.style.boxShadow = '0 0 8px rgba(249,115,22,0.8)';
+      el.style.cursor = 'pointer';
+      el.title = place.name;
+      el.dataset.savedId = place.id;
+      el.onmouseenter = () => window.highlightSavedPlace?.(place.id);
+      el.onmouseleave = () => window.highlightSavedPlace?.(null);
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([place.coords.lng, place.coords.lat])
+        .addTo(map);
+
+      marker.getElement().addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        map.flyTo({ center: [place.coords.lng, place.coords.lat], zoom: 15, essential: true });
+        useMapStore.getState().setActiveLocation({
+          lat: place.coords.lat,
+          lng: place.coords.lng,
+          placeName: place.name,
+          baseAQI: null,
+          baseRainfall: null,
+          baseTraffic: null,
+          baseFloodRisk: null,
+          worldBank: null,
+          sessionId: null,
+        });
+      });
+
+      savedPlaceMarkers.set(place.id, marker);
+      return marker;
+    };
+
+    const renderSavedPlacesOnMap = () => {
+      clearSavedMarkers();
+      const places = readSavedPlaces();
+      places
+        .filter((place) => place?.coords && typeof place.coords.lng === 'number' && typeof place.coords.lat === 'number')
+        .forEach((place) => createSavedMarker(place));
+    };
+
+    const highlightSavedMarker = (id) => {
+      savedPlaceMarkers.forEach((marker, markerId) => {
+        const el = marker.getElement();
+        if (markerId === id) {
+          el.style.transform = 'scale(1.4)';
+          el.style.backgroundColor = '#22c55e';
+          el.style.boxShadow = '0 0 12px rgba(34,197,94,0.85)';
+        } else {
+          el.style.transform = 'scale(1)';
+          el.style.backgroundColor = '#f97316';
+          el.style.boxShadow = '0 0 8px rgba(249,115,22,0.8)';
+        }
+      });
+    };
+
+    window.flyToSavedPlace = (id) => {
+      const place = readSavedPlaces().find((item) => item.id === id);
+      if (!place || !map || !place.coords || typeof place.coords.lng !== 'number' || typeof place.coords.lat !== 'number') return;
+      map.flyTo({ center: [place.coords.lng, place.coords.lat], zoom: 15, essential: true });
+      highlightSavedMarker(id);
+    };
+
+    window.highlightSavedPlace = (id) => {
+      highlightSavedMarker(id || null);
+    };
+
+    window.addSavedPlace = async (place) => {
+      const saved = addSavedPlace(place);
+      renderSavedPlacesOnMap();
+      return saved;
+    };
+
+    window.editSavedPlace = async (id, updates) => {
+      const updated = updateSavedPlace(id, updates);
+      renderSavedPlacesOnMap();
+      return updated;
+    };
+
+    window.deleteSavedPlace = async (id) => {
+      const updated = removeSavedPlace(id);
+      renderSavedPlacesOnMap();
+      return updated;
+    };
+
+    // Map click selects coordinate and offers save flow via tooltip/modal
+    let clickCandidateMarker = null;
+    const clearClickCandidate = () => {
+      if (clickCandidateMarker) {
+        clickCandidateMarker.remove();
+        clickCandidateMarker = null;
+      }
+      useMapStore.getState().setSavedPlaceDraft(null);
+      useMapStore.getState().setShowSaveLocationTooltip(false);
+    };
+
+    map.on('click', (e) => {
+      const lat = e.lngLat.lat;
+      const lng = e.lngLat.lng;
+
+      // Keep this interaction minimal (Google Maps-like) and not repetitive
+      clearClickCandidate();
+
+      clickCandidateMarker = new maplibregl.Marker({ color: '#38bdf8' })
+        .setLngLat([lng, lat])
+        .addTo(map);
+
+      useMapStore.getState().setSavedPlaceDraft({ coords: { lat, lng }, name: `Custom Location`, type: 'custom' });
+      useMapStore.getState().setShowSaveLocationTooltip(true);
+      useMapStore.getState().setShowSaveLocationModal(false);
+    });
+
+    // Provide method for external cleanup (e.g., Cancel button)
+    window.clearSavedPlaceDraft = clearClickCandidate;
+
+    // Initial render of existing saved places
+    renderSavedPlacesOnMap();
 
     // ── PHASE 1: Make map interactive ASAP ──
     map.once('load', () => {

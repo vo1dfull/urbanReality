@@ -112,10 +112,17 @@ router.post("/forgot-password", async (req, res) => {
     user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 min
     await user.save();
 
-    const link = `http://localhost:5173/reset/${token}`;
-    await sendOTPEmail(email, `Reset your password: ${link}`);
+    const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173';
+    const link = `${frontendOrigin.replace(/\/$/, '')}/reset/${token}`;
 
-    res.json({ msg: 'Reset email sent' });
+    try {
+      await sendOTPEmail(email, `Reset your password: ${link}`);
+    } catch (emailErr) {
+      console.warn('Failed to send reset email:', emailErr.message);
+    }
+
+    // Return token for local/dev convenience so user can continue if email is blocked.
+    res.json({ msg: 'Reset email sent', token, link });
   } catch (err) {
     console.error('forgot password error', err);
     res.status(500).json({ msg: 'Server error' });

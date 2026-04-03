@@ -1,4 +1,7 @@
 import { applyUpdater } from './utils';
+import { readSavedPlaces } from '../../utils/savedPlaces';
+
+const initialSavedPlaces = readSavedPlaces();
 
 export const createUiSlice = (set) => ({
   activeLocation: null,
@@ -15,6 +18,11 @@ export const createUiSlice = (set) => ({
   facilityCheckOpen: false,
   showLayersMenu: false,
   showSuggestions: false,
+  savedPlaceDraft: null,
+  showSaveLocationTooltip: false,
+  showSaveLocationModal: false,
+  savedPlaces: initialSavedPlaces,
+  selectedSavedPlaceId: null,
   facilityViewMode: 'coverage',
   hoveredFacility: null,
   floodMode: false,
@@ -38,6 +46,16 @@ export const createUiSlice = (set) => ({
   setFacilityViewMode: (mode) => set({ facilityViewMode: mode }),
   setHoveredFacility: (facility) => set({ hoveredFacility: facility }),
   setFloodMode: (mode) => set((state) => ({ floodMode: typeof mode === 'function' ? mode(state.floodMode) : mode })),
+  setSavedPlaceDraft: (draft) => set({ savedPlaceDraft: draft }),
+  setShowSaveLocationTooltip: (visible) => set({ showSaveLocationTooltip: visible }),
+  setShowSaveLocationModal: (visible) => set({ showSaveLocationModal: visible }),
+  setSavedPlaces: (places) => set({ savedPlaces: places }),
+  setSelectedSavedPlaceId: (id) => set({ selectedSavedPlaceId: id }),
+  addSavedPlaceToState: (place) => set((state) => ({ savedPlaces: [place, ...state.savedPlaces.filter((item) => item.id !== place.id)] })),
+  removeSavedPlaceFromState: (id) => set((state) => ({ savedPlaces: state.savedPlaces.filter((item) => item.id !== id) })),
+  updateSavedPlaceInState: (id, updates) => set((state) => ({
+    savedPlaces: state.savedPlaces.map((item) => (item.id === id ? { ...item, ...updates } : item))
+  })),
   setDebugMode: (mode) => set({ debugMode: mode }),
   setNotification: (msg) => set({ notification: msg }),
   clearNotification: () => set({ notification: null }),
