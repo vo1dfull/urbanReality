@@ -214,8 +214,7 @@ class LayerEngine {
       },
       traffic: { visible: layers.traffic },
       facility: { facilityData, layers },
-      // Buildings are expensive on startup; keep disabled unless explicitly enabled later.
-      buildings: false,
+      buildings: { visible: true },
       terrainElevation: storeState.terrainSubLayers?.elevation ? { visible: true, mode: storeState.terrainMode } : false,
       terrainFlood: storeState.terrainSubLayers?.flood ? { visible: true } : false,
       terrainSuitability: storeState.terrainSubLayers?.suitability ? { visible: true } : false,
@@ -247,7 +246,7 @@ class LayerEngine {
       },
       traffic: { visible: layers.traffic },
       facility: { facilityData, layers },
-      buildings: false,
+      buildings: { visible: true },
       terrainElevation: storeState.terrainSubLayers?.elevation ? { visible: true, mode: storeState.terrainMode } : false,
       terrainFlood: storeState.terrainSubLayers?.flood ? { visible: true } : false,
       terrainSuitability: storeState.terrainSubLayers?.suitability ? { visible: true } : false,

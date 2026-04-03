@@ -33,12 +33,14 @@ const RightPanel = memo(function RightPanel({
       }}>
         <div style={cardStyle}>
           <InsightPanel
+            embedded
             insight={urbanAnalysis}
             loading={analysisLoading}
             impactData={impactData}
             demographics={demographics}
             appMode={appMode}
             buildMode={buildMode}
+            facilityData={facilityData}
           />
         </div>
         <div style={cardStyle}>

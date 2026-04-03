@@ -61,6 +61,9 @@ class MapEngine {
       zoom: options.zoom || MAP_CONFIG.zoom,
       pitch: options.pitch || MAP_CONFIG.pitch,
       bearing: options.bearing || MAP_CONFIG.bearing,
+      maxPitch: 85,
+      minPitch: 0,
+      pitchWithRotate: true,
       antialias: false,
       fadeDuration: qualityPreset.fadeDuration ?? 0,
       maxTileCacheSize: qualityPreset.maxTileCacheSize ?? 50,
@@ -70,11 +73,26 @@ class MapEngine {
     });
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.on('style.load', () => this._applySceneLighting());
     this._map = map;
     this._currentStyle = 'default';
 
     log.info('Map initialized');
     return map;
+  }
+
+  _applySceneLighting() {
+    if (!this._map) return;
+    try {
+      this._map.setLight({
+        anchor: 'viewport',
+        color: '#f8fafc',
+        intensity: 0.36,
+        position: [1.3, 210, 62],
+      });
+    } catch (err) {
+      log.warn('setLight not supported on this style/runtime:', err);
+    }
   }
 
   /**
@@ -158,6 +176,7 @@ class MapEngine {
           } else {
             this.removeTerrain();
           }
+          this._applySceneLighting();
           if (onRecovery) onRecovery(this._map, styleName);
           if (this._layerEngine?.syncAllToggles) {
             try {

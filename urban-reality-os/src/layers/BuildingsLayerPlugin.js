@@ -30,6 +30,8 @@ const MAX_BUILDINGS_MEDIUM = 140;
 
 /** @type {number} Minimum zoom to process buildings */
 const MIN_ZOOM = 14;
+const HIGH_DETAIL_ZOOM = 16;
+const LOD_SYNC_MS = 250;
 
 export default class BuildingsLayerPlugin extends BaseLayerPlugin {
   constructor() {
@@ -46,6 +48,8 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     this._map = null;
     this._boundMoveEnd = null;
     this._facilityData = null;
+    this._lodTimer = null;
+    this._boundLodSync = null;
 
     // Pre-allocated reusable array — avoids GC per update
     this._buildingsBuffer = [];
@@ -87,15 +91,14 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
           0,
         ],
         'fill-extrusion-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'isCritical'], false],
-          0.88,
-          ['boolean', ['feature-state', 'isSubmerged'], false],
-          0.68,
-          0.94,
+          'interpolate', ['linear'], ['zoom'],
+          13.8, 0,
+          14.2, 0.72,
+          16, 0.9,
         ],
         'fill-extrusion-ambient-occlusion-intensity': 0.85,
       },
+      layout: { visibility: 'none' },
     });
 
     this.initialized = true;
@@ -133,6 +136,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     this._lastUpdateTime = now;
 
     const sourceLayer = 'building';
+    // Query only currently visible/viewport buildings for bounded cost.
     let features = map.queryRenderedFeatures({ layers: ['3d-buildings'] });
 
     if (!features || features.length === 0) {
@@ -145,7 +149,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     if (!features || features.length === 0) return;
 
     // 🔥 Cap features adaptively based on quality/FPS
-    const adaptiveCap = this._getAdaptiveBuildingCap();
+    const adaptiveCap = this._getAdaptiveBuildingCap(map.getZoom());
     const featureCount = Math.min(features.length, adaptiveCap);
 
     // 🔥 Reuse pre-allocated array
@@ -267,6 +271,32 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
       this._scheduleUpdate(this._map, { ...simulationEngine.state });
     };
     map.on('moveend', this._boundMoveEnd);
+
+    this._boundLodSync = () => {
+      if (this._lodTimer !== null) return;
+      this._lodTimer = setTimeout(() => {
+        this._lodTimer = null;
+        if (this._map) this._syncLODState(this._map);
+      }, LOD_SYNC_MS);
+    };
+    map.on('zoom', this._boundLodSync);
+    map.on('pitch', this._boundLodSync);
+    this._syncLODState(map);
+  }
+
+  _syncLODState(map) {
+    if (!map || !map.getLayer('3d-buildings')) return;
+    const zoom = map.getZoom();
+    const pitch = map.getPitch();
+    const shouldShow = zoom >= MIN_ZOOM && pitch >= 25;
+    try {
+      map.setLayoutProperty('3d-buildings', 'visibility', shouldShow ? 'visible' : 'none');
+      const radius = zoom >= HIGH_DETAIL_ZOOM ? 18 : 12;
+      map.setPaintProperty('3d-buildings', 'fill-extrusion-vertical-gradient', zoom >= HIGH_DETAIL_ZOOM);
+      map.setPaintProperty('3d-buildings', 'fill-extrusion-ambient-occlusion-ground-radius', radius);
+    } catch (_) {
+      // Style may be reloading; skip safely.
+    }
   }
 
   _scheduleUpdate(map, state) {
@@ -316,6 +346,15 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     if (map && this._boundMoveEnd) {
       map.off('moveend', this._boundMoveEnd);
       this._boundMoveEnd = null;
+    }
+    if (map && this._boundLodSync) {
+      map.off('zoom', this._boundLodSync);
+      map.off('pitch', this._boundLodSync);
+      this._boundLodSync = null;
+    }
+    if (this._lodTimer !== null) {
+      clearTimeout(this._lodTimer);
+      this._lodTimer = null;
     }
 
     this._stopPulseAnimation();
@@ -465,7 +504,8 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
    * FrameController. This keeps heavy queries bounded on low-end
    * devices and under sustained low FPS.
    */
-  _getAdaptiveBuildingCap() {
+  _getAdaptiveBuildingCap(zoom = MIN_ZOOM) {
+    if (zoom < HIGH_DETAIL_ZOOM) return Math.round(MAX_BUILDINGS_PER_UPDATE * 0.6);
     const perfMode = useMapStore.getState().perfMode;
     if (perfMode === 'low') return MAX_BUILDINGS_LOW;
     if (perfMode === 'high') return MAX_BUILDINGS_PER_UPDATE;

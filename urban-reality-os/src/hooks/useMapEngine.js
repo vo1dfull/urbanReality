@@ -39,9 +39,26 @@ export default function useMapEngine() {
     let readyFinalized = false;
     let readyTimeoutId = null;
     let watchdogUnsub = null;
+    let centerDebounceId = null;
+    let mapMoveHandler = null;
 
     const map = MapEngine.init(mapContainerRef.current);
     MapEngine.setLayerEngine(LayerEngine);
+    DataEngine.setRealtimeLayerDispatcher(({ aqiGeo, facilityData }) => {
+      const liveMap = MapEngine.getMap();
+      if (!liveMap) return;
+      const aqiPlugin = LayerEngine.getPlugin('aqi');
+      if (aqiPlugin) {
+        if (!aqiPlugin.isInitialized()) aqiPlugin.init(liveMap, { aqiGeo, visible: true });
+        else aqiPlugin.update(liveMap, { aqiGeo });
+      }
+      const facilityPlugin = LayerEngine.getPlugin('facility');
+      if (facilityPlugin && facilityData) {
+        if (!facilityPlugin.isInitialized()) {
+          facilityPlugin.init(liveMap, { facilityData, layers: useMapStore.getState().layers });
+        }
+      }
+    });
     useMapStore.getState().setSafeMode(PerformanceManager.isSafeMode());
     watchdogUnsub = FrameController.onWatchdog(() => {
       const state = useMapStore.getState();
@@ -72,6 +89,17 @@ export default function useMapEngine() {
       try {
         map.getCanvas().style.pointerEvents = 'auto';
       } catch (_) {}
+
+      mapMoveHandler = () => {
+        if (centerDebounceId) clearTimeout(centerDebounceId);
+        centerDebounceId = setTimeout(() => {
+          if (!isMounted || document.hidden) return;
+          const center = map.getCenter();
+          DataEngine.fetchRealtimeGeoForLocation(center.lat, center.lng, { debounceMs: 180 }).catch(() => null);
+        }, 250);
+      };
+      map.on('moveend', mapMoveHandler);
+      mapMoveHandler();
 
       const scheduleIdleTask = (task) => {
         if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
@@ -247,6 +275,14 @@ export default function useMapEngine() {
         watchdogUnsub = null;
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (centerDebounceId) {
+        clearTimeout(centerDebounceId);
+        centerDebounceId = null;
+      }
+      if (mapMoveHandler && MapEngine.getMap()) {
+        try { MapEngine.getMap().off('moveend', mapMoveHandler); } catch (_) {}
+      }
+      DataEngine.setRealtimeLayerDispatcher(null);
       delete window.saveLocation;
       destroyImpactWorker(); // ✅ Fix: clean up worker
       InteractionEngine.destroy();

@@ -99,6 +99,8 @@ export default function MapView() {
   );
   const activeLocation = useMapStore((s) => s.activeLocation);
   const year = useMapStore((s) => s.year);
+  const simulationState = useMapStore((s) => s.simulationState);
+  const terrainSubLayers = useMapStore((s) => s.terrainSubLayers);
 
   // ── Individual setters (stable refs — won't cause re-renders) ──
   const setError = useMapStore((s) => s.setError);
@@ -186,6 +188,8 @@ export default function MapView() {
         floodMode={floodMode}
         facilityData={facilityData}
         year={year}
+        simulationState={simulationState}
+        terrainSubLayers={terrainSubLayers}
         impactData={impactData}
         demographics={demographics}
         urbanAnalysis={urbanAnalysis}
@@ -295,6 +299,8 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
   mapStyle, setMapStyle, layers, setLayers, mapRef,
   activeLocation,
   year,
+  simulationState,
+  terrainSubLayers,
   showSuggestions,
   facilityViewMode, setFacilityViewMode,
   floodMode, facilityData,
@@ -369,6 +375,10 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
         demographics={demographics}
         facilityData={facilityData}
         year={year}
+        layers={layers}
+        mapStyle={mapStyle}
+        terrainSubLayers={terrainSubLayers}
+        simulationState={simulationState}
         onClose={() => useMapStore.getState().setActiveLocation(null)}
       />
       <BottomBar />

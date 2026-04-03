@@ -1,9 +1,22 @@
 import useMapStore from '../store/useMapStore';
 import { BASE_YEAR, MAX_YEAR } from '../constants/mapConstants';
+import { simulationEngine } from '../engines/SimulationEngine';
+import { useEffect } from 'react';
 
 export default function TimeSlider() {
   const year = useMapStore((s) => s.year);
   const setYear = useMapStore((s) => s.setYear);
+  const macroData = useMapStore((s) => s.macroData);
+
+  useEffect(() => {
+    simulationEngine.setYear(year, {
+      population: macroData?.population?.value,
+      populationGrowthRate: 0.019,
+      infrastructureCapacity: 1.0,
+      environmentIndex: 0.55,
+      baseRisk: 0.28,
+    });
+  }, [year, macroData]);
 
   return (
     <div

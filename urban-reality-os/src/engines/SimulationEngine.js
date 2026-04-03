@@ -1,24 +1,37 @@
 // ================================================
-// SimulationEngine — Flood simulation state & scenarios
-// ✅ _notify() batched via requestAnimationFrame
-// ✅ RAF ID tracked for cleanup
-// ✅ destroy() method for clean shutdown
+// SimulationEngine — Year-based simulation pipeline
+// ✅ Worker-first heavy model computation
+// ✅ Exponential population + trend + rule-based risk
+// ✅ Batched notifications + store sync
 // ================================================
+
+import useMapStore from '../store/useMapStore';
+import { BASE_YEAR } from '../constants/mapConstants';
 
 export class SimulationEngine {
   constructor() {
     this.state = {
+      year: BASE_YEAR,
       rainIntensity: 80,
       waterLevel: 1.2,
       speed: 1.0,
       active: false,
       location: null,
+      outputs: {
+        populationGrowth: { current: 0, growthRatePct: 0 },
+        infrastructureStress: 0,
+        environmentalChanges: 0,
+        riskLevels: { flood: 0, heat: 0, health: 0, overall: 0 },
+      },
       timestamp: Date.now()
     };
     this.subscribers = new Set();
     this._notifyPending = false;
     this._notifyRafId = null;
     this._destroyed = false;
+    this._worker = null;
+    this._requestId = 0;
+    this._lastHandledId = 0;
   }
 
   _notify() {
@@ -53,6 +66,45 @@ export class SimulationEngine {
     this._notify();
   }
 
+  setYear(year, baseline = {}) {
+    if (this._destroyed || !Number.isFinite(year)) return;
+    this._ensureWorker();
+    const requestId = ++this._requestId;
+    this.state = { ...this.state, year, timestamp: Date.now() };
+    this._notify();
+
+    if (!this._worker) {
+      // Fallback when worker not available
+      const growthRate = baseline.populationGrowthRate ?? 0.019;
+      const pop = Math.round((baseline.population ?? 420000) * Math.pow(1 + growthRate, Math.max(0, year - BASE_YEAR)));
+      this.state = {
+        ...this.state,
+        outputs: {
+          populationGrowth: { current: pop, growthRatePct: Number((growthRate * 100).toFixed(2)) },
+          infrastructureStress: 0,
+          environmentalChanges: 0,
+          riskLevels: { flood: 0, heat: 0, health: 0, overall: 0 },
+        },
+      };
+      this._syncStore();
+      this._notify();
+      return;
+    }
+
+    this._worker.postMessage({
+      requestId,
+      year,
+      baseYear: BASE_YEAR,
+      baseline: {
+        population: baseline.population ?? useMapStore.getState().macroData?.population?.value ?? 420000,
+        populationGrowthRate: baseline.populationGrowthRate ?? 0.019,
+        infrastructureCapacity: baseline.infrastructureCapacity ?? 1.0,
+        environmentIndex: baseline.environmentIndex ?? 0.55,
+        baseRisk: baseline.baseRisk ?? 0.28,
+      },
+    });
+  }
+
   setFloodTrigger(location) {
     if (this._destroyed) return;
     this.state = { ...this.state, active: true, location, timestamp: Date.now() };
@@ -78,6 +130,48 @@ export class SimulationEngine {
     };
   }
 
+  _ensureWorker() {
+    if (this._worker || typeof Worker === 'undefined') return;
+    try {
+      this._worker = new Worker(new URL('../workers/simulationWorker.js', import.meta.url), { type: 'module' });
+      this._worker.onmessage = ({ data }) => {
+        if (!data?.requestId || data.requestId < this._lastHandledId) return;
+        this._lastHandledId = data.requestId;
+        this.state = {
+          ...this.state,
+          year: data.year ?? this.state.year,
+          outputs: data.output || this.state.outputs,
+          timestamp: Date.now(),
+        };
+        this._syncStore();
+        this._notify();
+      };
+      this._worker.onerror = () => {
+        // Keep engine alive with existing state.
+      };
+    } catch {
+      this._worker = null;
+    }
+  }
+
+  _syncStore() {
+    const store = useMapStore.getState();
+    if (!store?.setSimulationState) return;
+    const o = this.state.outputs;
+    store.setSimulationState((prev) => ({
+      ...prev,
+      running: this.state.active,
+      year: this.state.year,
+      progress: Math.round(((this.state.year - BASE_YEAR) / (2040 - BASE_YEAR)) * 100),
+      metrics: {
+        risk: o.riskLevels.overall,
+        damage: o.infrastructureStress,
+        affected: o.populationGrowth.current,
+      },
+      outputs: o,
+    }));
+  }
+
   /**
    * Get debug stats.
    */
@@ -100,6 +194,10 @@ export class SimulationEngine {
     }
     this._notifyPending = false;
     this.subscribers.clear();
+    if (this._worker) {
+      this._worker.terminate();
+      this._worker = null;
+    }
   }
 }
 

@@ -28,6 +28,8 @@ const RETRY_BACKOFF = 800; // Reduced from 1000 for faster recovery
 
 /** @type {number} Memory pressure threshold (MB) */
 const MEMORY_PRESSURE_THRESHOLD = 100;
+const TTL_5_MIN = 5 * 60 * 1000;
+const TTL_10_MIN = 10 * 60 * 1000;
 
 /**
  * Sleep with jitter to prevent thundering herd
@@ -114,6 +116,9 @@ class DataEngine {
 
     // Memory management
     this._memoryCheckTaskId = null;
+    this._realtimeDebounceTimers = new Map();
+    this._realtimeLayerDispatcher = null;
+    this._geoWorker = null;
     this._startMemoryMonitoring();
   }
 
@@ -143,6 +148,10 @@ class DataEngine {
   setCityDemo(data) { 
     this._cityDemo = data;
     this._checkMemoryPressure();
+  }
+
+  setRealtimeLayerDispatcher(dispatcher) {
+    this._realtimeLayerDispatcher = typeof dispatcher === 'function' ? dispatcher : null;
   }
 
   // ──────────────────────────────────────────────────
@@ -467,12 +476,21 @@ class DataEngine {
       ];
 
       const [placeName, realTimeAQI, rainData, trafficJson] = await Promise.all(fetchTasks);
+      const realtimeGeo = await this.fetchRealtimeGeoForLocation(lat, lng, { signal }).catch(() => null);
+      if (realtimeGeo?.weather?.rainfallMm != null) {
+        rainData.rain = realtimeGeo.weather.rainfallMm;
+      }
+      if (realtimeGeo?.aqiGeo?.features?.[0]?.properties?.aqi && !realTimeAQI) {
+        const inferredAQI = realtimeGeo.aqiGeo.features[0].properties.aqi;
+        results.realTimeAQI = { aqi: inferredAQI, category: null };
+      }
 
       return {
         placeName,
-        realTimeAQI,
+        realTimeAQI: results.realTimeAQI || realTimeAQI,
         rainData,
         trafficJson,
+        realtimeGeo,
         timestamp: Date.now()
       };
     }, PERFORMANCE_CONFIG.cache.api);
@@ -603,6 +621,134 @@ class DataEngine {
     };
   }
 
+  async fetchRealtimeGeoForLocation(lat, lng, options = {}) {
+    const { signal, debounceMs = 250 } = options;
+    const bucket = `${lat.toFixed(3)}:${lng.toFixed(3)}`;
+    const debounceKey = `rt:${bucket}`;
+    const cacheKey = `realtime:${bucket}`;
+    const pendingKey = `pending:${cacheKey}`;
+
+    return new Promise((resolve, reject) => {
+      const existing = this._realtimeDebounceTimers.get(debounceKey);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(async () => {
+        try {
+          if (CacheEngine.get(cacheKey)) {
+            this._stats.cacheHits++;
+            resolve(CacheEngine.get(cacheKey));
+            return;
+          }
+          if (this._pendingRequests.has(pendingKey)) {
+            this._stats.deduplicated++;
+            resolve(await this._pendingRequests.get(pendingKey));
+            return;
+          }
+
+          const req = this._fetchRealtimeGeoImpl(lat, lng, signal);
+          this._pendingRequests.set(pendingKey, req);
+          const result = await req;
+          CacheEngine.set(cacheKey, result, TTL_5_MIN);
+          this._pendingRequests.delete(pendingKey);
+          resolve(result);
+        } catch (err) {
+          this._pendingRequests.delete(pendingKey);
+          reject(err);
+        }
+      }, debounceMs);
+      this._realtimeDebounceTimers.set(debounceKey, timer);
+    });
+  }
+
+  async _fetchRealtimeGeoImpl(lat, lng, signal) {
+    const openAqTask = this._fetchOpenAQ(lat, lng, signal).catch(() => null);
+    const weatherTask = this._fetchOpenWeather(lat, lng, signal).catch(() => null);
+    const facilitiesTask = this._fetchOverpassFacilities(lat, lng, signal).catch(() => null);
+    const [openAq, weather, overpass] = await Promise.all([openAqTask, weatherTask, facilitiesTask]);
+
+    const normalized = await this._normalizeRealtimeInWorker({ lat, lng, openAq, weather, overpass });
+    if (normalized?.aqiGeo) this.setAqiGeo(normalized.aqiGeo);
+    if (normalized?.facilityData) {
+      const mergedFacilities = {
+        ...(this._facilityData || {}),
+        hospitals: normalized.facilityData.hospitals || [],
+        policeStations: normalized.facilityData.policeStations || [],
+        fireStations: normalized.facilityData.fireStations || [],
+        schools: normalized.facilityData.schools || [],
+      };
+      this.setFacilityData(mergedFacilities);
+      CacheEngine.set(`facilities:live:${lat.toFixed(3)}:${lng.toFixed(3)}`, mergedFacilities, TTL_10_MIN);
+    }
+
+    if (this._realtimeLayerDispatcher) {
+      this._realtimeLayerDispatcher({
+        aqiGeo: this._aqiGeo,
+        facilityData: this._facilityData,
+        weather: normalized?.weather || null,
+      });
+    }
+    return normalized;
+  }
+
+  async _fetchOpenAQ(lat, lng, signal) {
+    const urlV3 = `https://api.openaq.org/v3/locations?coordinates=${lat},${lng}&radius=10000&limit=20`;
+    const urlV2 = `https://api.openaq.org/v2/latest?coordinates=${lat},${lng}&radius=10000&limit=20`;
+    try {
+      const res = await fetch(urlV3, { signal });
+      if (res.ok) return await res.json();
+    } catch {
+      // fallback to v2 below
+    }
+    const res2 = await fetch(urlV2, { signal });
+    if (!res2.ok) throw new Error(`OpenAQ HTTP ${res2.status}`);
+    return await res2.json();
+  }
+
+  async _fetchOpenWeather(lat, lng, signal) {
+    if (!OPENWEATHER_KEY) return null;
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_KEY}&units=metric`;
+    const res = await fetch(url, { signal });
+    if (!res.ok) throw new Error(`OpenWeather HTTP ${res.status}`);
+    return await res.json();
+  }
+
+  async _fetchOverpassFacilities(lat, lng, signal) {
+    const query = `[out:json][timeout:20];(node(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];way(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];relation(around:5000,${lat},${lng})["amenity"~"hospital|police|fire_station|school"];);out center;`;
+    const res = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: query,
+      signal,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+    return await res.json();
+  }
+
+  async _normalizeRealtimeInWorker(payload) {
+    if (typeof Worker === 'undefined') {
+      return {
+        aqiGeo: { type: 'FeatureCollection', features: [] },
+        weather: payload?.weather || null,
+        facilityData: payload?.overpass || { hospitals: [], policeStations: [], fireStations: [], schools: [] },
+      };
+    }
+    if (!this._geoWorker) {
+      this._geoWorker = new Worker(new URL('../workers/geospatialIngestWorker.js', import.meta.url), { type: 'module' });
+    }
+    return new Promise((resolve, reject) => {
+      const worker = this._geoWorker;
+      const timeout = setTimeout(() => reject(new Error('geospatial worker timeout')), 5000);
+      const onMessage = (evt) => {
+        clearTimeout(timeout);
+        worker.removeEventListener('message', onMessage);
+        const { ok, data, error } = evt.data || {};
+        if (!ok) reject(new Error(error || 'worker normalize failed'));
+        else resolve(data);
+      };
+      worker.addEventListener('message', onMessage);
+      worker.postMessage({ type: 'normalize-realtime', payload });
+    });
+  }
+
   async _fetchTraffic(lat, lng, signal) {
     if (!TOMTOM_KEY) return null;
     
@@ -730,6 +876,8 @@ class DataEngine {
     this._facilityData = null;
     this._cityDemo = null;
     this._macroDataCache = null;
+    this._realtimeDebounceTimers.forEach((t) => clearTimeout(t));
+    this._realtimeDebounceTimers.clear();
   }
 
   destroy() {
@@ -737,6 +885,10 @@ class DataEngine {
     if (this._memoryCheckTaskId !== null) {
       FrameController.remove(this._memoryCheckTaskId);
       this._memoryCheckTaskId = null;
+    }
+    if (this._geoWorker) {
+      this._geoWorker.terminate();
+      this._geoWorker = null;
     }
   }
 }
