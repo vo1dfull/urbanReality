@@ -71,7 +71,10 @@ export default function useLayerSync() {
         if (suitabilityPlugin) suitabilityPlugin.toggle(map, state.terrainSubLayers.suitability);
 
         const heatPlugin = LayerEngine.getPlugin('terrainHeat');
-        if (heatPlugin) heatPlugin.toggle(map, state.terrainSubLayers.heat, state.year, new Set());
+        if (heatPlugin) {
+          const gz = new Set(state.greenZones || []);
+          heatPlugin.toggle(map, state.terrainSubLayers.heat, state.year, gz, state.layers);
+        }
 
         const greenPlugin = LayerEngine.getPlugin('terrainGreen');
         if (greenPlugin) greenPlugin.toggle(map, state.terrainSubLayers.green);

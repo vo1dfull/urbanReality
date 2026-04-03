@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import LayerEngine from '../../engines/LayerEngine';
 import InteractionEngine from '../../engines/InteractionEngine';
+import useMapStore from '../../store/useMapStore';
 
 export default function GreenCoverLayer({ map, isActive }) {
   const [environmentScore, setEnvironmentScore] = useState(65);
   const [isAddingZone, setIsAddingZone] = useState(false);
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const addGreenZone = useMapStore((s) => s.addGreenZone);
 
   useEffect(() => {
     if (!map || !isActive) return;
@@ -18,6 +20,7 @@ export default function GreenCoverLayer({ map, isActive }) {
     const handleMapClick = (e) => {
       if (!isAddingZone || !plugin) return;
       plugin.addGreenZone(map, e.lngLat.lng, e.lngLat.lat);
+      addGreenZone(e.lngLat.lng, e.lngLat.lat);
       setEnvironmentScore(plugin.environmentScore);
       setIsAddingZone(false);
     };

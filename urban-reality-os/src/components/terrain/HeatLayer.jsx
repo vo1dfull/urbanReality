@@ -5,27 +5,16 @@ import InteractionEngine from '../../engines/InteractionEngine';
 
 export default function HeatLayer({ map, isActive }) {
   const year = useMapStore(s => s.year);
-  const [greenZones, setGreenZones] = useState(new Set());
+  const greenZones = useMapStore((s) => s.greenZones);
+  const toggleGreenZone = useMapStore((s) => s.toggleGreenZone);
+  const clearGreenZones = useMapStore((s) => s.clearGreenZones);
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
   useEffect(() => {
     if (!map || !isActive) return;
 
-    const plugin = LayerEngine.getPlugin('terrainHeat');
-    if (plugin) {
-      plugin.updateGrid(map, year, greenZones);
-    }
-
     const handleMapClick = (e) => {
-      const coords = [e.lngLat.lng, e.lngLat.lat];
-      const key = `${Math.round(coords[0] * 1000)},${Math.round(coords[1] * 1000)}`;
-
-      setGreenZones(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(key)) newSet.delete(key);
-        else newSet.add(key);
-        return newSet;
-      });
+      toggleGreenZone(e.lngLat.lng, e.lngLat.lat);
     };
 
     const handleMouseMove = (e) => {
@@ -55,7 +44,7 @@ export default function HeatLayer({ map, isActive }) {
       InteractionEngine.detachEvent(map, leaveKey);
       setHoveredPoint(null);
     };
-  }, [map, isActive, year, greenZones]);
+  }, [map, isActive, toggleGreenZone]);
 
   if (!isActive) return null;
 
@@ -81,7 +70,7 @@ export default function HeatLayer({ map, isActive }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 6, textAlign: 'center' }}>
             <div style={{ fontSize: 10, color: '#94a3b8' }}>Green Zones</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#22c55e' }}>{greenZones.size}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#22c55e' }}>{greenZones.length}</div>
           </div>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 6, textAlign: 'center' }}>
             <div style={{ fontSize: 10, color: '#94a3b8' }}>Year</div>
@@ -89,9 +78,9 @@ export default function HeatLayer({ map, isActive }) {
           </div>
         </div>
 
-        {greenZones.size > 0 && (
+        {greenZones.length > 0 && (
           <button
-            onClick={() => setGreenZones(new Set())}
+            onClick={clearGreenZones}
             style={{
               width: '100%', padding: '8px',
               background: 'rgba(220, 53, 69, 0.8)',

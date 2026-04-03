@@ -1,0 +1,23 @@
+"filename", "language", "JavaScript", "JavaScript JSX", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\src\components\Drawer.jsx", "JavaScript JSX", 0, 40, 0, 0, 40
+"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 34, 0, 0, 34
+"f:\urbanReality\urban-reality-os\src\components\terrain\TerrainController.jsx", "JavaScript JSX", 0, 40, 0, 2, 42
+"f:\urbanReality\urban-reality-os\src\constants\mapConstants.js", "JavaScript", -1, 0, 0, 1, 0
+"f:\urbanReality\urban-reality-os\src\engines\FacilityEngine.js", "JavaScript", 41, 0, 0, 1, 42
+"f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js", "JavaScript", 2, 0, 0, 0, 2
+"f:\urbanReality\urban-reality-os\src\engines\MapEngine.js", "JavaScript", 35, 0, 0, 1, 36
+"f:\urbanReality\urban-reality-os\src\engines\TerrainEngine.js", "JavaScript", 14, 0, 0, 0, 14
+"f:\urbanReality\urban-reality-os\src\hooks\useLayerSync.js", "JavaScript", 31, 0, 1, 2, 34
+"f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js", "JavaScript", 2, 0, 0, 0, 2
+"f:\urbanReality\urban-reality-os\src\layers\FacilityLayerPlugin.js", "JavaScript", 44, 0, 0, 1, 45
+"f:\urbanReality\urban-reality-os\src\layers\terrain\ElevationLayerPlugin.js", "JavaScript", 142, 0, 9, 14, 165
+"f:\urbanReality\urban-reality-os\src\layers\terrain\TerrainFloodPlugin.js", "JavaScript", 121, 0, 13, 12, 146
+"f:\urbanReality\urban-reality-os\src\store\slices\mapSlice.js", "JavaScript", 19, 0, 2, 1, 22
+"f:\urbanReality\urban-reality-os\src\ui\controls\LayerSwitcher.jsx", "JavaScript JSX", 0, 200, 4, 6, 210
+"f:\urbanReality\urban-reality-os\src\ui\layout\TopSearch.jsx", "JavaScript JSX", 0, 60, 0, 4, 64
+"f:\urbanReality\urban-reality-os\src\ui\panels\FacilityPanel.jsx", "JavaScript JSX", 0, 1, 0, 0, 1
+"f:\urbanReality\urban-reality-os\src\workers\elevationIntelligenceWorker.js", "JavaScript", 54, 0, 1, 8, 63
+"f:\urbanReality\urban-reality-os\src\workers\floodPropagationWorker.js", "JavaScript", 149, 0, 8, 30, 187
+"f:\urbanReality\urban-reality-os\src\workers\heatDynamicsWorker.js", "JavaScript", 59, 0, 2, 11, 72
+"f:\urbanReality\urban-reality-os\src\workers\terrainWorker.js", "JavaScript", 6, 0, 0, 0, 6
+"Total", "-", 718, 375, 40, 94, 1227

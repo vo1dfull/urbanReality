@@ -4,12 +4,18 @@
 // ================================================
 import BaseLayerPlugin from '../BaseLayerPlugin';
 import { terrainEngine } from '../../engines/TerrainEngine';
+import FrameController from '../../core/FrameController';
 
 export default class HeatLayerPlugin extends BaseLayerPlugin {
   constructor() {
     super('terrainHeat');
     this.heatData = { type: 'FeatureCollection', features: [] };
     this.greenZonesData = { type: 'FeatureCollection', features: [] };
+    this._worker = null;
+    this._reqId = 0;
+    this._lastHandled = 0;
+    this._pending = false;
+    this._syncTaskId = null;
   }
 
   getBuildingDensity(lng, lat) {
@@ -17,50 +23,63 @@ export default class HeatLayerPlugin extends BaseLayerPlugin {
     return Math.max(0, Math.min(1, 1 - urbanCenterDist * 10));
   }
 
-  calculateHeatIndex(map, lng, lat, year, greenZonesSet) {
-    const terrainMetrics = terrainEngine.getTerrainMetrics(map, { lng, lat });
-    const buildingDensity = this.getBuildingDensity(lng, lat);
-    const { elevation, slope } = terrainMetrics;
-
-    const greenZoneKey = `${Math.round(lng * 1000)},${Math.round(lat * 1000)}`;
-    const hasGreenZone = greenZonesSet && greenZonesSet.has(greenZoneKey);
-    const greenCover = hasGreenZone ? 0.8 : 0.2;
-
-    let temperature = 30;
-    temperature += buildingDensity * 8;
-    temperature -= elevation * 0.005;
-    temperature -= slope * 0.1;
-    temperature -= greenCover * 5;
-
-    const yearOffset = (year - 2025) * 0.3;
-    temperature += yearOffset;
-
-    return Math.max(15, Math.min(50, temperature));
+  _ensureWorker() {
+    if (this._worker || typeof Worker === 'undefined') return;
+    try {
+      this._worker = new Worker(new URL('../../workers/heatDynamicsWorker.js', import.meta.url), { type: 'module' });
+      this._worker.onmessage = ({ data }) => {
+        const { requestId, heat } = data || {};
+        if (!requestId || requestId < this._lastHandled) return;
+        this._lastHandled = requestId;
+        this._pending = false;
+        if (heat) this.heatData = heat;
+      };
+    } catch {
+      this._worker = null;
+    }
   }
 
-  updateGrid(map, year, greenZonesSet) {
+  updateGrid(map, year, greenZonesSet, layers) {
     if (!map) return;
     try {
+      this._ensureWorker();
       const bounds = map.getBounds();
-      terrainEngine.prefetchGrid(map, bounds, 0.002, { year });
-      const features = [];
-      const step = 0.002;
+      const quality = FrameController.getQualityHint();
+      const zoom = map.getZoom();
+      const step = quality === 'low' ? 0.006 : zoom >= 13 ? 0.0025 : zoom >= 11 ? 0.0035 : 0.005;
+      terrainEngine.prefetchGrid(map, bounds, step, { year, builtDensity: 0.7 });
 
-      for (let lng = bounds.getWest(); lng <= bounds.getEast(); lng += step) {
-        for (let lat = bounds.getSouth(); lat <= bounds.getNorth(); lat += step) {
-          const temperature = this.calculateHeatIndex(map, lng, lat, year, greenZonesSet);
-          features.push({
-            type: 'Feature',
-            properties: { temperature },
-            geometry: { type: 'Point', coordinates: [lng, lat] }
-          });
+      if (!this._worker) return;
+      if (this._pending) return;
+      this._pending = true;
+
+      const points = [];
+      const west = bounds.getWest();
+      const east = bounds.getEast();
+      const south = bounds.getSouth();
+      const north = bounds.getNorth();
+      const maxPoints = quality === 'low' ? 900 : quality === 'ultra' ? 2200 : 1500;
+      let count = 0;
+
+      for (let lng = west; lng <= east; lng += step) {
+        for (let lat = south; lat <= north; lat += step) {
+          const built = this.getBuildingDensity(lng, lat);
+          const m = terrainEngine.getTerrainMetrics(map, { lng, lat }, { year, builtDensity: built });
+          points.push([lng, lat, m.elevation || 0, m.slope || 0, built]);
+          if (++count >= maxPoints) break;
         }
+        if (count >= maxPoints) break;
       }
 
-      this.heatData = { type: 'FeatureCollection', features };
-      if (map.getSource('heat-data')) {
-        map.getSource('heat-data').setData(this.heatData);
-      }
+      const requestId = ++this._reqId;
+      const trafficOn = !!layers?.traffic;
+      this._worker.postMessage({
+        requestId,
+        points,
+        year,
+        greenZones: Array.from(greenZonesSet || []),
+        trafficOn,
+      });
 
       // Update Green Zones feature collection
       const gzFeatures = Array.from(greenZonesSet || new Set()).map(key => {
@@ -79,7 +98,7 @@ export default class HeatLayerPlugin extends BaseLayerPlugin {
   init(map, data) {
     if (!map) return;
     try {
-      this.updateGrid(map, data?.year || 2025, data?.greenZones || new Set());
+      this.updateGrid(map, data?.year || 2025, data?.greenZones || new Set(), data?.layers || null);
 
       this._addSource(map, 'heat-data', { type: 'geojson', data: this.heatData });
       this._addLayer(map, {
@@ -125,11 +144,33 @@ export default class HeatLayerPlugin extends BaseLayerPlugin {
     }
   }
 
-  toggle(map, visible, year, greenZonesSet) {
-    if (visible) this.updateGrid(map, year, greenZonesSet);
+  toggle(map, visible, year, greenZonesSet, layers) {
+    if (visible) {
+      this.updateGrid(map, year, greenZonesSet, layers);
+      if (this._syncTaskId === null) {
+        // Apply worker results to map at a safe cadence
+        this._syncTaskId = FrameController.add(() => {
+          if (!map?.getSource('heat-data')) return;
+          if (FrameController.getFPS() < 22) return;
+          try { map.getSource('heat-data').setData(this.heatData); } catch (_) {}
+        }, 420, 'heat-sync', 'idle');
+      }
+    }
     try {
       if (map && map.getLayer('heat-heatmap')) map.setLayoutProperty('heat-heatmap', 'visibility', visible ? 'visible' : 'none');
       if (map && map.getLayer('green-zones-fill')) map.setLayoutProperty('green-zones-fill', 'visibility', visible ? 'visible' : 'none');
     } catch (e) {}
+  }
+
+  destroy(map) {
+    if (this._syncTaskId !== null) {
+      FrameController.remove(this._syncTaskId);
+      this._syncTaskId = null;
+    }
+    if (this._worker) {
+      this._worker.terminate();
+      this._worker = null;
+    }
+    super.destroy(map);
   }
 }
