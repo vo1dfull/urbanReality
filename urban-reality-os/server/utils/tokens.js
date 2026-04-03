@@ -5,7 +5,7 @@ const REFRESH_TOKEN_EXPIRY = '7d';
 
 export const generateAccessToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email },
+    { id: user._id, email: user.email, role: user.role },
     process.env.JWT_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
@@ -13,7 +13,7 @@ export const generateAccessToken = (user) => {
 
 export const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email },
+    { id: user._id, email: user.email, role: user.role },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: REFRESH_TOKEN_EXPIRY }
   );

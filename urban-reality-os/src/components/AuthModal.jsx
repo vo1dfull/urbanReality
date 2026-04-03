@@ -3,9 +3,10 @@ import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../context/AuthContext";
 
 export default function AuthModal({ onClose }) {
-  const { login, setUser } = useAuth();
-  const API = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+  const { login, verifyOTP, signup } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const [isOtpStage, setIsOtpStage] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
@@ -32,26 +33,17 @@ export default function AuthModal({ onClose }) {
     try {
       if (isLogin) {
         await login(form.email, form.password);
-      } else {
-        const res = await fetch(`${API}/api/auth/register`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          const msg = data.message || 'Signup failed';
-          setErrorMessage(msg);
-          return;
-        }
-
+        if (onClose) onClose();
+        window.location.href = '/dashboard';
+      } else if (isOtpStage) {
+        await verifyOTP(form.email, otpCode);
         await login(form.email, form.password);
+        if (onClose) onClose();
+        window.location.href = '/dashboard';
+      } else {
+        await signup(form.name, form.email, form.password);
+        setIsOtpStage(true);
       }
-
-      if (onClose) onClose();
-      window.location.href = '/dashboard';
     } catch (err) {
       const message = err.message || 'Network error. Please try again.';
       setErrorMessage(message);
@@ -63,9 +55,26 @@ export default function AuthModal({ onClose }) {
     }
   };
 
+  const sendPasswordReset = async () => {
+    if (!form.email) {
+      setFieldErrors({ ...fieldErrors, email: 'Email is required' });
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const data = await requestPasswordReset(form.email);
+      setErrorMessage(data.message || 'Reset instructions sent');
+      setOtpCode('');
+    } catch (err) {
+      setErrorMessage(err.message || 'Reset request failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const res = await fetch(`${API}/api/auth/google`, {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'}/api/auth/google`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -81,12 +90,10 @@ export default function AuthModal({ onClose }) {
         return;
       }
 
-      // Save token via login and set user
-      if (data.token) {
-        login(data.token);
-        if (onClose) onClose();
-      }
-      if (data.user) setUser(data.user);
+      // Set token and user directly
+      localStorage.setItem('token', data.token);
+      if (onClose) onClose();
+      window.location.href = '/dashboard';
     } catch (err) {
       console.error("Google auth error:", err);
     }
@@ -112,36 +119,53 @@ export default function AuthModal({ onClose }) {
             ×
           </button>
         )}
-        <h2 style={{ marginTop: 0 }}>{isLogin ? "Login" : "Create Account"}</h2>
+        <h2 style={{ marginTop: 0 }}>
+          {isOtpStage ? "Verify Email" : isLogin ? "Login" : "Create Account"}
+        </h2>
 
-        {!isLogin && (
-          <input
-            placeholder="Name"
-            value={form.name}
-            onChange={e => setForm({ ...form, name: e.target.value })}
-            style={{ padding: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "14px" }}
-          />
-        )}
+        <>
+          {!isLogin && !isOtpStage && (
+            <input
+              placeholder="Name"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              style={{ padding: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "14px" }}
+            />
+          )}
 
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input
-            placeholder="Email"
-            type="email"
-            value={form.email}
-            onChange={e => setForm({ ...form, email: e.target.value })}
-            style={{ padding: "10px", borderRadius: "6px", border: fieldErrors.email ? "1px solid #ef4444" : "1px solid #ddd", fontSize: "14px" }}
-          />
-          {fieldErrors.email && <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.email}</span>}
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input
+              placeholder="Email"
+              type="email"
+              value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              style={{ padding: "10px", borderRadius: "6px", border: fieldErrors.email ? "1px solid #ef4444" : "1px solid #ddd", fontSize: "14px" }}
+            />
+            {fieldErrors.email && <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.email}</span>}
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={e => setForm({ ...form, password: e.target.value })}
-            style={{ padding: "10px", borderRadius: "6px", border: fieldErrors.password ? "1px solid #ef4444" : "1px solid #ddd", fontSize: "14px" }}
-          />
-          {fieldErrors.password && <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.password}</span>}
-        </div>
+            {!isOtpStage && (
+              <>
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  style={{ padding: "10px", borderRadius: "6px", border: fieldErrors.password ? "1px solid #ef4444" : "1px solid #ddd", fontSize: "14px" }}
+                />
+                {fieldErrors.password && <span style={{ color: '#ef4444', fontSize: 12 }}>{fieldErrors.password}</span>}
+              </>
+            )}
+
+            {isOtpStage && (
+              <input
+                placeholder="Verification OTP"
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value)}
+                style={{ padding: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "14px" }}
+              />
+            )}
+          </div>
+        </>
 
         {errorMessage && <div style={{ color: '#ef4444', fontSize: 12, textAlign: 'center', marginTop: 8 }}>{errorMessage}</div>}
 
@@ -163,10 +187,10 @@ export default function AuthModal({ onClose }) {
           onMouseEnter={e => { if (!isLoading) e.currentTarget.style.transform = 'scale(1.02)'; }}
           onMouseLeave={e => { if (!isLoading) e.currentTarget.style.transform = 'scale(1)'; }}
         >
-          {isLogin ? "Login" : "Sign up"}
+          {isOtpStage ? 'Verify OTP' : isLogin ? 'Login' : 'Sign up'}
         </button>
 
-        {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+        {import.meta.env.VITE_GOOGLE_CLIENT_ID && ( 
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => console.log("Google Login Failed")}
@@ -175,7 +199,11 @@ export default function AuthModal({ onClose }) {
 
         <p
           style={{ cursor: "pointer", marginTop: 10 }}
-          onClick={() => setIsLogin(!isLogin)}
+          onClick={() => {
+            setIsOtpStage(false);
+            setIsLogin(!isLogin);
+            setErrorMessage('');
+          }}
         >
           {isLogin ? "Create account" : "Already have an account?"}
         </p>

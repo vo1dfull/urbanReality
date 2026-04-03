@@ -7,38 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const API = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
-  const refreshAccessToken = async () => {
-    try {
-      const res = await fetch(`${API}/api/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        logout();
-        return null;
-      }
-      const data = await res.json();
-      if (data.accessToken) {
-        localStorage.setItem('token', data.accessToken);
-        setToken(data.accessToken);
-        return data.accessToken;
-      }
-      return null;
-    } catch (err) {
-      logout();
-      return null;
-    }
-  };
-
-  useEffect(() => {
-    const initialize = async () => {
-      if (!token) {
-        await refreshAccessToken();
-      }
-    };
-    initialize();
-  }, []);
-
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -47,11 +15,11 @@ export function AuthProvider({ children }) {
 
     const fetchProfile = async () => {
       try {
-        const res = await fetch(`${API}/api/auth/profile`, {
+        const res = await fetch(`${API}/api/user/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) {
-          await refreshAccessToken();
+          logout();
           return;
         }
         const data = await res.json();
@@ -65,61 +33,51 @@ export function AuthProvider({ children }) {
     fetchProfile();
   }, [token]);
 
-  const login = async (email, password) => {
-    try {
-      const res = await fetch(`${API}/api/auth/login`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Invalid email or password');
-      }
-
-      localStorage.setItem('token', data.accessToken);
-      setToken(data.accessToken);
-
-      // Fetch and set profile
-      try {
-        const profileRes = await fetch(`${API}/api/auth/profile`, {
-          headers: { Authorization: `Bearer ${data.accessToken}` },
-        });
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          setUser(profileData);
-        }
-      } catch (profileErr) {
-        console.error('Failed to fetch profile after login', profileErr);
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
-    }
+  const signup = async (name, email, password) => {
+    const res = await fetch(`${API}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || 'Signup failed');
+    return data;
   };
 
-  const logout = async () => {
-    try {
-      await fetch(`${API}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch (err) {
-      console.error('Logout error', err);
-    }
+  const verifyOTP = async (email, otp) => {
+    const res = await fetch(`${API}/api/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || 'OTP verify failed');
+    return data;
+  };
 
+  const login = async (email, password) => {
+    const res = await fetch(`${API}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.msg || 'Login failed');
+
+    localStorage.setItem('token', data.token);
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  };
+
+  const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, setUser, login, logout }}>
+    <AuthContext.Provider value={{ token, user, signup, verifyOTP, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
