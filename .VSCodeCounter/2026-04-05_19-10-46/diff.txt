@@ -1,0 +1,39 @@
+Date : 2026-04-05 19:10:46
+Directory : f:\urbanReality
+Total : 8 files,  1052 codes, 72 comments, 64 blanks, all 1188 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| JavaScript JSX |          6 |        957 |         47 |         46 |      1,050 |
+| JavaScript     |          2 |         95 |         25 |         18 |        138 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                       | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                          |          8 |      1,052 |         72 |         64 |      1,188 |
+| urban-reality-os                                                           |          8 |      1,052 |         72 |         64 |      1,188 |
+| urban-reality-os\src                                                       |          8 |      1,052 |         72 |         64 |      1,188 |
+| urban-reality-os\src\components                                            |          7 |      1,041 |         63 |         62 |      1,166 |
+| urban-reality-os\src\components (Files)                                    |          1 |          7 |          0 |          0 |          7 |
+| urban-reality-os\src\components\layers                                     |          6 |      1,034 |         63 |         62 |      1,159 |
+| urban-reality-os\src\engines                                               |          1 |         11 |          9 |          2 |         22 |
++----------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                   | language       | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx                | JavaScript JSX |          7 |          0 |          0 |          7 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerBar.jsx        | JavaScript JSX |        194 |         10 |         11 |        215 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerCard.jsx       | JavaScript JSX |        146 |          9 |          8 |        163 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerEngineUI.js    | JavaScript     |         84 |         16 |         16 |        116 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerEngineUI.jsx   | JavaScript JSX |         35 |          9 |          7 |         51 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerPanel.jsx      | JavaScript JSX |        447 |         14 |         16 |        477 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerToggleGrid.jsx | JavaScript JSX |        128 |          5 |          4 |        137 |
+| f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js                | JavaScript     |         11 |          9 |          2 |         22 |
+| Total                                                                      |                |      1,052 |         72 |         64 |      1,188 |
++----------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
