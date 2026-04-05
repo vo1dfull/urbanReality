@@ -1,0 +1,13 @@
+"filename", "language", "JSON", "PostCSS", "HTML", "JavaScript JSX", "XML", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\index.html", "HTML", 0, 0, 5, 0, 0, 0, 0, 5
+"f:\urbanReality\urban-reality-os\package-lock.json", "JSON", 7, 0, 0, 0, 0, 0, 0, 7
+"f:\urbanReality\urban-reality-os\package.json", "JSON", 1, 0, 0, 0, 0, 0, 0, 1
+"f:\urbanReality\urban-reality-os\public\logo.svg", "XML", 0, 0, 0, 0, 28858, 0, 0, 28858
+"f:\urbanReality\urban-reality-os\src\components\MapView.jsx", "JavaScript JSX", 0, 0, 0, 7, 0, 0, 1, 8
+"f:\urbanReality\urban-reality-os\src\components\intro\CityBuildAnimation.jsx", "JavaScript JSX", 0, 0, 0, 79, 0, 0, 14, 93
+"f:\urbanReality\urban-reality-os\src\components\intro\IntroOverlay.jsx", "JavaScript JSX", 0, 0, 0, 26, 0, 0, 2, 28
+"f:\urbanReality\urban-reality-os\src\components\intro\IntroScene.jsx", "JavaScript JSX", 0, 0, 0, 196, 0, 4, 36, 236
+"f:\urbanReality\urban-reality-os\src\components\intro\LogoAnimation.jsx", "JavaScript JSX", 0, 0, 0, 37, 0, 0, 3, 40
+"f:\urbanReality\urban-reality-os\src\components\ui\SplashScreen.jsx", "JavaScript JSX", 0, 0, 0, 72, 0, 0, 6, 78
+"f:\urbanReality\urban-reality-os\src\index.css", "PostCSS", 0, 154, 0, 0, 0, 0, 19, 173
+"Total", "-", 8, 154, 5, 417, 28858, 4, 81, 29527

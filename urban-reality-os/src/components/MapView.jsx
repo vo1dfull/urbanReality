@@ -52,7 +52,7 @@ import useFloodAnimation from '../hooks/useFloodAnimation';
 import useYearProjection from '../hooks/useYearProjection';
 import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
 import useUrbanIntelligence from '../hooks/useUrbanIntelligence';
-import SplashScreen from './ui/SplashScreen';
+import IntroScene from './intro/IntroScene';
 
 // Engines
 import MapEngine from '../engines/MapEngine';
@@ -157,37 +157,13 @@ export default function MapView() {
 
   const [draftName, setDraftName] = useState('');
   const [draftType, setDraftType] = useState('custom');
-  const [splashVisible, setSplashVisible] = useState(true);
-  const splashStartRef = useRef(Date.now());
-  const appReady = mapReady && dataReady;
+  const [introComplete, setIntroComplete] = useState(false);
 
   useEffect(() => {
     if (!savedPlaceDraft) return;
     setDraftName(savedPlaceDraft.name || 'Custom Location');
     setDraftType(savedPlaceDraft.type || 'custom');
   }, [savedPlaceDraft]);
-
-  useEffect(() => {
-    let hideTimer = null;
-    const maxTimer = window.setTimeout(() => setSplashVisible(false), 2800);
-
-    if (appReady) {
-      const elapsed = Date.now() - splashStartRef.current;
-      const minDelay = Math.max(1100 - elapsed, 0);
-      hideTimer = window.setTimeout(() => {
-        if ('requestIdleCallback' in window) {
-          window.requestIdleCallback(() => setSplashVisible(false), { timeout: 500 });
-        } else {
-          setSplashVisible(false);
-        }
-      }, minDelay);
-    }
-
-    return () => {
-      clearTimeout(hideTimer);
-      clearTimeout(maxTimer);
-    };
-  }, [appReady]);
 
   // ── Callbacks ──
   const handleLocationSelect = useCallback((lng, lat, placeName) => {
@@ -259,8 +235,8 @@ export default function MapView() {
   return (
     <>
       <AnimatePresence mode="wait">
-        {splashVisible && (
-          <SplashScreen />
+        {!introComplete && (
+          <IntroScene onComplete={() => setIntroComplete(true)} />
         )}
       </AnimatePresence>
 

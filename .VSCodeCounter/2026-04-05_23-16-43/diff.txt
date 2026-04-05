@@ -1,0 +1,48 @@
+Date : 2026-04-05 23:16:43
+Directory : f:\urbanReality
+Total : 11 files,  29442 codes, 4 comments, 81 blanks, all 29527 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| XML            |          1 |     28,858 |          0 |          0 |     28,858 |
+| JavaScript JSX |          6 |        417 |          4 |         62 |        483 |
+| PostCSS        |          1 |        154 |          0 |         19 |        173 |
+| JSON           |          2 |          8 |          0 |          0 |          8 |
+| HTML           |          1 |          5 |          0 |          0 |          5 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                         | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                            |         11 |     29,442 |          4 |         81 |     29,527 |
+| urban-reality-os                                                             |         11 |     29,442 |          4 |         81 |     29,527 |
+| urban-reality-os (Files)                                                     |          3 |         13 |          0 |          0 |         13 |
+| urban-reality-os\public                                                      |          1 |     28,858 |          0 |          0 |     28,858 |
+| urban-reality-os\src                                                         |          7 |        571 |          4 |         81 |        656 |
+| urban-reality-os\src (Files)                                                 |          1 |        154 |          0 |         19 |        173 |
+| urban-reality-os\src\components                                              |          6 |        417 |          4 |         62 |        483 |
+| urban-reality-os\src\components (Files)                                      |          1 |          7 |          0 |          1 |          8 |
+| urban-reality-os\src\components\intro                                        |          4 |        338 |          4 |         55 |        397 |
+| urban-reality-os\src\components\ui                                           |          1 |         72 |          0 |          6 |         78 |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                     | language       | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\index.html                                  | HTML           |          5 |          0 |          0 |          5 |
+| f:\urbanReality\urban-reality-os\package-lock.json                           | JSON           |          7 |          0 |          0 |          7 |
+| f:\urbanReality\urban-reality-os\package.json                                | JSON           |          1 |          0 |          0 |          1 |
+| f:\urbanReality\urban-reality-os\public\logo.svg                             | XML            |     28,858 |          0 |          0 |     28,858 |
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx                  | JavaScript JSX |          7 |          0 |          1 |          8 |
+| f:\urbanReality\urban-reality-os\src\components\intro\CityBuildAnimation.jsx | JavaScript JSX |         79 |          0 |         14 |         93 |
+| f:\urbanReality\urban-reality-os\src\components\intro\IntroOverlay.jsx       | JavaScript JSX |         26 |          0 |          2 |         28 |
+| f:\urbanReality\urban-reality-os\src\components\intro\IntroScene.jsx         | JavaScript JSX |        196 |          4 |         36 |        236 |
+| f:\urbanReality\urban-reality-os\src\components\intro\LogoAnimation.jsx      | JavaScript JSX |         37 |          0 |          3 |         40 |
+| f:\urbanReality\urban-reality-os\src\components\ui\SplashScreen.jsx          | JavaScript JSX |         72 |          0 |          6 |         78 |
+| f:\urbanReality\urban-reality-os\src\index.css                               | PostCSS        |        154 |          0 |         19 |        173 |
+| Total                                                                        |                |     29,442 |          4 |         81 |     29,527 |
++------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

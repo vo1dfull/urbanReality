@@ -1,10 +1,10 @@
 # Details
 
-Date : 2026-04-04 00:39:51
+Date : 2026-04-05 23:17:08
 
 Directory f:\\urbanReality
 
-Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
+Total : 223 files,  69982 codes, 3638 comments, 4588 blanks, all 78208 lines
 
 [Summary](results.md) / Details / [Diff Summary](diff.md) / [Diff Details](diff-details.md)
 
@@ -38,15 +38,16 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/backend/utils/email.js](/urban-reality-os/backend/utils/email.js) | JavaScript | 20 | 0 | 3 | 23 |
 | [urban-reality-os/backend/utils/otp.js](/urban-reality-os/backend/utils/otp.js) | JavaScript | 2 | 0 | 0 | 2 |
 | [urban-reality-os/eslint.config.js](/urban-reality-os/eslint.config.js) | JavaScript | 28 | 0 | 2 | 30 |
-| [urban-reality-os/index.html](/urban-reality-os/index.html) | HTML | 21 | 2 | 4 | 27 |
+| [urban-reality-os/index.html](/urban-reality-os/index.html) | HTML | 26 | 2 | 4 | 32 |
 | [urban-reality-os/integrationTest.js](/urban-reality-os/integrationTest.js) | JavaScript | 187 | 38 | 30 | 255 |
-| [urban-reality-os/package-lock.json](/urban-reality-os/package-lock.json) | JSON | 4,446 | 0 | 1 | 4,447 |
-| [urban-reality-os/package.json](/urban-reality-os/package.json) | JSON | 35 | 0 | 1 | 36 |
+| [urban-reality-os/package-lock.json](/urban-reality-os/package-lock.json) | JSON | 4,453 | 0 | 1 | 4,454 |
+| [urban-reality-os/package.json](/urban-reality-os/package.json) | JSON | 36 | 0 | 1 | 37 |
 | [urban-reality-os/public/data/aqi.json](/urban-reality-os/public/data/aqi.json) | JSON | 29 | 0 | 1 | 30 |
 | [urban-reality-os/public/data/demographics.json](/urban-reality-os/public/data/demographics.json) | JSON | 5 | 0 | 1 | 6 |
 | [urban-reality-os/public/data/facilities.json](/urban-reality-os/public/data/facilities.json) | JSON | 179 | 0 | 0 | 179 |
 | [urban-reality-os/public/data/flood.json](/urban-reality-os/public/data/flood.json) | JSON | 21 | 0 | 1 | 22 |
 | [urban-reality-os/public/data/traffic.json](/urban-reality-os/public/data/traffic.json) | JSON | 29 | 0 | 1 | 30 |
+| [urban-reality-os/public/logo.svg](/urban-reality-os/public/logo.svg) | XML | 28,858 | 0 | 0 | 28,858 |
 | [urban-reality-os/public/test-login.html](/urban-reality-os/public/test-login.html) | HTML | 61 | 0 | 6 | 67 |
 | [urban-reality-os/public/vite.svg](/urban-reality-os/public/vite.svg) | XML | 1 | 0 | 0 | 1 |
 | [urban-reality-os/server/config/passport.js](/urban-reality-os/server/config/passport.js) | JavaScript | 39 | 0 | 6 | 45 |
@@ -92,7 +93,7 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/src/components/LocationPanel.jsx](/urban-reality-os/src/components/LocationPanel.jsx) | JavaScript JSX | 137 | 4 | 17 | 158 |
 | [urban-reality-os/src/components/LocationPopup.jsx](/urban-reality-os/src/components/LocationPopup.jsx) | JavaScript JSX | 182 | 9 | 24 | 215 |
 | [urban-reality-os/src/components/MapMenu.jsx](/urban-reality-os/src/components/MapMenu.jsx) | JavaScript JSX | 207 | 3 | 12 | 222 |
-| [urban-reality-os/src/components/MapView.jsx](/urban-reality-os/src/components/MapView.jsx) | JavaScript JSX | 1,220 | 62 | 83 | 1,365 |
+| [urban-reality-os/src/components/MapView.jsx](/urban-reality-os/src/components/MapView.jsx) | JavaScript JSX | 1,227 | 62 | 84 | 1,373 |
 | [urban-reality-os/src/components/MetricBar.jsx](/urban-reality-os/src/components/MetricBar.jsx) | JavaScript JSX | 16 | 0 | 4 | 20 |
 | [urban-reality-os/src/components/MetrixHover.jsx](/urban-reality-os/src/components/MetrixHover.jsx) | JavaScript JSX | 0 | 0 | 1 | 1 |
 | [urban-reality-os/src/components/PredictionViewer.jsx](/urban-reality-os/src/components/PredictionViewer.jsx) | JavaScript JSX | 225 | 18 | 23 | 266 |
@@ -101,10 +102,20 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/src/components/SearchBar.jsx](/urban-reality-os/src/components/SearchBar.jsx) | JavaScript JSX | 307 | 12 | 26 | 345 |
 | [urban-reality-os/src/components/SearchPanel.jsx](/urban-reality-os/src/components/SearchPanel.jsx) | JavaScript JSX | 44 | 0 | 4 | 48 |
 | [urban-reality-os/src/components/TerrainPanel.jsx](/urban-reality-os/src/components/TerrainPanel.jsx) | JavaScript JSX | 139 | 5 | 9 | 153 |
-| [urban-reality-os/src/components/TimeSlider.jsx](/urban-reality-os/src/components/TimeSlider.jsx) | JavaScript JSX | 62 | 0 | 6 | 68 |
+| [urban-reality-os/src/components/TimeSlider.jsx](/urban-reality-os/src/components/TimeSlider.jsx) | JavaScript JSX | 94 | 1 | 10 | 105 |
 | [urban-reality-os/src/components/TimelineBar.jsx](/urban-reality-os/src/components/TimelineBar.jsx) | JavaScript JSX | 71 | 5 | 13 | 89 |
 | [urban-reality-os/src/components/UrbanIntelligenceUI.jsx](/urban-reality-os/src/components/UrbanIntelligenceUI.jsx) | JavaScript JSX | 219 | 39 | 22 | 280 |
 | [urban-reality-os/src/components/UrbanIntelligenceUI.module.css](/urban-reality-os/src/components/UrbanIntelligenceUI.module.css) | PostCSS | 184 | 29 | 37 | 250 |
+| [urban-reality-os/src/components/intro/CityBuildAnimation.jsx](/urban-reality-os/src/components/intro/CityBuildAnimation.jsx) | JavaScript JSX | 79 | 0 | 14 | 93 |
+| [urban-reality-os/src/components/intro/IntroOverlay.jsx](/urban-reality-os/src/components/intro/IntroOverlay.jsx) | JavaScript JSX | 26 | 0 | 2 | 28 |
+| [urban-reality-os/src/components/intro/IntroScene.jsx](/urban-reality-os/src/components/intro/IntroScene.jsx) | JavaScript JSX | 196 | 4 | 36 | 236 |
+| [urban-reality-os/src/components/intro/LogoAnimation.jsx](/urban-reality-os/src/components/intro/LogoAnimation.jsx) | JavaScript JSX | 37 | 0 | 3 | 40 |
+| [urban-reality-os/src/components/layers/LayerBar.jsx](/urban-reality-os/src/components/layers/LayerBar.jsx) | JavaScript JSX | 121 | 3 | 7 | 131 |
+| [urban-reality-os/src/components/layers/LayerCard.jsx](/urban-reality-os/src/components/layers/LayerCard.jsx) | JavaScript JSX | 146 | 9 | 8 | 163 |
+| [urban-reality-os/src/components/layers/LayerEngineService.js](/urban-reality-os/src/components/layers/LayerEngineService.js) | JavaScript | 84 | 16 | 16 | 116 |
+| [urban-reality-os/src/components/layers/LayerEngineUI.jsx](/urban-reality-os/src/components/layers/LayerEngineUI.jsx) | JavaScript JSX | 13 | 3 | 3 | 19 |
+| [urban-reality-os/src/components/layers/LayerPanel.jsx](/urban-reality-os/src/components/layers/LayerPanel.jsx) | JavaScript JSX | 150 | 4 | 16 | 170 |
+| [urban-reality-os/src/components/layers/LayerToggleGrid.jsx](/urban-reality-os/src/components/layers/LayerToggleGrid.jsx) | JavaScript JSX | 128 | 5 | 4 | 137 |
 | [urban-reality-os/src/components/terrain/ElevationLayer.jsx](/urban-reality-os/src/components/terrain/ElevationLayer.jsx) | JavaScript JSX | 133 | 3 | 10 | 146 |
 | [urban-reality-os/src/components/terrain/FloodSimulationLayer.jsx](/urban-reality-os/src/components/terrain/FloodSimulationLayer.jsx) | JavaScript JSX | 140 | 4 | 16 | 160 |
 | [urban-reality-os/src/components/terrain/GreenCoverLayer.jsx](/urban-reality-os/src/components/terrain/GreenCoverLayer.jsx) | JavaScript JSX | 138 | 0 | 15 | 153 |
@@ -113,6 +124,7 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/src/components/terrain/SuitabilityLayer.jsx](/urban-reality-os/src/components/terrain/SuitabilityLayer.jsx) | JavaScript JSX | 131 | 0 | 13 | 144 |
 | [urban-reality-os/src/components/terrain/TerrainController.jsx](/urban-reality-os/src/components/terrain/TerrainController.jsx) | JavaScript JSX | 184 | 2 | 17 | 203 |
 | [urban-reality-os/src/components/terrain/TerrainLayer.jsx](/urban-reality-os/src/components/terrain/TerrainLayer.jsx) | JavaScript JSX | 231 | 3 | 13 | 247 |
+| [urban-reality-os/src/components/ui/SplashScreen.jsx](/urban-reality-os/src/components/ui/SplashScreen.jsx) | JavaScript JSX | 72 | 0 | 6 | 78 |
 | [urban-reality-os/src/config/performance.js](/urban-reality-os/src/config/performance.js) | JavaScript | 86 | 14 | 12 | 112 |
 | [urban-reality-os/src/constants/mapConstants.js](/urban-reality-os/src/constants/mapConstants.js) | JavaScript | 84 | 3 | 13 | 100 |
 | [urban-reality-os/src/context/AuthContext.jsx](/urban-reality-os/src/context/AuthContext.jsx) | JavaScript JSX | 78 | 0 | 13 | 91 |
@@ -128,11 +140,13 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/src/engines/FacilityEngine.js](/urban-reality-os/src/engines/FacilityEngine.js) | JavaScript | 443 | 51 | 78 | 572 |
 | [urban-reality-os/src/engines/InteractionEngine.js](/urban-reality-os/src/engines/InteractionEngine.js) | JavaScript | 496 | 167 | 123 | 786 |
 | [urban-reality-os/src/engines/LayerEngine.js](/urban-reality-os/src/engines/LayerEngine.js) | JavaScript | 447 | 91 | 77 | 615 |
-| [urban-reality-os/src/engines/MapEngine.js](/urban-reality-os/src/engines/MapEngine.js) | JavaScript | 498 | 93 | 70 | 661 |
+| [urban-reality-os/src/engines/MapEngine.js](/urban-reality-os/src/engines/MapEngine.js) | JavaScript | 653 | 123 | 89 | 865 |
 | [urban-reality-os/src/engines/PlanningEngine.js](/urban-reality-os/src/engines/PlanningEngine.js) | JavaScript | 351 | 150 | 76 | 577 |
 | [urban-reality-os/src/engines/PredictionEngine.js](/urban-reality-os/src/engines/PredictionEngine.js) | JavaScript | 219 | 53 | 52 | 324 |
 | [urban-reality-os/src/engines/SatelliteEngine.js](/urban-reality-os/src/engines/SatelliteEngine.js) | JavaScript | 529 | 178 | 116 | 823 |
 | [urban-reality-os/src/engines/SimulationEngine.js](/urban-reality-os/src/engines/SimulationEngine.js) | JavaScript | 363 | 121 | 81 | 565 |
+| [urban-reality-os/src/engines/SkyAtmosphereRenderer.js](/urban-reality-os/src/engines/SkyAtmosphereRenderer.js) | JavaScript | 318 | 80 | 54 | 452 |
+| [urban-reality-os/src/engines/SpaceRenderer.js](/urban-reality-os/src/engines/SpaceRenderer.js) | JavaScript | 192 | 49 | 42 | 283 |
 | [urban-reality-os/src/engines/TerrainEngine.js](/urban-reality-os/src/engines/TerrainEngine.js) | JavaScript | 213 | 3 | 34 | 250 |
 | [urban-reality-os/src/hooks/map/useCinematic.js](/urban-reality-os/src/hooks/map/useCinematic.js) | JavaScript | 62 | 8 | 12 | 82 |
 | [urban-reality-os/src/hooks/useAuthSync.js](/urban-reality-os/src/hooks/useAuthSync.js) | JavaScript | 26 | 13 | 9 | 48 |
@@ -142,11 +156,11 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/src/hooks/useKeyboardShortcuts.js](/urban-reality-os/src/hooks/useKeyboardShortcuts.js) | JavaScript | 62 | 16 | 14 | 92 |
 | [urban-reality-os/src/hooks/useLayerSync.js](/urban-reality-os/src/hooks/useLayerSync.js) | JavaScript | 183 | 10 | 35 | 228 |
 | [urban-reality-os/src/hooks/useLocationMetrics.js](/urban-reality-os/src/hooks/useLocationMetrics.js) | JavaScript | 122 | 13 | 22 | 157 |
-| [urban-reality-os/src/hooks/useMapEngine.js](/urban-reality-os/src/hooks/useMapEngine.js) | JavaScript | 360 | 25 | 53 | 438 |
+| [urban-reality-os/src/hooks/useMapEngine.js](/urban-reality-os/src/hooks/useMapEngine.js) | JavaScript | 388 | 25 | 54 | 467 |
 | [urban-reality-os/src/hooks/useOptimizations.js](/urban-reality-os/src/hooks/useOptimizations.js) | JavaScript | 59 | 13 | 16 | 88 |
 | [urban-reality-os/src/hooks/useUrbanIntelligence.js](/urban-reality-os/src/hooks/useUrbanIntelligence.js) | JavaScript | 220 | 46 | 35 | 301 |
 | [urban-reality-os/src/hooks/useYearProjection.js](/urban-reality-os/src/hooks/useYearProjection.js) | JavaScript | 79 | 16 | 17 | 112 |
-| [urban-reality-os/src/index.css](/urban-reality-os/src/index.css) | PostCSS | 111 | 9 | 25 | 145 |
+| [urban-reality-os/src/index.css](/urban-reality-os/src/index.css) | PostCSS | 265 | 9 | 44 | 318 |
 | [urban-reality-os/src/layers/AqiLayerPlugin.js](/urban-reality-os/src/layers/AqiLayerPlugin.js) | JavaScript | 62 | 10 | 6 | 78 |
 | [urban-reality-os/src/layers/BaseLayerPlugin.js](/urban-reality-os/src/layers/BaseLayerPlugin.js) | JavaScript | 74 | 49 | 13 | 136 |
 | [urban-reality-os/src/layers/BuildLayerPlugin.js](/urban-reality-os/src/layers/BuildLayerPlugin.js) | JavaScript | 309 | 52 | 62 | 423 |
@@ -217,6 +231,7 @@ Total : 208 files,  39166 codes, 3434 comments, 4333 blanks, all 46933 lines
 | [urban-reality-os/src/workers/simulationWorker.js](/urban-reality-os/src/workers/simulationWorker.js) | JavaScript | 42 | 5 | 9 | 56 |
 | [urban-reality-os/src/workers/terrainWorker.js](/urban-reality-os/src/workers/terrainWorker.js) | JavaScript | 36 | 0 | 6 | 42 |
 | [urban-reality-os/tailwind.config.js](/urban-reality-os/tailwind.config.js) | JavaScript | 11 | 2 | 2 | 15 |
+| [urban-reality-os/test-shader.js](/urban-reality-os/test-shader.js) | JavaScript | 7 | 0 | 0 | 7 |
 | [urban-reality-os/vite.config.js](/urban-reality-os/vite.config.js) | JavaScript | 41 | 0 | 2 | 43 |
 | [vite.config.js](/vite.config.js) | JavaScript | 5 | 0 | 2 | 7 |
 
