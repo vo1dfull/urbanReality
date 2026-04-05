@@ -7,6 +7,8 @@ import { MAP_CONFIG, STYLE_URLS, TERRAIN_SOURCE_URL, TERRAIN_SOURCE_ID, SATELLIT
 import PERFORMANCE_CONFIG from '../config/performance';
 import { throttle } from '../utils/cache';
 import { createLogger } from '../core/Logger';
+import SpaceRenderer from './SpaceRenderer';
+import SkyAtmosphereRenderer from './SkyAtmosphereRenderer';
 
 const log = createLogger('MapEngine');
 
@@ -67,6 +69,10 @@ class MapEngine {
     this._moveEndFired = false;
     this._idleFired = false;
     this._fpsTracker = { frameCount: 0, lastTime: performance.now(), fps: 0 };
+
+    // Space and sky renderers
+    this._spaceRenderer = new SpaceRenderer();
+    this._skyRenderer = new SkyAtmosphereRenderer();
   }
 
   setLayerEngine(layerEngine) {
@@ -102,7 +108,7 @@ class MapEngine {
       maxPitch: 85,
       minPitch: 0,
       pitchWithRotate: true,
-      antialias: false,
+      antialias: qualityPreset.antialias ?? true,
       fadeDuration: qualityPreset.fadeDuration ?? 0,
       maxTileCacheSize: qualityPreset.maxTileCacheSize ?? 50,
       renderWorldCopies: false,
@@ -110,13 +116,84 @@ class MapEngine {
       preserveDrawingBuffer: false,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    map.on('style.load', () => this._applySceneLighting());
-    this._map = map;
     this._currentStyle = 'default';
+    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    // Use once — only for the initial style load.
+    // Subsequent style loads are handled by _executeStyleSwitch's own handler.
+    map.once('style.load', () => {
+      this._applySceneLighting();
+      this._initializeRenderers();
+      this._updateAtmosphereMode(this._currentStyle);
+    });
+    this._map = map;
 
     log.info('Map initialized');
     return map;
+  }
+
+  /**
+   * Initialize space and sky renderers
+   */
+  _initializeRenderers() {
+    if (!this._map) return;
+
+    try {
+      const isSatelliteStyle = this._currentStyle === 'satellite';
+      const terrainStyle = this._currentStyle === 'terrain';
+
+      // Initialize sky renderer
+      this._skyRenderer.init(this._map);
+
+      // Add or update space background layer
+      if (!this._map.getLayer('space-background')) {
+        this._map.addLayer({
+          id: 'space-background',
+          type: 'background',
+          paint: {
+            'background-color': '#020617'
+          }
+        });
+      }
+      if (this._map.getLayer('space-background')) {
+        this._map.setLayoutProperty('space-background', 'visibility', isSatelliteStyle ? 'visible' : 'none');
+      }
+
+      // Add or update stars custom layer
+      if (!this._map.getLayer('stars')) {
+        this._map.addLayer({
+          id: 'stars',
+          type: 'custom',
+          renderingMode: '3d',
+          onAdd: (map, gl) => {
+            const starCount = this._quality === 'low' ? 1000 : this._quality === 'high' ? 3000 : 2000;
+            this._spaceRenderer.init(gl, starCount, map);
+          },
+          render: (gl, matrix) => {
+            this._spaceRenderer.render(gl, matrix);
+          }
+        });
+      }
+      if (this._map.getLayer('stars')) {
+        try {
+          this._map.setLayoutProperty('stars', 'visibility', isSatelliteStyle ? 'visible' : 'none');
+        } catch (err) {
+          log.warn('Unable to update stars visibility:', err);
+        }
+      }
+
+      // Fallback canvas background for terrain mode so sky never stays black.
+      if (terrainStyle) {
+        this._map.getCanvas().style.backgroundColor = '#bae2f8';
+      } else if (isSatelliteStyle) {
+        this._map.getCanvas().style.backgroundColor = '#020617';
+      } else {
+        this._map.getCanvas().style.backgroundColor = '#f1f7ff';
+      }
+
+      log.info('Renderers initialized');
+    } catch (error) {
+      log.error('Failed to initialize renderers:', error);
+    }
   }
 
   _applySceneLighting() {
@@ -130,6 +207,79 @@ class MapEngine {
       });
     } catch (err) {
       log.warn('setLight not supported on this style/runtime:', err);
+    }
+  }
+
+  /**
+   * Update atmosphere mode based on current style
+   * @param {string} styleName
+   */
+  _updateAtmosphereMode(styleName) {
+    if (!this._map) return;
+
+    const setVisibility = (layerId, visibility) => {
+      try {
+        if (this._map.getLayer(layerId)) {
+          this._map.setLayoutProperty(layerId, 'visibility', visibility);
+        }
+      } catch (err) {
+        log.warn(`Failed to set visibility for ${layerId}:`, err);
+      }
+    };
+
+    const setTerrainSkyBackground = () => {
+      try {
+        const style = this._map.getStyle();
+        if (style?.layers?.length) {
+          const backgroundLayer = style.layers.find((layer) => layer.type === 'background');
+          if (backgroundLayer) {
+            this._map.setPaintProperty(backgroundLayer.id, 'background-color', '#bae2f8');
+            return;
+          }
+        }
+        if (!this._map.getLayer('terrain-sky-fallback')) {
+          this._map.addLayer({
+            id: 'terrain-sky-fallback',
+            type: 'background',
+            paint: { 'background-color': '#bae2f8' }
+          });
+        } else {
+          this._map.setPaintProperty('terrain-sky-fallback', 'background-color', '#bae2f8');
+        }
+      } catch (err) {
+        log.warn('Failed to set terrain sky background:', err);
+      }
+    };
+
+    const resetSkyBackground = () => {
+      try {
+        this._map.getCanvas().style.backgroundColor = '';
+        if (this._map.getLayer('terrain-sky-fallback')) {
+          this._map.removeLayer('terrain-sky-fallback');
+        }
+      } catch (err) {
+        log.warn('Failed to reset sky background:', err);
+      }
+    };
+
+    if (styleName === 'satellite') {
+      setVisibility('space-background', 'visible');
+      setVisibility('stars', 'visible');
+      this._spaceRenderer.enable();
+      this._skyRenderer.enableSpaceMode();
+      resetSkyBackground();
+    } else if (styleName === 'terrain') {
+      setVisibility('space-background', 'none');
+      setVisibility('stars', 'none');
+      this._spaceRenderer.disable();
+      this._skyRenderer.enableAtmosphereMode();
+      setTerrainSkyBackground();
+    } else {
+      setVisibility('space-background', 'none');
+      setVisibility('stars', 'none');
+      this._spaceRenderer.disable();
+      this._skyRenderer.disable();
+      resetSkyBackground();
     }
   }
 
@@ -232,57 +382,77 @@ class MapEngine {
     if (!targetStyle) return;
 
     log.info(`Switching style: ${this._currentStyle} → ${styleName}`);
+    this._spaceRenderer.disable();
+    this._skyRenderer.disable();
+    // Update _currentStyle IMMEDIATELY so that:
+    // 1. Subsequent switchStyle() calls see the correct current state
+    // 2. The guard `if (_currentStyle === styleName) return` doesn't block
+    //    switching back to 'default' when a previous finalize was aborted/delayed
     this._currentStyle = styleName;
     this._map.setStyle(targetStyle);
 
+    let finished = false;
+    const finalize = (reason) => {
+      if (finished || abortSignal?.aborted) return;
+      finished = true;
+      if (!this._map || this._destroyed) return;
+
+      if (this._map.off) {
+        this._map.off('error', handleStyleError);
+      }
+
+      this._currentStyle = styleName;
+
+      if (styleName === 'terrain' || styleName === 'satellite') {
+        this.addTerrain();
+      } else {
+        this.removeTerrain();
+      }
+      this._ensureSatelliteRasterLayer();
+      this._initializeRenderers();
+      this._applySceneLighting();
+      this._updateAtmosphereMode(styleName);
+      if (reason !== 'styleError' && onRecovery) onRecovery(this._map, styleName);
+      if (this._layerEngine?.syncAllToggles) {
+        try {
+          const layers = this._layerEngine.getCurrentLayerState?.();
+          if (layers) this._layerEngine.syncAllToggles(this._map, layers);
+        } catch (err) {
+          log.warn('LayerEngine sync after style switch failed:', err);
+        }
+      }
+      log.info(`Style switch complete (${reason}): ${styleName}`);
+    };
+
+    const handleStyleError = (error) => {
+      if (!this._map || this._destroyed || abortSignal?.aborted) return;
+      log.warn('Map style load error during switch:', error);
+      finalize('styleError');
+    };
+
+    const checkReady = () => {
+      if (!this._map || this._destroyed || abortSignal?.aborted) return;
+      if (this._map.isStyleLoaded()) {
+        requestAnimationFrame(() => finalize('styleLoaded'));
+      } else if (pollCount < STYLE_LOAD_MAX_POLLS) {
+        pollCount++;
+        setTimeout(checkReady, STYLE_LOAD_POLL_MS);
+      } else {
+        log.warn('Style load polling exceeded max attempts, forcing finalize');
+        requestAnimationFrame(() => finalize('maxPolls'));
+      }
+    };
+
+    let pollCount = 0;
+    const handleIdle = () => {
+      if (!this._map || this._destroyed || abortSignal?.aborted) return;
+      requestAnimationFrame(() => finalize('idle'));
+    };
+
+    this._map.once('error', handleStyleError);
     this._map.once('style.load', () => {
       if (!this._map || this._destroyed || abortSignal?.aborted) return;
-
-      const finalize = (() => {
-        let finished = false;
-        return (reason) => {
-          if (finished || abortSignal?.aborted) return;
-          finished = true;
-          if (!this._map || this._destroyed) return;
-          if (styleName === 'terrain' || styleName === 'satellite') {
-            this.addTerrain();
-          } else {
-            this.removeTerrain();
-          }
-          this._ensureSatelliteRasterLayer();
-          this._applySceneLighting();
-          if (onRecovery) onRecovery(this._map, styleName);
-          if (this._layerEngine?.syncAllToggles) {
-            try {
-              const layers = this._layerEngine.getCurrentLayerState?.();
-              if (layers) this._layerEngine.syncAllToggles(this._map, layers);
-            } catch (err) {
-              log.warn('LayerEngine sync after style switch failed:', err);
-            }
-          }
-          log.info(`Style switch complete (${reason}): ${styleName}`);
-        };
-      })();
-
-      let pollCount = 0;
-      const checkReady = () => {
-        if (!this._map || this._destroyed || abortSignal?.aborted) return;
-        if (this._map.isStyleLoaded()) {
-          requestAnimationFrame(() => finalize('styleLoaded'));
-        } else if (pollCount < STYLE_LOAD_MAX_POLLS) {
-          pollCount++;
-          setTimeout(checkReady, STYLE_LOAD_POLL_MS);
-        } else {
-          log.warn('Style load polling exceeded max attempts, forcing finalize');
-          requestAnimationFrame(() => finalize('maxPolls'));
-        }
-      };
-
-      this._map.once('idle', () => {
-        if (!this._map || this._destroyed || abortSignal?.aborted) return;
-        requestAnimationFrame(() => finalize('idle'));
-      });
-
+      this._map.once('idle', handleIdle);
       checkReady();
     });
   }
@@ -604,6 +774,12 @@ class MapEngine {
       this._popup.remove();
       this._popup = null;
     }
+    if (this._spaceRenderer) {
+      this._spaceRenderer.cleanup();
+    }
+    if (this._skyRenderer) {
+      this._skyRenderer.disable();
+    }
     if (this._map) {
       this._map.remove();
       this._map = null;
@@ -654,6 +830,34 @@ class MapEngine {
       this._map.on(event, throttled);
     }
     return throttled;
+  }
+
+  /**
+   * Set performance mode for renderers
+   * @param {boolean} enabled
+   */
+  setPerformanceMode(enabled) {
+    this._spaceRenderer.setPerformanceMode(enabled);
+    this._skyRenderer.setPerformanceMode(enabled);
+    log.info(`Performance mode ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Update time for sky atmosphere (0-23.99)
+   * @param {number} hour
+   */
+  setTime(hour) {
+    this._skyRenderer.setTime(hour);
+  }
+
+  /**
+   * Get current atmosphere mode
+   * @returns {string} 'space' | 'sky' | 'none'
+   */
+  getAtmosphereMode() {
+    if (this._currentStyle === 'satellite') return 'space';
+    if (this._currentStyle === 'terrain') return 'sky';
+    return 'none';
   }
 }
 

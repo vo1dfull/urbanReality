@@ -1,0 +1,46 @@
+Date : 2026-04-05 21:20:09
+Directory : f:\urbanReality
+Total : 13 files,  90 codes, 139 comments, 91 blanks, all 320 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| JavaScript     |          8 |        457 |        161 |         95 |        713 |
+| JavaScript JSX |          5 |       -367 |        -22 |         -4 |       -393 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                         | files      | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                            |         13 |         90 |        139 |         91 |        320 |
+| urban-reality-os                                                             |         13 |         90 |        139 |         91 |        320 |
+| urban-reality-os (Files)                                                     |          1 |          7 |          0 |          0 |          7 |
+| urban-reality-os\src                                                         |         12 |         83 |        139 |         91 |        313 |
+| urban-reality-os\src\components                                              |          7 |       -367 |        -22 |         -4 |       -393 |
+| urban-reality-os\src\components (Files)                                      |          2 |         25 |          1 |          4 |         30 |
+| urban-reality-os\src\components\layers                                       |          5 |       -392 |        -23 |         -8 |       -423 |
+| urban-reality-os\src\engines                                                 |          4 |        445 |        161 |         95 |        701 |
+| urban-reality-os\src\hooks                                                   |          1 |          5 |          0 |          0 |          5 |
++------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                     | language       | code       | comment    | blank      | total      |
++------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\src\components\MapView.jsx                  | JavaScript JSX |         -7 |          0 |          0 |         -7 |
+| f:\urbanReality\urban-reality-os\src\components\TimeSlider.jsx               | JavaScript JSX |         32 |          1 |          4 |         37 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerBar.jsx          | JavaScript JSX |        -73 |         -7 |         -4 |        -84 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerEngineService.js | JavaScript     |         84 |         16 |         16 |        116 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerEngineUI.js      | JavaScript     |        -84 |        -16 |        -16 |       -116 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerEngineUI.jsx     | JavaScript JSX |        -22 |         -6 |         -4 |        -32 |
+| f:\urbanReality\urban-reality-os\src\components\layers\LayerPanel.jsx        | JavaScript JSX |       -297 |        -10 |          0 |       -307 |
+| f:\urbanReality\urban-reality-os\src\engines\LayerEngine.js                  | JavaScript     |        -11 |         -9 |         -2 |        -22 |
+| f:\urbanReality\urban-reality-os\src\engines\MapEngine.js                    | JavaScript     |         88 |         29 |         11 |        128 |
+| f:\urbanReality\urban-reality-os\src\engines\SkyAtmosphereRenderer.js        | JavaScript     |        184 |         82 |         41 |        307 |
+| f:\urbanReality\urban-reality-os\src\engines\SpaceRenderer.js                | JavaScript     |        184 |         59 |         45 |        288 |
+| f:\urbanReality\urban-reality-os\src\hooks\useMapEngine.js                   | JavaScript     |          5 |          0 |          0 |          5 |
+| f:\urbanReality\urban-reality-os\test-shader.js                              | JavaScript     |          7 |          0 |          0 |          7 |
+| Total                                                                        |                |         90 |        139 |         91 |        320 |
++------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

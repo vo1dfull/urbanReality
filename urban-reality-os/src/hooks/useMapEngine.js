@@ -80,6 +80,7 @@ export default function useMapEngine() {
       readyFinalized = true;
       setMapReady(true);
       setLoading(false);
+      setError(null);
     };
 
     // Create popup
@@ -227,6 +228,8 @@ export default function useMapEngine() {
       try {
         map.getCanvas().style.pointerEvents = 'auto';
       } catch (_) {}
+      clearMapErrorTimeout();
+      setError(null);
 
       mapMoveHandler = () => {
         if (centerDebounceId) clearTimeout(centerDebounceId);
@@ -262,10 +265,16 @@ export default function useMapEngine() {
       try {
         map.getCanvas().style.pointerEvents = 'auto';
       } catch (_) {}
+      clearMapErrorTimeout();
+      setError(null);
       markReady();
     });
     map.once('styledata', () => {
-      if (map.loaded()) markReady();
+      if (map.loaded()) {
+        clearMapErrorTimeout();
+        setError(null);
+        markReady();
+      }
     });
 
     // Hard timeout so the loading overlay never blocks the app indefinitely.
@@ -275,12 +284,32 @@ export default function useMapEngine() {
       markReady();
     }, MAP_READY_TIMEOUT_MS);
 
-    // Handle map load errors
+    let mapErrorTimeoutId = null;
+    const clearMapErrorTimeout = () => {
+      if (mapErrorTimeoutId) {
+        clearTimeout(mapErrorTimeoutId);
+        mapErrorTimeoutId = null;
+      }
+    };
+
+    // Handle map load errors, but allow transient errors to recover if load still succeeds.
     map.once('error', (e) => {
       if (!isMounted) return;
-      console.error('[useMapEngine] Map error:', e);
-      setError('Map failed to load. Please refresh.');
-      setLoading(false);
+      const currentMap = MapEngine.getMap();
+      if (currentMap?.loaded()) {
+        console.warn('[useMapEngine] Ignoring non-fatal map error after load:', e);
+        return;
+      }
+      mapErrorTimeoutId = setTimeout(() => {
+        const lateMap = MapEngine.getMap();
+        if (lateMap?.loaded()) {
+          console.warn('[useMapEngine] Map recovered after transient error:', e);
+          return;
+        }
+        console.error('[useMapEngine] Map error before load:', e);
+        setError('Map failed to load. Please refresh.');
+        setLoading(false);
+      }, 1400);
     });
 
     async function loadBackgroundData(mounted) {
