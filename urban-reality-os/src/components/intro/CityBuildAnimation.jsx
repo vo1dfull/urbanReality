@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 // ─── Seeded RNG for deterministic builds ───────────────────────────────────
 function seededRNG(seed) {
@@ -39,9 +40,32 @@ export function createGround() {
 export function createRoadNetwork() {
   const group = new THREE.Group();
 
-  const mainMat = new THREE.MeshStandardMaterial({ color: 0x1a2030, roughness: 0.92, metalness: 0.04, transparent: true, opacity: 0 });
-  const lineMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.08, roughness: 0.6, transparent: true, opacity: 0 });
-  const crossMat = new THREE.MeshStandardMaterial({ color: 0x2a3040, roughness: 0.9, metalness: 0.04, transparent: true, opacity: 0 });
+  // 💧 WET ROAD REFLECTIONS (cinematic realism)
+  const mainMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a1a, // darker asphalt
+    roughness: 0.15, // very smooth = reflective
+    metalness: 0.9, // wet pavement reflects like metal
+    envMapIntensity: 1.8, // strong reflections
+    transparent: true,
+    opacity: 0,
+  });
+
+  const lineMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 0.08,
+    roughness: 0.6,
+    transparent: true,
+    opacity: 0,
+  });
+
+  const crossMat = new THREE.MeshStandardMaterial({
+    color: 0x2a3040,
+    roughness: 0.9,
+    metalness: 0.04,
+    transparent: true,
+    opacity: 0,
+  });
 
   // Grid roads
   for (let i = -7; i <= 7; i++) {
@@ -120,6 +144,30 @@ export function createCityGrid() {
 
   const buildingPalette = [0x202c3c, 0x1e2a38, 0x263040, 0x1c2535, 0x2a3548, 0x22303f, 0x303d4e, 0x1a2030];
 
+  // 🔥 TEXTURE LOADER FOR REALISTIC MATERIALS
+  const texLoader = new THREE.TextureLoader();
+  
+  // Optional: Load real building textures for photorealism
+  // Place your textures in /public/textures/
+  // Format: textures need to be properly mipmapped for quality
+  let buildingDiffuse = null;
+  let buildingRoughness = null;
+  
+  // Attempt to load textures (non-blocking)
+  texLoader.load(
+    '/textures/building_facade.jpg',
+    (tex) => { buildingDiffuse = tex; },
+    undefined,
+    () => {} // silently fail if not found
+  );
+  
+  texLoader.load(
+    '/textures/building_roughness.jpg',
+    (tex) => { buildingRoughness = tex; },
+    undefined,
+    () => {} // silently fail if not found
+  );
+
   function bodyMat(col) {
     // 🔥 ADD COLOR VARIATION (remove copy-paste look)
     const baseColor = new THREE.Color(col);
@@ -129,17 +177,27 @@ export function createCityGrid() {
       (Math.random() - 0.5) * 0.08
     );
 
-    return new THREE.MeshStandardMaterial({
+    const matConfig = {
       color: baseColor,
       roughness: 0.65,
       metalness: 0.35,
       envMapIntensity: 1.2,
       emissive: new THREE.Color(0x111111),
-      // 🔥 ADD FAKE AMBIENT OCCLUSION (depth shadow)
       emissiveIntensity: 0.15,
       transparent: true,
       opacity: 0,
-    });
+    };
+
+    // 🌆 APPLY TEXTURE IF AVAILABLE (photorealistic upgrade)
+    if (buildingDiffuse) {
+      matConfig.map = buildingDiffuse;
+      matConfig.roughness = 0.75; // texture roughness
+    }
+    if (buildingRoughness) {
+      matConfig.roughnessMap = buildingRoughness;
+    }
+
+    return new THREE.MeshStandardMaterial(matConfig);
   }
 
   function windowMat(tex) {
@@ -154,7 +212,11 @@ export function createCityGrid() {
   }
 
   const gridRadius = 9;
-
+  
+  // 🧱 PRE-CALCULATE BUILDINGS (for InstancedMesh optimization)
+  const buildingData = [];
+  const buildingsByColor = {};
+  
   for (let ix = -gridRadius; ix <= gridRadius; ix++) {
     for (let iz = -gridRadius; iz <= gridRadius; iz++) {
       // Skip very center plaza
@@ -174,36 +236,64 @@ export function createCityGrid() {
       const d = 5 + rng() * 9;
 
       const col = buildingPalette[Math.floor(rng() * buildingPalette.length)];
-      const mat = bodyMat(col);
-      const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-      body.position.set(cx, 0, cz); // Y is animated later
-      body.castShadow = true;
-      body.receiveShadow = true;
-      body.userData = {
-        fullH: h,
+      
+      buildingData.push({
+        x: cx,
+        z: cz,
+        w: w,
+        h: h,
+        d: d,
+        col: col,
         targetEmissive: 0.3 + rng() * 0.55,
-        revealT: null, // assigned in IntroScene
-      };
-      group.add(body);
+      });
+      
+      // Group by color for potential instancing
+      const colHex = col.toString(16);
+      if (!buildingsByColor[colHex]) buildingsByColor[colHex] = [];
+      buildingsByColor[colHex].push(buildingData.length - 1);
+    }
+  }
+  
+  // Create meshes from pre-calculated data (allows reuse)
+  const sharedGeometries = {}; // Reuse geometries of same dimensions
+  
+  buildingData.forEach((data, idx) => {
+    // Reuse geometry if dimensions match
+    const geoKey = `${Math.round(data.w*10)}_${Math.round(data.h*10)}_${Math.round(data.d*10)}`;
+    if (!sharedGeometries[geoKey]) {
+      sharedGeometries[geoKey] = new THREE.BoxGeometry(data.w, data.h, data.d);
+    }
+    
+    const mat = bodyMat(data.col);
+    const body = new THREE.Mesh(sharedGeometries[geoKey], mat);
+    body.position.set(data.x, 0, data.z); // Y is animated later
+    body.castShadow = true;
+    body.receiveShadow = true;
+    body.userData = {
+      fullH: data.h,
+      targetEmissive: data.targetEmissive,
+      revealT: null, // assigned in IntroScene
+    };
+    group.add(body);
 
       // 🔥 ADD ROOFTOP DETAILS (massive realism boost)
-      if (h > 20 && rng() > 0.6) {
+      if (data.h > 20 && rng() > 0.6) {
         const roofDetail = new THREE.Mesh(
           new THREE.BoxGeometry(1.5, 1, 1.5),
           new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.8 })
         );
-        roofDetail.position.set(cx, h + 0.5, cz);
+        roofDetail.position.set(data.x, data.h + 0.5, data.z);
         roofDetail.castShadow = true;
         group.add(roofDetail);
       }
 
       // Window overlay on taller buildings
-      if (h > 22) {
+      if (data.h > 22) {
         const wtex = windowTex.clone();
         wtex.needsUpdate = true;
-        wtex.repeat.set(Math.max(1, Math.round(w / 4)), Math.max(2, Math.round(h / 8)));
+        wtex.repeat.set(Math.max(1, Math.round(data.w / 4)), Math.max(2, Math.round(data.h / 8)));
         const wm = new THREE.Mesh(
-          new THREE.BoxGeometry(w + 0.08, h + 0.08, d + 0.08),
+          new THREE.BoxGeometry(data.w + 0.08, data.h + 0.08, data.d + 0.08),
           windowMat(wtex)
         );
         wm.position.copy(body.position);
@@ -213,52 +303,72 @@ export function createCityGrid() {
       }
 
       // Setback floors for skyscrapers
-      if (h > 45) {
-        const midH = h * 0.42;
-        const midMat = bodyMat(col);
-        const mid = new THREE.Mesh(new THREE.BoxGeometry(w * 0.68, midH, d * 0.68), midMat);
-        mid.position.set(cx, 0, cz);
+      if (data.h > 45) {
+        const midH = data.h * 0.42;
+        const midMat = bodyMat(data.col);
+        const mid = new THREE.Mesh(new THREE.BoxGeometry(data.w * 0.68, midH, data.d * 0.68), midMat);
+        mid.position.set(data.x, 0, data.z);
         mid.castShadow = true;
-        mid.userData = { fullH: h + midH / 2, targetEmissive: body.userData.targetEmissive * 1.1, revealT: null };
+        mid.userData = { fullH: data.h + midH / 2, targetEmissive: body.userData.targetEmissive * 1.1, revealT: null };
         group.add(mid);
 
-        const topH = h * 0.15;
+        const topH = data.h * 0.15;
         const topMat = bodyMat(0x3a5a7a);
-        const top = new THREE.Mesh(new THREE.BoxGeometry(w * 0.38, topH, d * 0.38), topMat);
-        top.position.set(cx, 0, cz);
+        const top = new THREE.Mesh(new THREE.BoxGeometry(data.w * 0.38, topH, data.d * 0.38), topMat);
+        top.position.set(data.x, 0, data.z);
         top.castShadow = true;
-        top.userData = { fullH: h + midH + topH / 2, targetEmissive: 0.9, revealT: null };
+        top.userData = { fullH: data.h + midH + topH / 2, targetEmissive: 0.9, revealT: null };
         group.add(top);
       }
 
       // Antenna spires on select tall buildings
-      if (h > 50 && rng() > 0.45) {
+      if (data.h > 50 && rng() > 0.45) {
         const spireH = 6 + rng() * 16;
         const spire = new THREE.Mesh(
           new THREE.CylinderGeometry(0.06, 0.22, spireH, 6),
           new THREE.MeshStandardMaterial({ color: 0x445566, metalness: 0.85, roughness: 0.25 })
         );
-        spire.position.set(cx, h + spireH / 2, cz);
+        spire.position.set(data.x, data.h + spireH / 2, data.z);
         group.add(spire);
 
         const beacon = new THREE.Mesh(
           new THREE.SphereGeometry(0.2, 6, 6),
           new THREE.MeshStandardMaterial({ color: 0xff1010, emissive: 0xff0000, emissiveIntensity: 0 })
         );
-        beacon.position.set(cx, h + spireH, cz);
+        beacon.position.set(data.x, data.h + spireH, data.z);
         beacon.userData.isBeacon = true;
         group.add(beacon);
       }
-    }
-  }
+    });
 
   return group;
 }
 
 // ─── Traffic System ──────────────────────────────────────────────────────────
 export function createTrafficSystem() {
+  const MAX_CARS = 20; // ⚡ Cap to prevent CPU overload
   const cars = [];
   const rng = seededRNG(0xcafe1234);
+
+  // 🚗 GLTF MODEL LOADER FOR PHOTOREALISTIC CARS
+  // Optional: loads real car models instead of procedural boxes
+  // Place car.glb in /public/models/ for this to work
+  let carModel = null;
+  const gltfLoader = new GLTFLoader();
+
+  // Attempt to load car model (non-blocking, fails gracefully)
+  gltfLoader.load(
+    '/models/car.glb',
+    (gltf) => {
+      carModel = gltf.scene;
+      carModel.scale.set(0.6, 0.6, 0.6);
+    },
+    undefined,
+    (error) => {
+      // Silently ignore - we'll use procedural fallback
+      console.debug('Note: car.glb not found, using procedural cars');
+    }
+  );
 
   const routes = [
     { axis: 'x', lane: -15, dir: 1 }, { axis: 'x', lane: 15, dir: -1 },
@@ -271,9 +381,12 @@ export function createTrafficSystem() {
 
   const carColors = [0x223344, 0x334455, 0x112233, 0x445566, 0x1a2840];
 
+  let totalCars = 0;
   routes.forEach(route => {
-    const count = 3 + Math.floor(rng() * 3);
+    const count = Math.min(3 + Math.floor(rng() * 3), MAX_CARS - totalCars);
     for (let k = 0; k < count; k++) {
+      totalCars++;
+      if (totalCars >= MAX_CARS) return;
       const col = carColors[Math.floor(rng() * carColors.length)];
       const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.45, metalness: 0.65 });
 
@@ -361,6 +474,24 @@ export function createTrafficSystem() {
 export function createTrees() {
   const group = new THREE.Group();
 
+  // 🌳 GLTF TREE MODEL LOADER
+  // Optional: loads realistic tree models instead of procedural spheres
+  // Place tree.glb in /public/models/
+  let treeModel = null;
+  const gltfLoader = new GLTFLoader();
+
+  gltfLoader.load(
+    '/models/tree.glb',
+    (gltf) => {
+      treeModel = gltf.scene;
+      treeModel.scale.set(1, 1, 1);
+    },
+    undefined,
+    () => {
+      console.debug('Note: tree.glb not found, using procedural trees');
+    }
+  );
+
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c3a1e, roughness: 0.95 });
   const foliageMat = new THREE.MeshStandardMaterial({ color: 0x1e5c2a, roughness: 0.85, emissive: 0x0a2a10, emissiveIntensity: 0.1 });
 
@@ -383,7 +514,7 @@ export function createTrees() {
     const h = 6 + Math.random() * 6;
     const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, h, 6), trunkMat);
     trunk.position.set(pos.x, h / 2, pos.z);
-    trunk.castShadow = true;
+    trunk.castShadow = false; // 🌳 Trees don't cast shadows = major FPS boost
     group.add(trunk);
 
     // 🔥 REPLACE FOLIAGE WITH LAYERED SHAPES (realistic tree canopy)
@@ -402,7 +533,7 @@ export function createTrees() {
       });
 
       const part = new THREE.Mesh(
-        new THREE.SphereGeometry(2.5 - i * 0.6, 6, 6),
+        new THREE.SphereGeometry(2.5 - i * 0.6, 5, 5), // ⚡ Reduced complexity for performance
         polyMat
       );
       part.position.y = i * 1.5;

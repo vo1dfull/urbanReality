@@ -30,6 +30,7 @@ export default function IntroScene({ onComplete }) {
   const [hudPhase, setHudPhase] = useState(0);
   const [progressPct, setProgressPct] = useState(0);
   const [typingText, setTypingText] = useState('INITIALIZING...');
+  const [loading, setLoading] = useState(true);
   const textShownRef = useRef(false);
   const stoppedRef = useRef(false);
 
@@ -67,17 +68,24 @@ export default function IntroScene({ onComplete }) {
     // RENDERER SETUP
     // ════════════════════════════════════════════════════════════════════════
 
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: false,
-      powerPreference: 'high-performance',
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance',
+      });
+    } catch (err) {
+      console.error('Intro renderer initialization failed:', err);
+      onComplete?.();
+      return;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.setSize(width, height, false);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.35;
+    renderer.toneMappingExposure = 1.4; // 🎬 cinematic color grading (movie-like footage)
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -87,7 +95,8 @@ export default function IntroScene({ onComplete }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08101e);
-    scene.fog = new THREE.FogExp2(0x0d1828, 0.0025);
+    // 🌫️ DEPTH + ATMOSPHERE (optimized for GPU performance)
+    scene.fog = new THREE.Fog(0x0a0f1a, 80, 480); // cheaper on GPU than FogExp2
 
     // Physical sky
     const sky = new Sky();
@@ -112,8 +121,8 @@ export default function IntroScene({ onComplete }) {
     const sun = new THREE.DirectionalLight(0xfff4dd, 2.4);
     sun.position.set(100, 200, 80);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
+    sun.shadow.mapSize.width = 1024;
+    sun.shadow.mapSize.height = 1024;
     sun.shadow.camera.far = 500;
     sun.shadow.camera.left = -220;
     sun.shadow.camera.right = 220;
@@ -169,12 +178,21 @@ export default function IntroScene({ onComplete }) {
     let startTime = null;
     let rafId = null;
     let finishTimer = null;
+    let lastTime = 0; // 🚀 Frame throttling for stable 60fps
 
     const skyNight = new THREE.Color(0x08101e);
     const skyDeep = new THREE.Color(0x0d1828);
 
     const animate = (timestamp) => {
       if (!startTime) startTime = timestamp;
+      
+      // ⚡ FRAME THROTTLING (stabilizes FPS)
+      if (timestamp - lastTime < 16) {
+        rafId = requestAnimationFrame(animate);
+        return; // ~60fps cap
+      }
+      lastTime = timestamp;
+      
       const elapsed = (timestamp - startTime) / 1000;
       const progress = Math.min(elapsed / TOTAL_DURATION, 1);
 
@@ -189,7 +207,8 @@ export default function IntroScene({ onComplete }) {
       const currentSky = new THREE.Color().lerpColors(skyNight, skyDeep, skyT);
       scene.background.copy(currentSky);
       scene.fog.color.copy(currentSky);
-      scene.fog.density = Math.max(0.0015, 0.0025 - progress * 0.001);
+      scene.fog.near = 70 + progress * 10;
+      scene.fog.far = Math.max(320, 480 - progress * 120);
 
       // Night lighting boost
       if (elapsed > 5) {
@@ -265,13 +284,16 @@ export default function IntroScene({ onComplete }) {
       // ────────────────────────────────────────────────────────────────────
 
       const trafficT = timeline.traffic(elapsed);
-      world.cars.forEach(car => {
-        const d = car.userData;
-        d.prog = (d.prog + d.speed * 0.004 * trafficT) % 1;
-        const p = (d.prog * 280 - 140) * d.dir;
-        if (d.axis === 'x') car.position.x = p;
-        else car.position.z = p;
-      });
+      let frameCounter = Math.floor(elapsed * 60); // ⚡ Throttle updates every 2 frames
+      if (frameCounter % 2 === 0) {
+        world.cars.forEach(car => {
+          const d = car.userData;
+          d.prog = (d.prog + d.speed * 0.004 * trafficT) % 1;
+          const p = (d.prog * 280 - 140) * d.dir;
+          if (d.axis === 'x') car.position.x = p;
+          else car.position.z = p;
+        });
+      }
 
       // ────────────────────────────────────────────────────────────────────
       // CAMERA UPDATE (Director)
@@ -302,6 +324,7 @@ export default function IntroScene({ onComplete }) {
       composer.render();
 
       // Continue or finish
+      setLoading(false); // ✅ Hide loading state once animation starts
       if (progress < 1) {
         rafId = requestAnimationFrame(animate);
       } else {
@@ -359,37 +382,38 @@ export default function IntroScene({ onComplete }) {
         typingText={typingText}
       />
       
-      {/* 🔥 SKIP BUTTON (clean + working) */}
+      {/* 🔥 SKIP BUTTON (production version) */}
       <button
         onClick={handleSkip}
         style={{
-          position: 'fixed',
+          position: 'absolute',
           bottom: 20,
           right: 20,
-          zIndex: 1000000,
-          background: 'rgba(0, 0, 0, 0.4)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          color: '#dce6f0',
-          padding: '6px 12px',
-          fontSize: '10px',
+          zIndex: 999999,
+          background: 'rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(6px)',
+          border: '1px solid rgba(255,255,255,0.15)',
+          color: '#fff',
+          padding: '8px 14px',
+          fontSize: '11px',
           letterSpacing: '2px',
+          borderRadius: '4px',
           cursor: 'pointer',
           fontWeight: 600,
           textTransform: 'uppercase',
-          backdropFilter: 'blur(8px)',
           transition: 'all 0.2s ease',
           pointerEvents: 'auto',
         }}
         onMouseEnter={(e) => {
-          e.target.style.background = 'rgba(100, 150, 255, 0.2)';
-          e.target.style.borderColor = 'rgba(200, 220, 255, 0.4)';
+          e.target.style.background = 'rgba(255,255,255,0.1)';
+          e.target.style.borderColor = 'rgba(255,255,255,0.3)';
         }}
         onMouseLeave={(e) => {
-          e.target.style.background = 'rgba(0, 0, 0, 0.4)';
-          e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          e.target.style.background = 'rgba(0,0,0,0.35)';
+          e.target.style.borderColor = 'rgba(255,255,255,0.15)';
         }}
       >
-        SKIP →
+        SKIP
       </button>
     </div>
   );

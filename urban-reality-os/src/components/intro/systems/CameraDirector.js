@@ -8,6 +8,7 @@ export class CameraDirector {
   constructor(camera) {
     this.camera = camera;
     this.startAngle = Math.atan2(150, 150); // SW quadrant
+    this.previousTarget = new THREE.Vector3(200, 120, 200);
   }
 
   update(elapsed) {
@@ -33,8 +34,11 @@ export class CameraDirector {
       targetPos = new THREE.Vector3(50, 35, 50);
     }
 
+    // ⚡ EASING (removes jitter, smooths transitions)
+    this.previousTarget.lerp(targetPos, 0.1);
+
     // Smooth camera movement
-    this.camera.position.lerp(targetPos, 0.035);
+    this.camera.position.lerp(this.previousTarget, 0.035);
 
     // Subtle handheld camera shake for realism
     this.camera.position.x += Math.sin(elapsed * 0.5) * 0.12;

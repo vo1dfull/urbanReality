@@ -1,0 +1,10 @@
+"filename", "language", "PostCSS", "JavaScript JSX", "JavaScript", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\src\components\intro\CityBuildAnimation.jsx", "JavaScript JSX", 0, 352, 0, 43, 64, 459
+"f:\urbanReality\urban-reality-os\src\components\intro\IntroScene.jsx", "JavaScript JSX", 0, 23, 0, 57, 19, 99
+"f:\urbanReality\urban-reality-os\src\components\intro\LogoAnimation.jsx", "JavaScript JSX", 0, 16, 0, 0, 1, 17
+"f:\urbanReality\urban-reality-os\src\components\intro\systems\CameraDirector.js", "JavaScript", 0, 0, 29, 10, 8, 47
+"f:\urbanReality\urban-reality-os\src\components\intro\systems\RenderPipeline.js", "JavaScript", 0, 0, 53, 24, 17, 94
+"f:\urbanReality\urban-reality-os\src\components\intro\systems\Timeline.js", "JavaScript", 0, 0, 31, 14, 8, 53
+"f:\urbanReality\urban-reality-os\src\components\intro\systems\WorldBuilder.js", "JavaScript", 0, 0, 70, 18, 15, 103
+"f:\urbanReality\urban-reality-os\src\index.css", "PostCSS", 41, 0, 0, 0, 6, 47
+"Total", "-", 41, 391, 183, 166, 138, 919

@@ -173,13 +173,10 @@ class MapEngine {
           }
         });
       }
-      if (this._map.getLayer('stars')) {
-        try {
-          this._map.setLayoutProperty('stars', 'visibility', isSatelliteStyle ? 'visible' : 'none');
-        } catch (err) {
-          log.warn('Unable to update stars visibility:', err);
-        }
-      }
+      // Custom layers do not reliably support setLayoutProperty('visibility').
+      // Control visibility through renderer enable/disable instead.
+      if (isSatelliteStyle) this._spaceRenderer.enable();
+      else this._spaceRenderer.disable();
 
       // Fallback canvas background for terrain mode so sky never stays black.
       if (terrainStyle) {
