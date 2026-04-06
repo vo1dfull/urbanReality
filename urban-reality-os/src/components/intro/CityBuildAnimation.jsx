@@ -3,13 +3,9 @@ import * as THREE from 'three';
 export function createCityGrid() {
   const group = new THREE.Group();
   const baseGeometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x78b7ff,
-    emissive: 0x1f4d9c,
-    emissiveIntensity: 0.25,
-    metalness: 0.2,
-    roughness: 0.35,
-  });
+  
+  // Varied emissive colors for buildings
+  const colors = [0x6bf2ff, 0x63a8ff, 0xd874ff];
 
   const layout = [
     [1, 0, 1, 0, 1],
@@ -22,12 +18,24 @@ export function createCityGrid() {
   layout.forEach((row, rowIndex) => {
     row.forEach((cell, colIndex) => {
       if (!cell) return;
+      
+      // Enhanced material with emissive windows
+      const emissiveColor = colors[Math.floor(Math.random() * colors.length)];
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x0a1a2f,
+        emissive: emissiveColor,
+        emissiveIntensity: 0.3 + Math.random() * 0.5,
+        metalness: 0.6,
+        roughness: 0.2,
+      });
+      
       const building = new THREE.Mesh(baseGeometry, material);
       const height = 1.8 + Math.random() * 4.5;
       building.scale.set(0.9, 0.02, 0.9);
       building.position.set((colIndex - 2) * 3.4, 0.01, (rowIndex - 2) * 3.4);
       building.userData = { targetScaleY: height, delay: 1.3 + Math.random() * 0.5 };
-      building.castShadow = false;
+      building.castShadow = true;
+      building.receiveShadow = true;
       group.add(building);
     });
   });

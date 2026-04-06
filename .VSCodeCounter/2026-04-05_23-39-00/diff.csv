@@ -1,0 +1,8 @@
+"filename", "language", "JSON", "JavaScript JSX", "PostCSS", "comment", "blank", "total"
+"f:\urbanReality\urban-reality-os\package-lock.json", "JSON", 64, 0, 0, 0, 0, 64
+"f:\urbanReality\urban-reality-os\package.json", "JSON", 2, 0, 0, 0, 0, 2
+"f:\urbanReality\urban-reality-os\src\components\intro\CityBuildAnimation.jsx", "JavaScript JSX", 0, 3, 0, 2, 3, 8
+"f:\urbanReality\urban-reality-os\src\components\intro\IntroScene.jsx", "JavaScript JSX", 0, 46, 0, 7, 10, 63
+"f:\urbanReality\urban-reality-os\src\components\intro\LogoAnimation.jsx", "JavaScript JSX", 0, 4, 0, 0, 0, 4
+"f:\urbanReality\urban-reality-os\src\index.css", "PostCSS", 0, 0, 12, 0, 0, 12
+"Total", "-", 66, 53, 12, 9, 13, 153

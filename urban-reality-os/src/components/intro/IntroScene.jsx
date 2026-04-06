@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import * as THREE from 'three';
+import { EffectComposer, RenderPass, BloomEffect, EffectPass } from 'postprocessing';
+import { GLTFLoader } from 'three-stdlib';
 import { createCityGrid, createRoadLines, createParticleField } from './CityBuildAnimation';
 import IntroOverlay from './IntroOverlay';
 
-const TOTAL_DURATION = 4.0;
+const TOTAL_DURATION = 8.5;
 
 function isLowEndDevice() {
   if (typeof navigator === 'undefined') return false;
@@ -50,13 +51,30 @@ export default function IntroScene({ onComplete }) {
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x070f1a);
+    scene.fog = new THREE.FogExp2(0x070f1a, 0.04);
 
     const camera = new THREE.PerspectiveCamera(26, width / height, 0.1, 250);
     camera.position.set(0, 10, 28);
     camera.lookAt(0, 2, 0);
 
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+
     const ambientLight = new THREE.AmbientLight(0x4a7eff, 0.22);
     scene.add(ambientLight);
+
+    // Cinematic directional light
+    const dirLight = new THREE.DirectionalLight(0x6bf2ff, 1.2);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    // Rim light for depth
+    const rimLight = new THREE.PointLight(0xd874ff, 1.5, 50);
+    rimLight.position.set(-10, 6, -10);
+    scene.add(rimLight);
 
     const coreLight = new THREE.PointLight(0x60e2ff, 0.45, 80, 2);
     coreLight.position.set(0, 4.8, 0);
@@ -133,6 +151,19 @@ export default function IntroScene({ onComplete }) {
     resize();
     window.addEventListener('resize', resize);
 
+    // Post-processing setup
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const bloomEffect = new BloomEffect({
+      intensity: 2.2,
+      luminanceThreshold: 0.2,
+      luminanceSmoothing: 0.6,
+    });
+
+    const bloomPass = new EffectPass(camera, bloomEffect);
+    composer.addPass(bloomPass);
+
     const animate = (time) => {
       if (!startTime) {
         startTime = time;
@@ -141,60 +172,71 @@ export default function IntroScene({ onComplete }) {
       const elapsed = (time - startTime) / 1000;
       const progress = Math.min(elapsed / TOTAL_DURATION, 1);
 
-      // Phase 1: black void + ambient glow
-      if (elapsed < 0.5) {
-        ambientLight.intensity = 0.08 + elapsed * 0.24;
-        coreLight.intensity = 0;
-        coreSphere.scale.setScalar(0.35 + elapsed * 0.5);
-        plane.material.color.lerp(new THREE.Color(0x070f1a), 0.4);
+      // Phase 1: BLACK VOID + AUDIO BOOT (0-1.2s)
+      if (elapsed < 1.2) {
+        scene.background = new THREE.Color(0x000000);
+        coreSphere.scale.setScalar(0.05 + elapsed * 0.2);
+        coreLight.intensity = elapsed * 0.3;
+        camera.position.set(0, 2, 40 - elapsed * 10);
       }
 
-      // Phase 2: energy formation
-      if (elapsed >= 0.5 && elapsed < 1.2) {
-        const stage = (elapsed - 0.5) / 0.7;
-        coreLight.intensity = THREE.MathUtils.lerp(0, 1.8, stage);
-        ringLight.intensity = THREE.MathUtils.lerp(0, 0.45, stage);
-        coreSphere.scale.setScalar(0.85 + stage * 0.5);
-        const glow = Math.sin(stage * Math.PI) * 0.18;
-        coreHalo.material.opacity = 0.12 + glow;
+      // Phase 2: ENERGY CORE IGNITION (1.2-2.0s)
+      if (elapsed >= 1.2 && elapsed < 2.0) {
+        const stage = (elapsed - 1.2) / 0.8;
+        coreLight.intensity = THREE.MathUtils.lerp(0.36, 2.5, stage);
+        ringLight.intensity = THREE.MathUtils.lerp(0, 0.8, stage);
+        coreSphere.scale.setScalar(0.29 + stage * 0.8);
+        coreSphere.material.emissiveIntensity = 3 + Math.sin(elapsed * 8) * 1.2;
+        coreSphere.scale.setScalar(1.2 + Math.sin(elapsed * 6) * 0.15);
+        coreHalo.scale.setScalar(1.5 + Math.sin(elapsed * 3) * 0.3);
+        coreSphere.rotation.y += 0.02;
       }
 
-      // Phase 3: city generation
-      if (elapsed >= 1.2 && elapsed < 2.5) {
-        const stage = Math.min((elapsed - 1.2) / 1.3, 1);
-        city.children.forEach((building) => {
-          const target = building.userData.targetScaleY;
-          const buildProgress = Math.max(0, (stage - building.userData.delay / TOTAL_DURATION) * 1.8);
-          building.scale.y = THREE.MathUtils.lerp(0.02, target, Math.min(buildProgress, 1));
+      // Phase 3: CITY MATERIALIZATION (2.0-3.5s)
+      if (elapsed >= 2.0 && elapsed < 3.5) {
+        const stage = Math.min((elapsed - 2.0) / 1.5, 1);
+        city.children.forEach((building, i) => {
+          const delay = i * 0.04;
+          const t = Math.max(0, (elapsed - 2.0 - delay) * 1.2);
+          const height = building.userData.targetScaleY;
+          building.scale.y = Math.min(height, t * height);
           building.position.y = building.scale.y * 0.5;
+          if (t > 0.6) {
+            building.material.emissiveIntensity = 0.5 + Math.sin(i + elapsed * 5) * 0.2;
+          }
         });
 
-        lineDrawDurations.forEach((entry, index) => {
-          const drawStage = Math.min(Math.max((elapsed - 1.35 - index * 0.12) / 0.7, 0), 1);
-          entry.line.geometry.setDrawRange(0, Math.round(entry.pathLength * drawStage));
+        roads.children.forEach((line, i) => {
+          const t = Math.max(0, (elapsed - 2.5 - i * 0.15));
+          line.geometry.setDrawRange(0, Math.floor(t * 80));
+          line.material.opacity = 0.5 + Math.sin(elapsed * 5 + i) * 0.5;
         });
       }
 
-      // Phase 4: AI activation
-      if (elapsed >= 2.5) {
-        const stage = Math.min((elapsed - 2.5) / 0.7, 1);
-        coreLight.intensity = 1.8 + stage * 1.2;
-        ringLight.intensity = 0.45 + stage * 0.45;
+      // Phase 4: AI SYSTEM LINK (3.5-5.0s)
+      if (elapsed >= 3.5 && elapsed < 5.0) {
+        const stage = Math.min((elapsed - 3.5) / 1.5, 1);
+        coreLight.intensity = 2.5 + stage * 1.5;
+        ringLight.intensity = 0.8 + stage * 0.7;
         city.children.forEach((building, index) => {
-          building.material.emissiveIntensity = 0.16 + Math.sin(elapsed * 4 + index) * 0.04;
+          building.material.emissiveIntensity = 0.7 + Math.sin(elapsed * 6 + index) * 0.3;
         });
-        particles.rotation.y += 0.0012;
+        particles.rotation.y += 0.004;
+        particles.rotation.x += 0.001;
+        particles.material.size = 0.2 + Math.sin(elapsed * 3) * 0.08;
         if (!textVisibleRef.current) {
           textVisibleRef.current = true;
           setShowText(true);
         }
       }
 
-      if (elapsed >= 3.2) {
-        const stage = Math.min((elapsed - 3.2) / 0.8, 1);
-        camera.position.set(0, 7 + stage * 4.2, 22 - stage * 10.5);
-        camera.rotation.x = THREE.MathUtils.lerp(0, -0.08, stage);
-        camera.lookAt(0, 2.6, 0);
+      // Phase 5: CINEMATIC CAMERA REVEAL (5.0s+)
+      if (elapsed >= 5.0) {
+        const t = (elapsed - 5.0) * 0.4;
+        camera.position.x = Math.sin(t) * 8;
+        camera.position.z = 22 - t * 10;
+        camera.position.y = 6 + Math.sin(t * 2) * 2;
+        camera.lookAt(0, 2.5, 0);
       }
 
       const particlePositions = particles.geometry.attributes.position;
@@ -206,7 +248,8 @@ export default function IntroScene({ onComplete }) {
       }
       particlePositions.needsUpdate = true;
 
-      renderer.render(scene, camera);
+      // Render with post-processing composer
+      composer.render();
 
       if (elapsed < TOTAL_DURATION) {
         animationFrame = requestAnimationFrame(animate);
@@ -237,17 +280,19 @@ export default function IntroScene({ onComplete }) {
   }, [onComplete]);
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="intro-scene"
-        initial={{ opacity: 1 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0, scale: 1.02 }}
-        transition={{ duration: 0.4, ease: 'easeInOut' }}
-      >
-        <canvas ref={canvasRef} className="intro-scene__canvas" />
-        <IntroOverlay showText={showText} />
-      </motion.div>
-    </AnimatePresence>
+    <div
+      className="intro-scene"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        pointerEvents: 'none',
+        overflow: 'hidden',
+        backgroundColor: '#070f1a',
+      }}
+    >
+      <canvas ref={canvasRef} className="intro-scene__canvas" />
+      <IntroOverlay showText={showText} />
+    </div>
   );
 }

@@ -15,8 +15,8 @@ export default function IntroOverlay({ showText }) {
         animate={{ opacity: showText ? 1 : 0, y: showText ? 0 : 18 }}
         transition={{ duration: 0.6, ease: 'easeOut', delay: 2.5 }}
       >
-        <h1>URBAN REALITY OS</h1>
-        <p>Initializing City Intelligence...</p>
+        <h1 className="glitch-text">URBAN REALITY OS</h1>
+        <p className="typing">Initializing Neural Grid...</p>
       </motion.div>
       <div className="intro-overlay__hud intro-overlay__hud--bottom">
         <span>DATA GRID ONLINE</span>

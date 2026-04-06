@@ -22,7 +22,11 @@ export default function LogoAnimation() {
             strokeLinecap="round"
             strokeLinejoin="round"
             initial={{ pathLength: 0, opacity: 0.2 }}
-            animate={{ pathLength: 1, opacity: 1 }}
+            animate={{ 
+              pathLength: 1, 
+              opacity: 1,
+              filter: "drop-shadow(0 0 10px #6bf2ff)"
+            }}
             transition={{ delay: segment.delay + 0.8, duration: 0.45, ease: 'easeOut' }}
           />
         ))}
