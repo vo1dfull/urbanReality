@@ -234,7 +234,7 @@ body::-webkit-scrollbar {
   display: grid;
   place-items: center;
   pointer-events: none;
-  color: #e3f4ff;
+  color: #dce6f0;
   z-index: 10;
   background: repeating-linear-gradient(
     to bottom,
@@ -253,9 +253,9 @@ body::-webkit-scrollbar {
   font-size: 10px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: rgba(185, 221, 255, 0.72);
+  color: rgba(200, 220, 240, 0.68);
   padding: 10px 16px;
-  border: 1px solid rgba(109, 180, 255, 0.14);
+  border: 1px solid rgba(140, 180, 220, 0.12);
   border-radius: 999px;
   backdrop-filter: blur(14px);
   background: rgba(4, 9, 24, 0.22);
@@ -359,7 +359,7 @@ body::-webkit-scrollbar {
 
 .intro-overlay__text p {
   margin: 0;
-  color: rgba(233, 245, 255, 0.78);
+  color: rgba(220, 230, 240, 0.75);
   font-size: 0.95rem;
   letter-spacing: 0.14em;
 }

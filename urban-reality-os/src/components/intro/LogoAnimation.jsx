@@ -27,8 +27,8 @@ export default function LogoAnimation() {
             <stop offset="45%"  stopColor="#63a8ff" />
             <stop offset="100%" stopColor="#d874ff" />
           </linearGradient>
-          <filter id="logoGlow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
+          <filter id="logoGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="2.5" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />

@@ -121,12 +121,22 @@ export function createCityGrid() {
   const buildingPalette = [0x202c3c, 0x1e2a38, 0x263040, 0x1c2535, 0x2a3548, 0x22303f, 0x303d4e, 0x1a2030];
 
   function bodyMat(col) {
+    // 🔥 ADD COLOR VARIATION (remove copy-paste look)
+    const baseColor = new THREE.Color(col);
+    baseColor.offsetHSL(
+      (Math.random() - 0.5) * 0.02,
+      (Math.random() - 0.5) * 0.05,
+      (Math.random() - 0.5) * 0.08
+    );
+
     return new THREE.MeshStandardMaterial({
-      color: col,
-      roughness: 0.78,
-      metalness: 0.22,
-      emissive: new THREE.Color(0xff9030),
-      emissiveIntensity: 0,
+      color: baseColor,
+      roughness: 0.65,
+      metalness: 0.35,
+      envMapIntensity: 1.2,
+      emissive: new THREE.Color(0x111111),
+      // 🔥 ADD FAKE AMBIENT OCCLUSION (depth shadow)
+      emissiveIntensity: 0.15,
       transparent: true,
       opacity: 0,
     });
@@ -175,6 +185,17 @@ export function createCityGrid() {
         revealT: null, // assigned in IntroScene
       };
       group.add(body);
+
+      // 🔥 ADD ROOFTOP DETAILS (massive realism boost)
+      if (h > 20 && rng() > 0.6) {
+        const roofDetail = new THREE.Mesh(
+          new THREE.BoxGeometry(1.5, 1, 1.5),
+          new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.8 })
+        );
+        roofDetail.position.set(cx, h + 0.5, cz);
+        roofDetail.castShadow = true;
+        group.add(roofDetail);
+      }
 
       // Window overlay on taller buildings
       if (h > 22) {
@@ -264,13 +285,57 @@ export function createTrafficSystem() {
       roof.position.set(0, 0.55, -0.1);
       body.add(roof);
 
-      // Headlights
-      const hLight = new THREE.Mesh(
+      // ✨ Headlights (strong white light at front)
+      const headLight = new THREE.PointLight(0xffffff, 2.2, 12);
+      headLight.position.set(0, 0.3, 1.6);
+      body.add(headLight);
+
+      const hLightGeom = new THREE.Mesh(
         new THREE.BoxGeometry(0.3, 0.2, 0.05),
-        new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffee88, emissiveIntensity: 1.5 })
+        new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffee88, emissiveIntensity: 1.8 })
       );
-      hLight.position.set(0, -0.05, 1.52);
-      body.add(hLight);
+      hLightGeom.position.set(0, -0.05, 1.52);
+      body.add(hLightGeom);
+
+      // ✨ Taillights (red light at rear)
+      const tailLight = new THREE.PointLight(0xff0000, 1.8, 8);
+      tailLight.position.set(0, 0.3, -1.6);
+      body.add(tailLight);
+
+      const tLightGeom = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.2, 0.05),
+        new THREE.MeshStandardMaterial({ color: 0xff6666, emissive: 0xff0000, emissiveIntensity: 2.0 })
+      );
+      tLightGeom.position.set(0, -0.05, -1.52);
+      body.add(tLightGeom);
+
+      // 🔥 ADD WHEELS (huge impact)
+      function createWheel(x, z) {
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.25, 0.25, 0.2, 8),
+          new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 })
+        );
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(x, -0.3, z);
+        return wheel;
+      }
+
+      body.add(createWheel(0.6, 1));
+      body.add(createWheel(-0.6, 1));
+      body.add(createWheel(0.6, -1));
+      body.add(createWheel(-0.6, -1));
+
+      // 🔥 ADD GLASS (reflection feel)
+      const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.4, 1.5),
+        new THREE.MeshStandardMaterial({
+          color: 0x222222,
+          metalness: 0.9,
+          roughness: 0.1,
+        })
+      );
+      glass.position.set(0, 0.5, -0.1);
+      body.add(glass);
 
       const prog = rng();
       const speed = 0.35 + rng() * 0.3;
@@ -321,10 +386,32 @@ export function createTrees() {
     trunk.castShadow = true;
     group.add(trunk);
 
-    const folia = new THREE.Mesh(new THREE.SphereGeometry(3 + Math.random() * 2, 7, 7), foliageMat);
-    folia.position.set(pos.x, h + 2.5, pos.z);
-    folia.castShadow = true;
-    group.add(folia);
+    // 🔥 REPLACE FOLIAGE WITH LAYERED SHAPES (realistic tree canopy)
+    const foliaGroup = new THREE.Group();
+    
+    for (let i = 0; i < 3; i++) {
+      // 🔥 ADD COLOR VARIATION
+      const foliageColor = new THREE.Color(0x1e5c2a);
+      foliageColor.offsetHSL(0, 0, (Math.random() - 0.5) * 0.2);
+      
+      const polyMat = new THREE.MeshStandardMaterial({
+        color: foliageColor,
+        roughness: 0.85,
+        emissive: 0x0a2a10,
+        emissiveIntensity: 0.1,
+      });
+
+      const part = new THREE.Mesh(
+        new THREE.SphereGeometry(2.5 - i * 0.6, 6, 6),
+        polyMat
+      );
+      part.position.y = i * 1.5;
+      part.castShadow = true;
+      foliaGroup.add(part);
+    }
+
+    foliaGroup.position.set(pos.x, h, pos.z);
+    group.add(foliaGroup);
   });
 
   return group;

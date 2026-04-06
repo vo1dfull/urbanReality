@@ -1,23 +1,14 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import {
-  createGround,
-  createRoadNetwork,
-  createCityGrid,
-  createTrafficSystem,
-  createTrees,
-  createStarField,
-  createMoon,
-} from './CityBuildAnimation';
+import { Sky } from 'three/examples/jsm/objects/Sky';
+
+import { buildWorld } from './systems/WorldBuilder';
+import { createRenderPipeline } from './systems/RenderPipeline';
+import { CameraDirector } from './systems/CameraDirector';
+import { Timeline } from './systems/Timeline';
 import IntroOverlay from './IntroOverlay';
 
 const TOTAL_DURATION = 12.5;
-
-function isLowEndDevice() {
-  if (typeof navigator === 'undefined') return false;
-  const cores = navigator.hardwareConcurrency || 4;
-  return cores <= 2 || !window.WebGLRenderingContext;
-}
 
 function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
@@ -27,13 +18,20 @@ function easeOutQuint(t) {
   return 1 - Math.pow(1 - t, 5);
 }
 
+function isLowEndDevice() {
+  if (typeof navigator === 'undefined') return false;
+  const cores = navigator.hardwareConcurrency || 4;
+  return cores <= 2 || !window.WebGLRenderingContext;
+}
+
 export default function IntroScene({ onComplete }) {
   const canvasRef = useRef(null);
   const [showText, setShowText] = useState(false);
-  const [hudPhase, setHudPhase] = useState(0); // 0=hidden 1=hud 2=logo 3=title
+  const [hudPhase, setHudPhase] = useState(0);
   const [progressPct, setProgressPct] = useState(0);
   const [typingText, setTypingText] = useState('INITIALIZING...');
   const textShownRef = useRef(false);
+  const stoppedRef = useRef(false);
 
   const TYPING_SEQUENCE = [
     'INITIALIZING...',
@@ -44,11 +42,17 @@ export default function IntroScene({ onComplete }) {
     'SIMULATION ONLINE',
   ];
 
+  // 🔥 SKIP BUTTON HANDLER
+  const handleSkip = () => {
+    stoppedRef.current = true;
+    onComplete?.();
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Low-end fallback
+    // Low-end device fallback
     if (isLowEndDevice()) {
       const t1 = setTimeout(() => setHudPhase(3), 600);
       const t2 = setTimeout(() => setShowText(true), 1400);
@@ -59,7 +63,10 @@ export default function IntroScene({ onComplete }) {
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
 
-    // ── Renderer ────────────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    // RENDERER SETUP
+    // ════════════════════════════════════════════════════════════════════════
+
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -70,22 +77,38 @@ export default function IntroScene({ onComplete }) {
     renderer.setSize(width, height, false);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.35;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // ── Scene ───────────────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    // SCENE SETUP
+    // ════════════════════════════════════════════════════════════════════════
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x08101e);
-    scene.fog = new THREE.FogExp2(0x0d1828, 0.008);
+    scene.fog = new THREE.FogExp2(0x0d1828, 0.0025);
 
-    // ── Camera ──────────────────────────────────────────────────────────────
+    // Physical sky
+    const sky = new Sky();
+    sky.scale.setScalar(450000);
+    scene.add(sky);
+    const sunPosition = new THREE.Vector3(100, 200, 100);
+    sky.material.uniforms['sunPosition'].value.copy(sunPosition);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // CAMERA SETUP
+    // ════════════════════════════════════════════════════════════════════════
+
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.5, 700);
     camera.position.set(150, 95, 150);
     camera.lookAt(0, 14, 0);
 
-    // ── Lights ──────────────────────────────────────────────────────────────
-    // Sun (far off, directional for hard shadows)
+    // ════════════════════════════════════════════════════════════════════════
+    // LIGHTING SETUP
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Sun (main directional light with shadows)
     const sun = new THREE.DirectionalLight(0xfff4dd, 2.4);
     sun.position.set(100, 200, 80);
     sun.castShadow = true;
@@ -99,177 +122,167 @@ export default function IntroScene({ onComplete }) {
     sun.shadow.bias = -0.0002;
     scene.add(sun);
 
-    // Hemisphere (sky/ground ambient)
+    // Hemisphere light (ambient)
     const hemi = new THREE.HemisphereLight(0x3a6fa8, 0x1a2a18, 1.0);
     scene.add(hemi);
 
-    // City ambient fill (from below — street glow)
+    // Street glow (warm city light from below)
     const streetGlow = new THREE.PointLight(0xff7733, 0.4, 400);
     streetGlow.position.set(0, 5, 0);
     scene.add(streetGlow);
 
-    // ── World Objects ────────────────────────────────────────────────────────
-    const ground = createGround();
-    scene.add(ground);
+    // ════════════════════════════════════════════════════════════════════════
+    // SYSTEM INITIALIZATION
+    // ════════════════════════════════════════════════════════════════════════
 
-    const roads = createRoadNetwork();
-    scene.add(roads);
+    // World system
+    const world = buildWorld(scene);
 
-    const city = createCityGrid();
-    scene.add(city);
+    // Graphics pipeline
+    const composer = createRenderPipeline(renderer, scene, camera);
 
-    const trees = createTrees();
-    scene.add(trees);
+    // Camera director
+    const director = new CameraDirector(camera);
 
-    const cars = createTrafficSystem();
-    cars.forEach(car => scene.add(car));
+    // Animation timeline
+    const timeline = new Timeline();
 
-    const stars = createStarField();
-    scene.add(stars);
+    // ════════════════════════════════════════════════════════════════════════
+    // RESIZE HANDLING
+    // ════════════════════════════════════════════════════════════════════════
 
-    const moonGroup = createMoon();
-    scene.add(moonGroup);
-
-    // ── Segregate city objects by type ───────────────────────────────────────
-    const buildingMeshes = [];
-    const windowOverlays = [];
-    const beacons = [];
-    const spires = [];
-
-    city.children.forEach(obj => {
-      if (obj.userData.isBeacon) {
-        beacons.push(obj);
-      } else if (obj.userData.isWindowOverlay) {
-        windowOverlays.push(obj);
-      } else if (obj.geometry?.type === 'CylinderGeometry') {
-        spires.push(obj);
-      } else if (obj.userData.fullH !== undefined) {
-        buildingMeshes.push(obj);
-      }
-    });
-
-    // Sort buildings by distance from centre (reveal from centre outward)
-    buildingMeshes.sort((a, b) => {
-      const da = Math.sqrt(a.position.x ** 2 + a.position.z ** 2);
-      const db = Math.sqrt(b.position.x ** 2 + b.position.z ** 2);
-      return da - db + (Math.random() - 0.5) * 15;
-    });
-
-    // Assign reveal times (buildings rise in a wave, 2.5s → 7s)
-    buildingMeshes.forEach((b, i) => {
-      b.userData.revealT = 2.5 + (i / buildingMeshes.length) * 4.2 + Math.random() * 0.5;
-    });
-
-    // Window overlays keyed by position to buildings
-    // (already positioned in CityBuildAnimation, sync during animation)
-
-    // ── Resize Handler ───────────────────────────────────────────────────────
     const onResize = () => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
+      composer.setSize(w, h);
     };
+
     window.addEventListener('resize', onResize);
 
-    // ── Camera Orbit Path ────────────────────────────────────────────────────
-    const startAngle = Math.atan2(150, 150); // SW quadrant
+    // ════════════════════════════════════════════════════════════════════════
+    // ANIMATION LOOP
+    // ════════════════════════════════════════════════════════════════════════
 
-    function getCameraTarget(elapsed) {
-      const angle = startAngle + elapsed * 0.048;
-      const radius = Math.max(80, 195 - elapsed * 8.5);
-      const yHeight = Math.max(28, 98 - elapsed * 5);
-      return new THREE.Vector3(Math.cos(angle) * radius, yHeight, Math.sin(angle) * radius);
-    }
-
-    // ── Animation Loop ───────────────────────────────────────────────────────
     let startTime = null;
     let rafId = null;
     let finishTimer = null;
 
     const skyNight = new THREE.Color(0x08101e);
-    const skyDeep  = new THREE.Color(0x0d1828);
+    const skyDeep = new THREE.Color(0x0d1828);
 
     const animate = (timestamp) => {
       if (!startTime) startTime = timestamp;
       const elapsed = (timestamp - startTime) / 1000;
       const progress = Math.min(elapsed / TOTAL_DURATION, 1);
 
-      // ── Sky ───────────────────────────────────────────────────────────────
-      const skyT = Math.min(elapsed / 6, 1);
+      // 🔥 STOP ANIMATION IF SKIP PRESSED
+      if (stoppedRef.current) return;
+
+      // ────────────────────────────────────────────────────────────────────
+      // SKY & ATMOSPHERE
+      // ────────────────────────────────────────────────────────────────────
+
+      const skyT = timeline.sky(elapsed);
       const currentSky = new THREE.Color().lerpColors(skyNight, skyDeep, skyT);
       scene.background.copy(currentSky);
       scene.fog.color.copy(currentSky);
-      scene.fog.density = Math.max(0.003, 0.012 - progress * 0.008);
+      scene.fog.density = Math.max(0.0015, 0.0025 - progress * 0.001);
 
-      // Street glow increases as city lights up
-      streetGlow.intensity = Math.min((elapsed - 4) / 3, 1) * 0.6;
-
-      // ── Phase 1: Terrain reveal (0–2s) ───────────────────────────────────
-      if (elapsed < 2.5) {
-        const t = easeOutCubic(elapsed / 2.5);
-        ground.material.opacity = t;
-        roads.children.forEach(r => { r.material.opacity = t * 0.95; });
-      } else {
-        ground.material.opacity = 1;
-        roads.children.forEach(r => { r.material.opacity = 0.95; });
+      // Night lighting boost
+      if (elapsed > 5) {
+        scene.background.lerp(new THREE.Color(0x05070d), 0.015);
       }
 
-      // ── Phase 2: Buildings rise (2.5–7s) ──────────────────────────────────
-      buildingMeshes.forEach(b => {
+      // Street glow intensity
+      streetGlow.intensity = Math.min((elapsed - 4) / 3, 1) * 0.6;
+
+      // ────────────────────────────────────────────────────────────────────
+      // TERRAIN PHASE (Ground & Roads)
+      // ────────────────────────────────────────────────────────────────────
+
+      const terrainT = timeline.terrain(elapsed);
+      world.ground.material.opacity = easeOutCubic(terrainT);
+      world.roads.children.forEach(r => {
+        r.material.opacity = easeOutCubic(terrainT) * 0.95;
+      });
+
+      // ────────────────────────────────────────────────────────────────────
+      // BUILD PHASE (Buildings Rise)
+      // ────────────────────────────────────────────────────────────────────
+
+      world.buildingMeshes.forEach(b => {
         const rt = b.userData.revealT;
         if (elapsed < rt) return;
+
         const age = elapsed - rt;
         const rise = easeOutQuint(Math.min(age / 0.6, 1));
         const fh = b.userData.fullH;
         b.position.y = (fh / 2) * rise;
         b.material.opacity = rise;
 
-        // Emissive glow lights up after 4.5s
+        // Lighting phase
         if (elapsed > 4.5 && rise > 0.6) {
-          const litT = Math.min((elapsed - 4.5) / 2.5, 1);
-          b.material.emissiveIntensity = litT * b.userData.targetEmissive * rise;
+          const lightT = Math.min((elapsed - 4.5) / 2.5, 1);
+          b.material.emissiveIntensity = lightT * b.userData.targetEmissive * rise;
         }
       });
 
-      // Sync window overlays to their buildings
-      windowOverlays.forEach(wo => {
-        // Find corresponding building by XZ proximity
-        const nearest = buildingMeshes.find(b =>
+      // ────────────────────────────────────────────────────────────────────
+      // WINDOW OVERLAY SYNC
+      // ────────────────────────────────────────────────────────────────────
+
+      world.windowOverlays.forEach(wo => {
+        const nearest = world.buildingMeshes.find(b =>
           Math.abs(b.position.x - wo.position.x) < 0.5 &&
           Math.abs(b.position.z - wo.position.z) < 0.5
         );
         if (nearest) {
           wo.position.y = nearest.position.y;
           if (elapsed > 5) {
-            const litT = Math.min((elapsed - 5) / 2, 1);
-            wo.material.opacity = litT * 0.6 * nearest.material.opacity;
-            wo.material.emissiveIntensity = litT * 1.3 * nearest.material.opacity;
+            const lightT = Math.min((elapsed - 5) / 2, 1);
+            wo.material.opacity = lightT * 0.6 * nearest.material.opacity;
+            wo.material.emissiveIntensity = lightT * 2.2 * nearest.material.opacity;
           }
         }
       });
 
-      // ── Phase 3: Beacon flicker (from 6s) ────────────────────────────────
-      beacons.forEach(beacon => {
+      // ────────────────────────────────────────────────────────────────────
+      // BEACON PHASE
+      // ────────────────────────────────────────────────────────────────────
+
+      world.beacons.forEach(beacon => {
         if (elapsed > 6) {
-          beacon.material.emissiveIntensity = Math.sin(elapsed * 2.8 + beacon.position.x * 0.05) > 0.3 ? 3 : 0.15;
+          beacon.material.emissiveIntensity = 
+            Math.sin(elapsed * 2.8 + beacon.position.x * 0.05) > 0.3 ? 3 : 0.15;
         }
       });
 
-      // ── Phase 4: Traffic (from 6.5s) ──────────────────────────────────────
-      if (elapsed > 6.5) {
-        const trafficT = Math.min((elapsed - 6.5) / 1.5, 1);
-        cars.forEach(car => {
-          const d = car.userData;
-          d.prog = (d.prog + d.speed * 0.004 * trafficT) % 1;
-          const p = (d.prog * 280 - 140) * d.dir;
-          if (d.axis === 'x') car.position.x = p;
-          else car.position.z = p;
-        });
-      }
+      // ────────────────────────────────────────────────────────────────────
+      // TRAFFIC PHASE
+      // ────────────────────────────────────────────────────────────────────
 
-      // ── HUD / UI state triggers ───────────────────────────────────────────
+      const trafficT = timeline.traffic(elapsed);
+      world.cars.forEach(car => {
+        const d = car.userData;
+        d.prog = (d.prog + d.speed * 0.004 * trafficT) % 1;
+        const p = (d.prog * 280 - 140) * d.dir;
+        if (d.axis === 'x') car.position.x = p;
+        else car.position.z = p;
+      });
+
+      // ────────────────────────────────────────────────────────────────────
+      // CAMERA UPDATE (Director)
+      // ────────────────────────────────────────────────────────────────────
+
+      director.update(elapsed);
+
+      // ────────────────────────────────────────────────────────────────────
+      // HUD/UI STATE TRIGGERS
+      // ────────────────────────────────────────────────────────────────────
+
       if (elapsed > 0.4 && hudPhase < 1) setHudPhase(1);
       if (elapsed > 1.0 && hudPhase < 2) setHudPhase(2);
       if (elapsed > 2.2 && hudPhase < 3) setHudPhase(3);
@@ -282,14 +295,13 @@ export default function IntroScene({ onComplete }) {
       setTypingText(TYPING_SEQUENCE[tIdx]);
       setProgressPct(Math.floor(Math.min(Math.max((elapsed - 2.5) / 4.5, 0), 1) * 100));
 
-      // ── Camera ────────────────────────────────────────────────────────────
-      const targetPos = getCameraTarget(elapsed);
-      camera.position.lerp(targetPos, 0.022);
-      camera.lookAt(0, 14, 0);
+      // ────────────────────────────────────────────────────────────────────
+      // RENDER WITH POST-PROCESSING
+      // ────────────────────────────────────────────────────────────────────
 
-      // ── Render ────────────────────────────────────────────────────────────
-      renderer.render(scene, camera);
+      composer.render();
 
+      // Continue or finish
       if (progress < 1) {
         rafId = requestAnimationFrame(animate);
       } else {
@@ -299,10 +311,15 @@ export default function IntroScene({ onComplete }) {
 
     rafId = requestAnimationFrame(animate);
 
+    // ════════════════════════════════════════════════════════════════════════
+    // CLEANUP
+    // ════════════════════════════════════════════════════════════════════════
+
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
       if (finishTimer) clearTimeout(finishTimer);
       window.removeEventListener('resize', onResize);
+      composer.dispose();
       renderer.dispose();
       scene.traverse(obj => {
         if (obj.geometry) obj.geometry.dispose();
@@ -316,7 +333,7 @@ export default function IntroScene({ onComplete }) {
         }
       });
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onComplete]);
 
   return (
     <div
@@ -341,6 +358,39 @@ export default function IntroScene({ onComplete }) {
         progressPct={progressPct}
         typingText={typingText}
       />
+      
+      {/* 🔥 SKIP BUTTON (clean + working) */}
+      <button
+        onClick={handleSkip}
+        style={{
+          position: 'fixed',
+          bottom: 20,
+          right: 20,
+          zIndex: 1000000,
+          background: 'rgba(0, 0, 0, 0.4)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: '#dce6f0',
+          padding: '6px 12px',
+          fontSize: '10px',
+          letterSpacing: '2px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          backdropFilter: 'blur(8px)',
+          transition: 'all 0.2s ease',
+          pointerEvents: 'auto',
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.background = 'rgba(100, 150, 255, 0.2)';
+          e.target.style.borderColor = 'rgba(200, 220, 255, 0.4)';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.background = 'rgba(0, 0, 0, 0.4)';
+          e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        }}
+      >
+        SKIP →
+      </button>
     </div>
   );
 }
