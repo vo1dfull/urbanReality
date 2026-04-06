@@ -5,8 +5,8 @@ export default function IntroOverlay({ showText }) {
   return (
     <div className="intro-overlay">
       <div className="intro-overlay__hud intro-overlay__hud--top">
-        <span>BOOT SEQUENCE</span>
-        <span>AI CORE ONLINE</span>
+        <span>SITE SURVEY</span>
+        <span>INFRASTRUCTURE PLAN</span>
       </div>
       <LogoAnimation />
       <motion.div
@@ -15,12 +15,12 @@ export default function IntroOverlay({ showText }) {
         animate={{ opacity: showText ? 1 : 0, y: showText ? 0 : 18 }}
         transition={{ duration: 0.6, ease: 'easeOut', delay: 2.5 }}
       >
-        <h1 className="glitch-text">URBAN REALITY OS</h1>
-        <p className="typing">Initializing Neural Grid...</p>
+        <h1 className="title">URBAN REALITY</h1>
+        <p className="typing">Simulating City Growth...</p>
       </motion.div>
       <div className="intro-overlay__hud intro-overlay__hud--bottom">
-        <span>DATA GRID ONLINE</span>
-        <span>CORE TEMPERATURE STABLE</span>
+        <span>CONSTRUCTION ONLINE</span>
+        <span>ALL SYSTEMS ACTIVE</span>
       </div>
     </div>
   );

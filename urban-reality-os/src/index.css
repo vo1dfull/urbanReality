@@ -319,6 +319,17 @@ body::-webkit-scrollbar {
   animation: glitch 1.5s infinite;
 }
 
+.title {
+  font-weight: 700;
+  letter-spacing: 8px;
+  color: #ffffff;
+  text-shadow:
+    0 0 20px rgba(207, 231, 255, 0.4),
+    0 0 40px rgba(207, 231, 255, 0.2);
+  opacity: 0.95;
+  margin: 0;
+}
+
 @keyframes glitch {
   0% { transform: translate(0); }
   20% { transform: translate(-2px, 1px); }

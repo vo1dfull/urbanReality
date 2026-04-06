@@ -1,283 +1,322 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { EffectComposer, RenderPass, BloomEffect, EffectPass } from 'postprocessing';
-import { GLTFLoader } from 'three-stdlib';
-import { createCityGrid, createRoadLines, createParticleField } from './CityBuildAnimation';
+import {
+  createGround,
+  createRoadNetwork,
+  createCityGrid,
+  createTrafficSystem,
+  createTrees,
+  createStarField,
+  createMoon,
+} from './CityBuildAnimation';
 import IntroOverlay from './IntroOverlay';
 
-const TOTAL_DURATION = 8.5;
+const TOTAL_DURATION = 12.5;
 
 function isLowEndDevice() {
   if (typeof navigator === 'undefined') return false;
   const cores = navigator.hardwareConcurrency || 4;
-  return cores <= 2 || window.devicePixelRatio > 2.25 || !window.WebGLRenderingContext;
+  return cores <= 2 || !window.WebGLRenderingContext;
+}
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function easeOutQuint(t) {
+  return 1 - Math.pow(1 - t, 5);
 }
 
 export default function IntroScene({ onComplete }) {
   const canvasRef = useRef(null);
-  const textVisibleRef = useRef(false);
   const [showText, setShowText] = useState(false);
+  const [hudPhase, setHudPhase] = useState(0); // 0=hidden 1=hud 2=logo 3=title
+  const [progressPct, setProgressPct] = useState(0);
+  const [typingText, setTypingText] = useState('INITIALIZING...');
+  const textShownRef = useRef(false);
 
-  console.log('[IntroScene] Mounted', { canvasRef: !!canvasRef.current });
+  const TYPING_SEQUENCE = [
+    'INITIALIZING...',
+    'LOADING TERRAIN...',
+    'CONSTRUCTING GRID...',
+    'POPULATING DISTRICT...',
+    'ACTIVATING SYSTEMS...',
+    'SIMULATION ONLINE',
+  ];
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    console.log('[IntroScene] useEffect running', { canvas: !!canvas, width: canvas?.clientWidth, height: canvas?.clientHeight });
     if (!canvas) return;
 
-    const lowEnd = isLowEndDevice();
-    if (lowEnd) {
-      const fallbackTimer = window.setTimeout(() => onComplete?.(), 2800);
-      const textTimer = window.setTimeout(() => setShowText(true), 1400);
-      return () => {
-        window.clearTimeout(fallbackTimer);
-        window.clearTimeout(textTimer);
-      };
+    // Low-end fallback
+    if (isLowEndDevice()) {
+      const t1 = setTimeout(() => setHudPhase(3), 600);
+      const t2 = setTimeout(() => setShowText(true), 1400);
+      const t3 = setTimeout(() => onComplete?.(), 3000);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
 
-    // Ensure canvas has dimensions (use window dimensions as fallback)
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
 
-    console.log('[IntroScene] Renderer params', { width, height, devicePixelRatio: window.devicePixelRatio });
-
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
-    console.log('[IntroScene] WebGL Renderer created', { renderer: !!renderer });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // ── Renderer ────────────────────────────────────────────────────────────
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height, false);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.setClearColor(0x070f1a, 1);
-    console.log('[IntroScene] Renderer configured');
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x070f1a);
-    scene.fog = new THREE.FogExp2(0x070f1a, 0.04);
-
-    const camera = new THREE.PerspectiveCamera(26, width / height, 0.1, 250);
-    camera.position.set(0, 10, 28);
-    camera.lookAt(0, 2, 0);
-
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    const ambientLight = new THREE.AmbientLight(0x4a7eff, 0.22);
-    scene.add(ambientLight);
+    // ── Scene ───────────────────────────────────────────────────────────────
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x08101e);
+    scene.fog = new THREE.FogExp2(0x0d1828, 0.008);
 
-    // Cinematic directional light
-    const dirLight = new THREE.DirectionalLight(0x6bf2ff, 1.2);
-    dirLight.position.set(10, 20, 10);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    scene.add(dirLight);
+    // ── Camera ──────────────────────────────────────────────────────────────
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.5, 700);
+    camera.position.set(150, 95, 150);
+    camera.lookAt(0, 14, 0);
 
-    // Rim light for depth
-    const rimLight = new THREE.PointLight(0xd874ff, 1.5, 50);
-    rimLight.position.set(-10, 6, -10);
-    scene.add(rimLight);
+    // ── Lights ──────────────────────────────────────────────────────────────
+    // Sun (far off, directional for hard shadows)
+    const sun = new THREE.DirectionalLight(0xfff4dd, 2.4);
+    sun.position.set(100, 200, 80);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.far = 500;
+    sun.shadow.camera.left = -220;
+    sun.shadow.camera.right = 220;
+    sun.shadow.camera.top = 220;
+    sun.shadow.camera.bottom = -220;
+    sun.shadow.bias = -0.0002;
+    scene.add(sun);
 
-    const coreLight = new THREE.PointLight(0x60e2ff, 0.45, 80, 2);
-    coreLight.position.set(0, 4.8, 0);
-    scene.add(coreLight);
+    // Hemisphere (sky/ground ambient)
+    const hemi = new THREE.HemisphereLight(0x3a6fa8, 0x1a2a18, 1.0);
+    scene.add(hemi);
 
-    const ringLight = new THREE.PointLight(0x9d66ff, 0.15, 50, 2);
-    ringLight.position.set(0, 6.5, 0);
-    scene.add(ringLight);
+    // City ambient fill (from below — street glow)
+    const streetGlow = new THREE.PointLight(0xff7733, 0.4, 400);
+    streetGlow.position.set(0, 5, 0);
+    scene.add(streetGlow);
 
-    const plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(62, 62, 1, 1),
-      new THREE.MeshStandardMaterial({ color: 0x050819, roughness: 0.98, metalness: 0.02 })
-    );
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.y = -0.04;
-    scene.add(plane);
+    // ── World Objects ────────────────────────────────────────────────────────
+    const ground = createGround();
+    scene.add(ground);
 
-    const grid = new THREE.GridHelper(58, 14, 0x1a4063, 0x0b1732);
-    grid.material.transparent = true;
-    grid.material.opacity = 0.14;
-    scene.add(grid);
+    const roads = createRoadNetwork();
+    scene.add(roads);
 
     const city = createCityGrid();
     scene.add(city);
 
-    const roads = createRoadLines();
-    scene.add(roads);
+    const trees = createTrees();
+    scene.add(trees);
 
-    const particles = createParticleField();
-    scene.add(particles);
+    const cars = createTrafficSystem();
+    cars.forEach(car => scene.add(car));
 
-    const coreSphere = new THREE.Mesh(
-      new THREE.SphereGeometry(1.3, 24, 18),
-      new THREE.MeshStandardMaterial({
-        color: 0x7ff8ff,
-        emissive: 0x4fc9ff,
-        emissiveIntensity: 0.8,
-        transparent: true,
-        opacity: 0.95,
-        roughness: 0.1,
-        metalness: 0.25,
-      })
-    );
-    coreSphere.position.set(0, 2.2, 0);
-    scene.add(coreSphere);
+    const stars = createStarField();
+    scene.add(stars);
 
-    const coreHalo = new THREE.Mesh(
-      new THREE.SphereGeometry(2.3, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0x4de6ff, transparent: true, opacity: 0.12 })
-    );
-    coreHalo.position.copy(coreSphere.position);
-    scene.add(coreHalo);
+    const moonGroup = createMoon();
+    scene.add(moonGroup);
 
-    let startTime = null;
-    let animationFrame = null;
-    let finishTimer = null;
-    const lineDrawDurations = [];
+    // ── Segregate city objects by type ───────────────────────────────────────
+    const buildingMeshes = [];
+    const windowOverlays = [];
+    const beacons = [];
+    const spires = [];
 
-    roads.children.forEach((line) => {
-      line.geometry.setDrawRange(0, 0);
-      line.material = line.material.clone();
-      line.material.opacity = 0.9;
-      lineDrawDurations.push({ line, pathLength: line.geometry.attributes.position.count });
-    });
-
-    const resize = () => {
-      const width = canvas.clientWidth;
-      const height = canvas.clientHeight;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height, false);
-    };
-
-    resize();
-    window.addEventListener('resize', resize);
-
-    // Post-processing setup
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-
-    const bloomEffect = new BloomEffect({
-      intensity: 2.2,
-      luminanceThreshold: 0.2,
-      luminanceSmoothing: 0.6,
-    });
-
-    const bloomPass = new EffectPass(camera, bloomEffect);
-    composer.addPass(bloomPass);
-
-    const animate = (time) => {
-      if (!startTime) {
-        startTime = time;
-        console.log('[IntroScene] Animation started');
+    city.children.forEach(obj => {
+      if (obj.userData.isBeacon) {
+        beacons.push(obj);
+      } else if (obj.userData.isWindowOverlay) {
+        windowOverlays.push(obj);
+      } else if (obj.geometry?.type === 'CylinderGeometry') {
+        spires.push(obj);
+      } else if (obj.userData.fullH !== undefined) {
+        buildingMeshes.push(obj);
       }
-      const elapsed = (time - startTime) / 1000;
+    });
+
+    // Sort buildings by distance from centre (reveal from centre outward)
+    buildingMeshes.sort((a, b) => {
+      const da = Math.sqrt(a.position.x ** 2 + a.position.z ** 2);
+      const db = Math.sqrt(b.position.x ** 2 + b.position.z ** 2);
+      return da - db + (Math.random() - 0.5) * 15;
+    });
+
+    // Assign reveal times (buildings rise in a wave, 2.5s → 7s)
+    buildingMeshes.forEach((b, i) => {
+      b.userData.revealT = 2.5 + (i / buildingMeshes.length) * 4.2 + Math.random() * 0.5;
+    });
+
+    // Window overlays keyed by position to buildings
+    // (already positioned in CityBuildAnimation, sync during animation)
+
+    // ── Resize Handler ───────────────────────────────────────────────────────
+    const onResize = () => {
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h, false);
+    };
+    window.addEventListener('resize', onResize);
+
+    // ── Camera Orbit Path ────────────────────────────────────────────────────
+    const startAngle = Math.atan2(150, 150); // SW quadrant
+
+    function getCameraTarget(elapsed) {
+      const angle = startAngle + elapsed * 0.048;
+      const radius = Math.max(80, 195 - elapsed * 8.5);
+      const yHeight = Math.max(28, 98 - elapsed * 5);
+      return new THREE.Vector3(Math.cos(angle) * radius, yHeight, Math.sin(angle) * radius);
+    }
+
+    // ── Animation Loop ───────────────────────────────────────────────────────
+    let startTime = null;
+    let rafId = null;
+    let finishTimer = null;
+
+    const skyNight = new THREE.Color(0x08101e);
+    const skyDeep  = new THREE.Color(0x0d1828);
+
+    const animate = (timestamp) => {
+      if (!startTime) startTime = timestamp;
+      const elapsed = (timestamp - startTime) / 1000;
       const progress = Math.min(elapsed / TOTAL_DURATION, 1);
 
-      // Phase 1: BLACK VOID + AUDIO BOOT (0-1.2s)
-      if (elapsed < 1.2) {
-        scene.background = new THREE.Color(0x000000);
-        coreSphere.scale.setScalar(0.05 + elapsed * 0.2);
-        coreLight.intensity = elapsed * 0.3;
-        camera.position.set(0, 2, 40 - elapsed * 10);
-      }
+      // ── Sky ───────────────────────────────────────────────────────────────
+      const skyT = Math.min(elapsed / 6, 1);
+      const currentSky = new THREE.Color().lerpColors(skyNight, skyDeep, skyT);
+      scene.background.copy(currentSky);
+      scene.fog.color.copy(currentSky);
+      scene.fog.density = Math.max(0.003, 0.012 - progress * 0.008);
 
-      // Phase 2: ENERGY CORE IGNITION (1.2-2.0s)
-      if (elapsed >= 1.2 && elapsed < 2.0) {
-        const stage = (elapsed - 1.2) / 0.8;
-        coreLight.intensity = THREE.MathUtils.lerp(0.36, 2.5, stage);
-        ringLight.intensity = THREE.MathUtils.lerp(0, 0.8, stage);
-        coreSphere.scale.setScalar(0.29 + stage * 0.8);
-        coreSphere.material.emissiveIntensity = 3 + Math.sin(elapsed * 8) * 1.2;
-        coreSphere.scale.setScalar(1.2 + Math.sin(elapsed * 6) * 0.15);
-        coreHalo.scale.setScalar(1.5 + Math.sin(elapsed * 3) * 0.3);
-        coreSphere.rotation.y += 0.02;
-      }
+      // Street glow increases as city lights up
+      streetGlow.intensity = Math.min((elapsed - 4) / 3, 1) * 0.6;
 
-      // Phase 3: CITY MATERIALIZATION (2.0-3.5s)
-      if (elapsed >= 2.0 && elapsed < 3.5) {
-        const stage = Math.min((elapsed - 2.0) / 1.5, 1);
-        city.children.forEach((building, i) => {
-          const delay = i * 0.04;
-          const t = Math.max(0, (elapsed - 2.0 - delay) * 1.2);
-          const height = building.userData.targetScaleY;
-          building.scale.y = Math.min(height, t * height);
-          building.position.y = building.scale.y * 0.5;
-          if (t > 0.6) {
-            building.material.emissiveIntensity = 0.5 + Math.sin(i + elapsed * 5) * 0.2;
-          }
-        });
-
-        roads.children.forEach((line, i) => {
-          const t = Math.max(0, (elapsed - 2.5 - i * 0.15));
-          line.geometry.setDrawRange(0, Math.floor(t * 80));
-          line.material.opacity = 0.5 + Math.sin(elapsed * 5 + i) * 0.5;
-        });
-      }
-
-      // Phase 4: AI SYSTEM LINK (3.5-5.0s)
-      if (elapsed >= 3.5 && elapsed < 5.0) {
-        const stage = Math.min((elapsed - 3.5) / 1.5, 1);
-        coreLight.intensity = 2.5 + stage * 1.5;
-        ringLight.intensity = 0.8 + stage * 0.7;
-        city.children.forEach((building, index) => {
-          building.material.emissiveIntensity = 0.7 + Math.sin(elapsed * 6 + index) * 0.3;
-        });
-        particles.rotation.y += 0.004;
-        particles.rotation.x += 0.001;
-        particles.material.size = 0.2 + Math.sin(elapsed * 3) * 0.08;
-        if (!textVisibleRef.current) {
-          textVisibleRef.current = true;
-          setShowText(true);
-        }
-      }
-
-      // Phase 5: CINEMATIC CAMERA REVEAL (5.0s+)
-      if (elapsed >= 5.0) {
-        const t = (elapsed - 5.0) * 0.4;
-        camera.position.x = Math.sin(t) * 8;
-        camera.position.z = 22 - t * 10;
-        camera.position.y = 6 + Math.sin(t * 2) * 2;
-        camera.lookAt(0, 2.5, 0);
-      }
-
-      const particlePositions = particles.geometry.attributes.position;
-      for (let i = 0; i < particlePositions.count; i++) {
-        let y = particlePositions.getY(i);
-        y += Math.sin(elapsed * 1.3 + i) * 0.0008;
-        if (y > 13) y = 0.8;
-        particlePositions.setY(i, y);
-      }
-      particlePositions.needsUpdate = true;
-
-      // Render with post-processing composer
-      composer.render();
-
-      if (elapsed < TOTAL_DURATION) {
-        animationFrame = requestAnimationFrame(animate);
+      // ── Phase 1: Terrain reveal (0–2s) ───────────────────────────────────
+      if (elapsed < 2.5) {
+        const t = easeOutCubic(elapsed / 2.5);
+        ground.material.opacity = t;
+        roads.children.forEach(r => { r.material.opacity = t * 0.95; });
       } else {
-        console.log('[IntroScene] Animation complete, calling onComplete');
-        finishTimer = window.setTimeout(() => {
-          console.log('[IntroScene] Final onComplete callback');
-          onComplete?.();
-        }, 240);
+        ground.material.opacity = 1;
+        roads.children.forEach(r => { r.material.opacity = 0.95; });
+      }
+
+      // ── Phase 2: Buildings rise (2.5–7s) ──────────────────────────────────
+      buildingMeshes.forEach(b => {
+        const rt = b.userData.revealT;
+        if (elapsed < rt) return;
+        const age = elapsed - rt;
+        const rise = easeOutQuint(Math.min(age / 0.6, 1));
+        const fh = b.userData.fullH;
+        b.position.y = (fh / 2) * rise;
+        b.material.opacity = rise;
+
+        // Emissive glow lights up after 4.5s
+        if (elapsed > 4.5 && rise > 0.6) {
+          const litT = Math.min((elapsed - 4.5) / 2.5, 1);
+          b.material.emissiveIntensity = litT * b.userData.targetEmissive * rise;
+        }
+      });
+
+      // Sync window overlays to their buildings
+      windowOverlays.forEach(wo => {
+        // Find corresponding building by XZ proximity
+        const nearest = buildingMeshes.find(b =>
+          Math.abs(b.position.x - wo.position.x) < 0.5 &&
+          Math.abs(b.position.z - wo.position.z) < 0.5
+        );
+        if (nearest) {
+          wo.position.y = nearest.position.y;
+          if (elapsed > 5) {
+            const litT = Math.min((elapsed - 5) / 2, 1);
+            wo.material.opacity = litT * 0.6 * nearest.material.opacity;
+            wo.material.emissiveIntensity = litT * 1.3 * nearest.material.opacity;
+          }
+        }
+      });
+
+      // ── Phase 3: Beacon flicker (from 6s) ────────────────────────────────
+      beacons.forEach(beacon => {
+        if (elapsed > 6) {
+          beacon.material.emissiveIntensity = Math.sin(elapsed * 2.8 + beacon.position.x * 0.05) > 0.3 ? 3 : 0.15;
+        }
+      });
+
+      // ── Phase 4: Traffic (from 6.5s) ──────────────────────────────────────
+      if (elapsed > 6.5) {
+        const trafficT = Math.min((elapsed - 6.5) / 1.5, 1);
+        cars.forEach(car => {
+          const d = car.userData;
+          d.prog = (d.prog + d.speed * 0.004 * trafficT) % 1;
+          const p = (d.prog * 280 - 140) * d.dir;
+          if (d.axis === 'x') car.position.x = p;
+          else car.position.z = p;
+        });
+      }
+
+      // ── HUD / UI state triggers ───────────────────────────────────────────
+      if (elapsed > 0.4 && hudPhase < 1) setHudPhase(1);
+      if (elapsed > 1.0 && hudPhase < 2) setHudPhase(2);
+      if (elapsed > 2.2 && hudPhase < 3) setHudPhase(3);
+      if (elapsed > 4.8 && !textShownRef.current) {
+        textShownRef.current = true;
+        setShowText(true);
+      }
+
+      const tIdx = Math.min(Math.floor(elapsed / 1.8), TYPING_SEQUENCE.length - 1);
+      setTypingText(TYPING_SEQUENCE[tIdx]);
+      setProgressPct(Math.floor(Math.min(Math.max((elapsed - 2.5) / 4.5, 0), 1) * 100));
+
+      // ── Camera ────────────────────────────────────────────────────────────
+      const targetPos = getCameraTarget(elapsed);
+      camera.position.lerp(targetPos, 0.022);
+      camera.lookAt(0, 14, 0);
+
+      // ── Render ────────────────────────────────────────────────────────────
+      renderer.render(scene, camera);
+
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        finishTimer = setTimeout(() => onComplete?.(), 300);
       }
     };
 
-    animationFrame = requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
 
     return () => {
-      if (animationFrame) cancelAnimationFrame(animationFrame);
-      if (finishTimer) window.clearTimeout(finishTimer);
-      window.removeEventListener('resize', resize);
+      if (rafId) cancelAnimationFrame(rafId);
+      if (finishTimer) clearTimeout(finishTimer);
+      window.removeEventListener('resize', onResize);
       renderer.dispose();
-      scene.traverse((obj) => {
+      scene.traverse(obj => {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-          if (Array.isArray(obj.material)) obj.material.forEach((mat) => mat.dispose());
-          else obj.material.dispose();
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach(m => {
+            if (m.map) m.map.dispose();
+            if (m.emissiveMap) m.emissiveMap.dispose();
+            m.dispose();
+          });
         }
       });
     };
-  }, [onComplete]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div
@@ -288,11 +327,20 @@ export default function IntroScene({ onComplete }) {
         zIndex: 99999,
         pointerEvents: 'none',
         overflow: 'hidden',
-        backgroundColor: '#070f1a',
+        backgroundColor: '#08101e',
       }}
     >
-      <canvas ref={canvasRef} className="intro-scene__canvas" />
-      <IntroOverlay showText={showText} />
+      <canvas
+        ref={canvasRef}
+        className="intro-scene__canvas"
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+      />
+      <IntroOverlay
+        showText={showText}
+        hudPhase={hudPhase}
+        progressPct={progressPct}
+        typingText={typingText}
+      />
     </div>
   );
 }
