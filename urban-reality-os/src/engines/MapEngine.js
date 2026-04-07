@@ -122,6 +122,7 @@ class MapEngine {
     // Subsequent style loads are handled by _executeStyleSwitch's own handler.
     map.once('style.load', () => {
       this._applySceneLighting();
+      this._applyFog();
       this._initializeRenderers();
       this._updateAtmosphereMode(this._currentStyle);
     });
@@ -197,13 +198,28 @@ class MapEngine {
     if (!this._map) return;
     try {
       this._map.setLight({
-        anchor: 'viewport',
-        color: '#f8fafc',
-        intensity: 0.36,
-        position: [1.3, 210, 62],
+        anchor: 'map',
+        color: '#fffbe6',
+        intensity: 0.55,
+        position: [1.5, 225, 65],
       });
     } catch (err) {
       log.warn('setLight not supported on this style/runtime:', err);
+    }
+  }
+
+  _applyFog() {
+    if (!this._map) return;
+    try {
+      this._map.setFog({
+        range: [0.5, 10],
+        color: '#ddeeff',
+        'high-color': '#a0c8ff',
+        'horizon-blend': 0.1,
+        'space-color': '#0b0b19',
+      });
+    } catch (err) {
+      log.warn('setFog not supported on this style/runtime:', err);
     }
   }
 
@@ -408,6 +424,7 @@ class MapEngine {
       this._ensureSatelliteRasterLayer();
       this._initializeRenderers();
       this._applySceneLighting();
+      this._applyFog();
       this._updateAtmosphereMode(styleName);
       if (reason !== 'styleError' && onRecovery) onRecovery(this._map, styleName);
       if (this._layerEngine?.syncAllToggles) {
@@ -840,11 +857,30 @@ class MapEngine {
   }
 
   /**
-   * Update time for sky atmosphere (0-23.99)
+   * Update time for sky atmosphere (0-23.99) and dynamic sun lighting.
    * @param {number} hour
    */
   setTime(hour) {
     this._skyRenderer.setTime(hour);
+
+    // Drive map.setLight dynamically from the time slider
+    if (!this._map) return;
+    const lightConfig = this._skyRenderer.getLightConfig();
+    if (!lightConfig) return;
+    try {
+      this._map.setLight(lightConfig);
+    } catch (err) {
+      log.warn('setLight (dynamic) failed:', err);
+    }
+
+    // Drive night-mode building colors
+    if (this._layerEngine) {
+      const plugin = this._layerEngine.registry?.get?.('buildings');
+      if (plugin?.setNightMode) {
+        const isNight = hour < 6 || hour > 19;
+        plugin.setNightMode(isNight);
+      }
+    }
   }
 
   /**

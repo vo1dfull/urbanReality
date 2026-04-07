@@ -74,7 +74,9 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
           'case',
           ['boolean', ['feature-state', 'isCritical'], false],
           ['interpolate', ['linear'], ['feature-state', 'pulsePhase'], 0, '#fecaca', 0.5, '#dc2626', 1, '#fecaca'],
+          ['boolean', ['feature-state', 'isSubmerged'], false],
           ['interpolate', ['linear'], ['feature-state', 'submersionRatio'], 0, '#475569', 1, '#f97316'],
+          ['interpolate', ['linear'], ['coalesce', ['to-number', ['feature-state', 'adjustedHeight']], ['to-number', ['get', 'render_height']], ['to-number', ['get', 'height']], 0], 0, '#1e3a5f', 15, '#1e3a5f', 30, '#2d6a9f', 60, '#3a82c4', 100, '#4a9eff', 200, '#e0f0ff'],
         ],
         'fill-extrusion-height': [
           'coalesce',
@@ -93,10 +95,12 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
         'fill-extrusion-opacity': [
           'interpolate', ['linear'], ['zoom'],
           13.8, 0,
-          14.2, 0.72,
-          16, 0.9,
+          14.2, 0.78,
+          16, 0.92,
         ],
+        'fill-extrusion-vertical-gradient': true,
         'fill-extrusion-ambient-occlusion-intensity': 0.85,
+        'fill-extrusion-ambient-occlusion-ground-radius': 18,
       },
       layout: { visibility: 'none' },
     });
@@ -292,7 +296,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     try {
       map.setLayoutProperty('3d-buildings', 'visibility', shouldShow ? 'visible' : 'none');
       const radius = zoom >= HIGH_DETAIL_ZOOM ? 18 : 12;
-      map.setPaintProperty('3d-buildings', 'fill-extrusion-vertical-gradient', zoom >= HIGH_DETAIL_ZOOM);
+      map.setPaintProperty('3d-buildings', 'fill-extrusion-vertical-gradient', true);
       map.setPaintProperty('3d-buildings', 'fill-extrusion-ambient-occlusion-ground-radius', radius);
     } catch (_) {
       // Style may be reloading; skip safely.
@@ -334,6 +338,71 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     if (this._pulseTaskId !== null) {
       FrameController.remove(this._pulseTaskId);
       this._pulseTaskId = null;
+    }
+  }
+
+  /**
+   * Switch building colors between day (height-based blue gradient) and
+   * night (dark base + lit-window glow by height) modes.
+   * Flood simulation overrides (isCritical, isSubmerged) are always preserved.
+   * @param {boolean} isNight
+   */
+  setNightMode(isNight) {
+    if (!this._map || !this._map.getLayer('3d-buildings')) return;
+    try {
+      const defaultColor = isNight
+        ? // Night: dark facade, taller buildings show more lit windows (brighter)
+          ['interpolate', ['linear'],
+            ['coalesce',
+              ['to-number', ['feature-state', 'adjustedHeight']],
+              ['to-number', ['get', 'render_height']],
+              ['to-number', ['get', 'height']],
+              0,
+            ],
+            0,   '#0d1117',   // ground — near black
+            15,  '#111827',   // low-rise — very dark
+            30,  '#1a2744',   // mid-rise — dark navy
+            60,  '#1e3a5f',   // tall — navy with hint of windows
+            100, '#243b6e',   // high-rise — more lit windows
+            200, '#2d4f8a',   // tower — bright window glow
+          ]
+        : // Day: height-based blue gradient (existing)
+          ['interpolate', ['linear'],
+            ['coalesce',
+              ['to-number', ['feature-state', 'adjustedHeight']],
+              ['to-number', ['get', 'render_height']],
+              ['to-number', ['get', 'height']],
+              0,
+            ],
+            0,   '#1e3a5f',
+            15,  '#1e3a5f',
+            30,  '#2d6a9f',
+            60,  '#3a82c4',
+            100, '#4a9eff',
+            200, '#e0f0ff',
+          ];
+
+      // Rebuild the full 3-branch case expression preserving flood overrides
+      const colorExpr = [
+        'case',
+        ['boolean', ['feature-state', 'isCritical'], false],
+        ['interpolate', ['linear'], ['feature-state', 'pulsePhase'], 0, '#fecaca', 0.5, '#dc2626', 1, '#fecaca'],
+        ['boolean', ['feature-state', 'isSubmerged'], false],
+        ['interpolate', ['linear'], ['feature-state', 'submersionRatio'], 0, '#475569', 1, '#f97316'],
+        defaultColor,
+      ];
+
+      this._map.setPaintProperty('3d-buildings', 'fill-extrusion-color', colorExpr);
+
+      // Night: slightly higher opacity so dark buildings still read well
+      this._map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', [
+        'interpolate', ['linear'], ['zoom'],
+        13.8, 0,
+        14.2, isNight ? 0.88 : 0.78,
+        16,   isNight ? 0.96 : 0.92,
+      ]);
+    } catch (_) {
+      // Layer may not exist yet during style reload — safe to ignore
     }
   }
 

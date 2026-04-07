@@ -345,10 +345,37 @@ class SkyAtmosphereRenderer {
       this.map.setPaintProperty(this.skyLayerId, 'sky-atmosphere-sun', sunPosition);
       this.map.setPaintProperty(this.skyLayerId, 'sky-atmosphere-sun-intensity', sunIntensity);
 
-      // Optional: Update fog color based on time
       this.updateFogColor();
     } catch (error) {
       log.warn('Failed to update sky:', error);
+    }
+  }
+
+  /**
+   * Compute dynamic map.setLight config for the current hour.
+   * Returns null when sky mode is not active (caller decides whether to apply).
+   * @returns {{anchor: string, color: string, intensity: number, position: number[]} | null}
+   */
+  getLightConfig() {
+    const hour = this.currentHour;
+    const isDay = hour >= 6 && hour <= 18;
+    const isDawnDusk = (hour >= 5 && hour < 6) || (hour > 18 && hour <= 19);
+
+    // Azimuth sweeps 0→360 over 24h; elevation peaks at noon
+    const azimuth = (hour / 24) * 360;
+    const elevationRaw = Math.sin(((hour - 6) / 12) * Math.PI);
+    const elevation = Math.max(5, elevationRaw * 75); // clamp to 5° min so light never goes underground
+
+    if (isDay) {
+      // Warm white sun, full intensity at noon
+      const intensity = 0.35 + Math.max(0, elevationRaw) * 0.45;
+      return { anchor: 'map', color: '#fffbe6', intensity, position: [1.5, azimuth, elevation] };
+    } else if (isDawnDusk) {
+      // Golden hour — warm orange
+      return { anchor: 'map', color: '#ffb347', intensity: 0.3, position: [1.5, azimuth, 10] };
+    } else {
+      // Night — cool blue moonlight
+      return { anchor: 'map', color: '#334466', intensity: 0.15, position: [1.5, azimuth, 30] };
     }
   }
 
