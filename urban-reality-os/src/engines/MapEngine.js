@@ -10,6 +10,7 @@ import { createLogger } from '../core/Logger';
 import SpaceRenderer from './SpaceRenderer';
 import SkyAtmosphereRenderer from './SkyAtmosphereRenderer';
 import RealisticBuildingRenderer from '../renderers/RealisticBuildingRenderer';
+import RealisticSkyRenderer from '../renderers/RealisticSkyRenderer';
 
 const log = createLogger('MapEngine');
 
@@ -69,6 +70,7 @@ class MapEngine {
     this._viewportIdleSubscribers = []; // Array of { callback, unsubscribe }
     this._moveEndFired = false;
     this._idleFired = false;
+    this._currentHour = 12;
     this._fpsTracker = { frameCount: 0, lastTime: performance.now(), fps: 0 };
 
     // Space and sky renderers
@@ -76,6 +78,8 @@ class MapEngine {
     this._skyRenderer = new SkyAtmosphereRenderer();
     // Hyper-realistic building renderer (custom WebGL layer)
     this._realisticBuildingRenderer = new RealisticBuildingRenderer();
+    // Ultra-realistic atmospheric sky renderer
+    this._realisticSkyRenderer = new RealisticSkyRenderer();
   }
 
   setLayerEngine(layerEngine) {
@@ -182,14 +186,8 @@ class MapEngine {
       if (isSatelliteStyle) this._spaceRenderer.enable();
       else this._spaceRenderer.disable();
 
-      // Fallback canvas background for terrain mode so sky never stays black.
-      if (terrainStyle) {
-        this._map.getCanvas().style.backgroundColor = '#bae2f8';
-      } else if (isSatelliteStyle) {
-        this._map.getCanvas().style.backgroundColor = '#020617';
-      } else {
-        this._map.getCanvas().style.backgroundColor = '#f1f7ff';
-      }
+      // Apply dynamic atmosphere/space background for non-map blank area.
+      this._applyCanvasAtmosphereBackground(this._currentStyle);
 
       // Add realistic building renderer on top of fill-extrusion layer
       try {
@@ -198,6 +196,15 @@ class MapEngine {
         }
       } catch (err) {
         log.warn('Failed to add realistic buildings renderer:', err);
+      }
+
+      // Add ultra-realistic sky renderer for terrain mode.
+      try {
+        if (terrainStyle && !this._map.getLayer('realistic-sky')) {
+          this._map.addLayer(this._realisticSkyRenderer.customLayer, 'realistic-buildings');
+        }
+      } catch (err) {
+        log.warn('Failed to add realistic sky renderer:', err);
       }
 
       log.info('Renderers initialized');
@@ -259,33 +266,9 @@ class MapEngine {
       }
     };
 
-    const setTerrainSkyBackground = () => {
-      try {
-        const style = this._map.getStyle();
-        if (style?.layers?.length) {
-          const backgroundLayer = style.layers.find((layer) => layer.type === 'background');
-          if (backgroundLayer) {
-            this._map.setPaintProperty(backgroundLayer.id, 'background-color', '#bae2f8');
-            return;
-          }
-        }
-        if (!this._map.getLayer('terrain-sky-fallback')) {
-          this._map.addLayer({
-            id: 'terrain-sky-fallback',
-            type: 'background',
-            paint: { 'background-color': '#bae2f8' }
-          });
-        } else {
-          this._map.setPaintProperty('terrain-sky-fallback', 'background-color', '#bae2f8');
-        }
-      } catch (err) {
-        log.warn('Failed to set terrain sky background:', err);
-      }
-    };
-
     const resetSkyBackground = () => {
       try {
-        this._map.getCanvas().style.backgroundColor = '';
+        this._applyCanvasAtmosphereBackground(styleName);
         if (this._map.getLayer('terrain-sky-fallback')) {
           this._map.removeLayer('terrain-sky-fallback');
         }
@@ -299,20 +282,70 @@ class MapEngine {
       setVisibility('stars', 'visible');
       this._spaceRenderer.enable();
       this._skyRenderer.enableSpaceMode();
+      this._applyCanvasAtmosphereBackground('satellite');
+      try {
+        if (this._map.getLayer('realistic-sky')) this._map.removeLayer('realistic-sky');
+      } catch (_) {}
       resetSkyBackground();
     } else if (styleName === 'terrain') {
       setVisibility('space-background', 'none');
       setVisibility('stars', 'none');
       this._spaceRenderer.disable();
       this._skyRenderer.enableAtmosphereMode();
-      setTerrainSkyBackground();
+      this._applyCanvasAtmosphereBackground('terrain');
+      try {
+        if (!this._map.getLayer('realistic-sky')) {
+          this._map.addLayer(this._realisticSkyRenderer.customLayer, 'realistic-buildings');
+        }
+      } catch (_) {}
     } else {
       setVisibility('space-background', 'none');
       setVisibility('stars', 'none');
       this._spaceRenderer.disable();
       this._skyRenderer.disable();
+      this._applyCanvasAtmosphereBackground('default');
+      try {
+        if (this._map.getLayer('realistic-sky')) this._map.removeLayer('realistic-sky');
+      } catch (_) {}
       resetSkyBackground();
     }
+  }
+
+  _applyCanvasAtmosphereBackground(styleName = this._currentStyle) {
+    if (!this._map) return;
+    const canvas = this._map.getCanvas();
+    const container = this._map.getContainer?.();
+    const containerParent = container?.parentElement;
+    const bg = this._getAtmosphereBackground(styleName, this._currentHour);
+
+    // Apply to both surfaces: some browsers/styles reveal container background
+    // in high-pitch non-map regions instead of canvas background.
+    canvas.style.background = bg;
+    canvas.style.backgroundColor = styleName === 'default' ? 'transparent' : '';
+
+    if (container) {
+      container.style.background = bg;
+      container.style.backgroundColor = styleName === 'default' ? 'transparent' : '';
+    }
+    if (containerParent) {
+      containerParent.style.background = bg;
+      containerParent.style.backgroundColor = styleName === 'default' ? 'transparent' : '';
+    }
+  }
+
+  _getAtmosphereBackground(styleName, hour = 12) {
+    if (styleName === 'satellite') {
+      return 'radial-gradient(circle at 50% -25%, #0f1c4a 0%, #060b24 45%, #020617 100%)';
+    }
+    if (styleName !== 'terrain') return 'transparent';
+
+    if (hour < 5.5 || hour > 19.5) {
+      return 'radial-gradient(circle at 70% -10%, rgba(130,160,255,0.20) 0%, rgba(24,38,88,0.10) 30%, rgba(8,14,34,0) 55%), linear-gradient(180deg, #0a173a 0%, #10264f 42%, #2a3f66 72%, #4d5d73 100%)';
+    }
+    if ((hour >= 5.5 && hour < 8) || (hour > 16.5 && hour <= 19.5)) {
+      return 'radial-gradient(ellipse at 50% 88%, rgba(255,188,128,0.42) 0%, rgba(255,168,108,0.18) 22%, rgba(255,149,92,0) 50%), radial-gradient(circle at 78% 28%, rgba(255,238,210,0.25) 0%, rgba(255,238,210,0) 30%), linear-gradient(180deg, #3d6ca2 0%, #739fca 38%, #f2bf92 68%, #ffd9b4 100%)';
+    }
+    return 'radial-gradient(circle at 82% 25%, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0) 28%), linear-gradient(180deg, #4f88c0 0%, #77add8 35%, #9ac6e4 62%, #cbe2f1 100%)';
   }
 
   _ensureSatelliteRasterLayer() {
@@ -815,6 +848,9 @@ class MapEngine {
     }
     if (this._realisticBuildingRenderer && this._map) {
       try { this._map.removeLayer('realistic-buildings'); } catch (_) {}
+        if (this._realisticSkyRenderer && this._map) {
+          try { this._map.removeLayer('realistic-sky'); } catch (_) {}
+        }
     }
     if (this._map) {
       this._map.remove();
@@ -883,8 +919,11 @@ class MapEngine {
    * @param {number} hour
    */
   setTime(hour) {
+    this._currentHour = Math.max(0, Math.min(23.99, hour));
     this._skyRenderer.setTime(hour);
     this._realisticBuildingRenderer.setTime(hour);
+    this._realisticSkyRenderer.setTime(hour);
+    this._applyCanvasAtmosphereBackground(this._currentStyle);
 
     // Drive map.setLight dynamically from the time slider
     if (!this._map) return;

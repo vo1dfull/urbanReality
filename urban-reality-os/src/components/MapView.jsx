@@ -342,7 +342,12 @@ export default function MapView() {
         width: '100%', height: '100%', position: 'fixed', top: 0, left: 0,
         zIndex: 0,
         pointerEvents: 'auto',
-        background: '#020617',
+        // Robust visual fallback: ensure non-map blank area is never white.
+        background: mapStyle === 'terrain'
+          ? 'radial-gradient(circle at 78% 24%, rgba(255,255,255,0.24) 0%, rgba(255,255,255,0) 30%), linear-gradient(180deg, #4d86bf 0%, #79afd9 36%, #a8cfe8 64%, #d7eaf5 100%)'
+          : (mapStyle === 'satellite'
+            ? 'radial-gradient(circle at 50% -25%, #0f1c4a 0%, #060b24 45%, #020617 100%)'
+            : 'transparent'),
         contain: 'strict',            /* 🔥 Prevents layout/paint from propagating */
         willChange: 'transform',      /* 🔥 Forces GPU compositing layer */
       }} />

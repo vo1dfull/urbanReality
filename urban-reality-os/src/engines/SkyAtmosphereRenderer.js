@@ -26,9 +26,9 @@ class SkyAtmosphereRenderer {
     this.fogSettings = {
       default: {
         // Photorealistic daytime haze — aerial perspective visible on far buildings
-        color: 'rgb(210, 224, 238)',
-        'high-color': 'rgb(100, 156, 210)',
-        'horizon-blend': 0.07,
+        color: 'rgb(166, 202, 232)',
+        'high-color': 'rgb(58, 132, 201)',
+        'horizon-blend': 0.09,
         'space-color': 'rgb(8, 10, 22)',
         'star-intensity': 0.0,
         range: [0.8, 12],
@@ -79,7 +79,9 @@ class SkyAtmosphereRenderer {
         paint: {
           'sky-type': 'atmosphere',
           'sky-atmosphere-sun': this.getSunPosition(this.currentHour),
-          'sky-atmosphere-sun-intensity': this.getSunIntensity(this.currentHour)
+          'sky-atmosphere-sun-intensity': this.getSunIntensity(this.currentHour),
+          'sky-atmosphere-color': 'rgb(86, 154, 214)',
+          'sky-atmosphere-halo-color': 'rgb(202, 226, 246)'
         }
       });
 
@@ -103,7 +105,6 @@ class SkyAtmosphereRenderer {
     this.isEnabled = true;
     this.setupSkyLayer();
     this.setFog('default');
-    this.startTimeSync();
     log.info('SkyAtmosphereRenderer enabled');
   }
 
@@ -133,7 +134,6 @@ class SkyAtmosphereRenderer {
   enableAtmosphereMode() {
     if (!this.isEnabled) {
       this.isEnabled = true;
-      this.startTimeSync();
     }
     this.setFog('default');
     if (this.map && !this.map.getLayer(this.skyLayerId)) {
@@ -311,16 +311,12 @@ class SkyAtmosphereRenderer {
    * @returns {Array<number>} [azimuth, elevation]
    */
   getSunPosition(hour) {
-    // Convert hour to angle (0 = midnight, 12 = noon)
-    const angle = ((hour - 6) / 12) * Math.PI; // -π/2 to π/2 (dawn to dusk)
-
-    // Azimuth: East to West
-    const azimuth = Math.PI - angle; // Start from East, move West
-
-    // Elevation: Sine wave from -π/2 to π/2
-    const elevation = Math.sin(angle) * Math.PI / 2;
-
-    return [azimuth, elevation];
+    // MapLibre expects [azimuthDeg, altitudeDeg].
+    const dayPhase = (hour % 24) / 24;
+    const azimuthDeg = (90 + dayPhase * 360) % 360;
+    const arc = Math.sin(((hour - 6) / 12) * Math.PI);
+    const altitudeDeg = Math.max(-6, arc * 72);
+    return [azimuthDeg, altitudeDeg];
   }
 
   /**
@@ -329,12 +325,10 @@ class SkyAtmosphereRenderer {
    * @returns {number} Intensity 0-20
    */
   getSunIntensity(hour) {
-    // Peak at noon, zero at night
-    const dayProgress = Math.sin(((hour - 6) / 12) * Math.PI);
-    const intensity = Math.max(0, dayProgress) * 20;
-
-    // Soften transitions
-    return intensity * intensity * 0.8;
+    // Keep in sane range to prevent white washout.
+    const arc = Math.sin(((hour - 6) / 12) * Math.PI);
+    const day = Math.max(0, arc);
+    return 0.4 + Math.pow(day, 1.4) * 9.0;
   }
 
   /**
@@ -396,14 +390,14 @@ class SkyAtmosphereRenderer {
 
     if (hour >= 10 && hour <= 16) {
       // Midday: crisp blue haze, slight aerial perspective
-      fogColor = 'rgb(210, 224, 238)';
-      highColor = 'rgb(100, 156, 210)';
+      fogColor = 'rgb(168, 206, 236)';
+      highColor = 'rgb(62, 136, 204)';
       horizonBlend = 0.06;
       starIntensity = 0.0;
     } else if (hour >= 7 && hour < 10) {
       // Morning: softer pale blue-white
-      fogColor = 'rgb(220, 232, 242)';
-      highColor = 'rgb(130, 175, 218)';
+      fogColor = 'rgb(184, 214, 238)';
+      highColor = 'rgb(96, 154, 204)';
       horizonBlend = 0.08;
       starIntensity = 0.0;
     } else if (hour > 16 && hour <= 18) {
