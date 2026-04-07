@@ -1,322 +1,99 @@
 // ================================================
-// PredictionEngine — AI-driven future city growth modeling
-// ✅ Predicts: population growth, sprawl, infrastructure demand, land value
-// ✅ Worker-based heavy computation
-// ✅ Async predictions with caching
+// PredictionEngine — AI trajectory prediction
+// Projects disaster movement 5 steps into the future
+// based on current direction, speed, and category trends
 // ================================================
 
-import EventBus from '../core/EventBus';
-import { createLogger } from '../core/Logger';
+/** How many prediction steps to generate */
+const PREDICTION_STEPS = 5;
 
-const log = createLogger('PredictionEngine');
+/** Time offset per step in hours */
+const HOURS_PER_STEP = 2;
 
-export class PredictionEngine {
-  constructor() {
-    this.state = {
-      baselineYear: 2025,
-      predictions: new Map(), // year -> prediction result
-      models: {
-        population: null,
-        sprawl: null,
-        infrastructure: null,
-        landValue: null,
-      },
-      isComputing: false,
-      activeScenarios: new Map(), // scenario name -> parameters
-    };
-    this.eventBus = EventBus;
-    this._worker = null;
-    this._requestId = 0;
-    this._pendingRequests = new Map();
-    this._modelCache = new Map(); // scenario + year -> cached result
-    this._destroyed = false;
-  }
+/** Speed scaling per category (degrees per prediction step) */
+const PREDICTION_SPEED = {
+  wildfires:    0.15,
+  floods:       0.08,
+  severeStorms: 0.30,
+  volcanoes:    0.03,
+  drought:      0.02,
+};
 
+class PredictionEngine {
   /**
-   * Initialize prediction worker
+   * Generate future position predictions for a disaster.
+   * @param {object} disaster — DisasterEngine disaster state
+   * @returns {GeoJSONFeature[]} predicted positions
    */
-  async initialize() {
-    if (this._destroyed) return;
-    
-    try {
-      this._worker = new Worker(
-        new URL('../workers/predictionWorker.js', import.meta.url),
-        { type: 'module' }
-      );
-      
-      this._worker.onmessage = (event) => {
-        this._handleWorkerMessage(event.data);
-      };
-      
-      this._worker.onerror = (error) => {
-        log.error('Prediction worker error:', error);
-        this.eventBus.emit('prediction:error', { error: error.message });
-      };
+  predict(disaster) {
+    const predictions = [];
+    const speed = PREDICTION_SPEED[disaster.category] ?? 0.1;
+    const [lng, lat] = disaster.geometry.coordinates;
+    const dir = disaster.direction ?? 0;
 
-      log.info('Prediction worker initialized');
-    } catch (error) {
-      log.error('Failed to initialize worker:', error);
-    }
-  }
+    for (let i = 1; i <= PREDICTION_STEPS; i++) {
+      // Project position along current direction with slight curve
+      const curveDrift = (i - 1) * 0.04 * (Math.random() - 0.5);
+      const projDir = dir + curveDrift;
+      const projLng = lng + Math.cos(projDir) * speed * i;
+      const projLat = lat + Math.sin(projDir) * speed * i;
 
-  /**
-   * Handle worker response
-   */
-  _handleWorkerMessage(data) {
-    if (!data) return;
-    
-    const { requestId, scenario, year, result, error } = data;
-    const request = this._pendingRequests.get(requestId);
-    
-    if (!request) return;
-    
-    this._pendingRequests.delete(requestId);
-    
-    if (error) {
-      request.reject(new Error(error));
-      return;
-    }
+      // Intensity and radius grow over time
+      const projIntensity = Math.min(10, (disaster.intensity ?? 1) + i * 0.3);
+      const projRadius    = (disaster.radius ?? 20) + i * (disaster.growthRate ?? 0.05) * 10;
 
-    // Cache result
-    const cacheKey = `${scenario}:${year}`;
-    this._modelCache.set(cacheKey, result);
-    
-    // Store prediction
-    if (!this.state.predictions.has(year)) {
-      this.state.predictions.set(year, {});
-    }
-    this.state.predictions.get(year)[scenario] = result;
-    
-    request.resolve(result);
-    this.eventBus.emit('prediction:computed', { scenario, year, result });
-  }
-
-  /**
-   * Predict population growth for future years
-   * @param {object} baseline — { population, density, growthRate, infrastructureProximity }
-   * @param {number} targetYear
-   * @param {string} scenario — 'conservative' | 'moderate' | 'aggressive' | 'custom'
-   * @returns {Promise<object>}
-   */
-  async predictPopulationGrowth(baseline = {}, targetYear = 2050, scenario = 'moderate') {
-    if (this._destroyed) return null;
-
-    const { population = 420000, density = 0.6, growthRate = 0.019, infrastructureProximity = 0.5 } = baseline;
-    
-    // Check cache first
-    const cacheKey = `population:${scenario}:${targetYear}`;
-    if (this._modelCache.has(cacheKey)) {
-      return this._modelCache.get(cacheKey);
-    }
-
-    if (!this._worker) {
-      await this.initialize();
-    }
-
-    return new Promise((resolve, reject) => {
-      const requestId = ++this._requestId;
-      
-      this._pendingRequests.set(requestId, { resolve, reject });
-      
-      this._worker.postMessage({
-        requestId,
-        type: 'predictPopulation',
-        scenario,
-        baseline: {
-          population,
-          density,
-          growthRate,
-          infrastructureProximity,
+      predictions.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [projLng, projLat] },
+        properties: {
+          ...disaster.properties,
+          id:          `${disaster.id}-pred-${i}`,
+          predicted:   true,
+          timeOffset:  i * HOURS_PER_STEP,
+          stepIndex:   i,
+          intensity:   projIntensity,
+          radius:      projRadius,
+          opacity:     1 - (i / (PREDICTION_STEPS + 1)), // fade out further predictions
         },
-        targetYear,
-        baselineYear: this.state.baselineYear,
       });
+    }
 
-      // Timeout after 10s
-      setTimeout(() => {
-        if (this._pendingRequests.has(requestId)) {
-          this._pendingRequests.delete(requestId);
-          reject(new Error('Prediction timeout'));
-        }
-      }, 10000);
-    });
+    return predictions;
   }
 
   /**
-   * Predict urban sprawl expansion zones
-   * @param {object} cityData — { center, currentExtent, terrainSuitability }
-   * @param {number} targetYear
-   * @returns {Promise<object>}
+   * Generate predictions for all active disasters.
+   * @param {object[]} disasters — array from DisasterEngine.getAll()
+   * @returns {{ points: GeoJSONFeatureCollection, paths: GeoJSONFeatureCollection }}
    */
-  async predictUrbanSprawl(cityData = {}, targetYear = 2050) {
-    if (this._destroyed) return null;
+  predictAll(disasters) {
+    const pointFeatures = [];
+    const pathFeatures  = [];
 
-    const cacheKey = `sprawl:${targetYear}`;
-    if (this._modelCache.has(cacheKey)) {
-      return this._modelCache.get(cacheKey);
-    }
+    for (const disaster of disasters) {
+      const preds = this.predict(disaster);
+      pointFeatures.push(...preds);
 
-    if (!this._worker) {
-      await this.initialize();
-    }
+      // Build a LineString connecting current position → all predictions
+      const lineCoords = [
+        [...disaster.geometry.coordinates],
+        ...preds.map(p => [...p.geometry.coordinates]),
+      ];
 
-    return new Promise((resolve, reject) => {
-      const requestId = ++this._requestId;
-      this._pendingRequests.set(requestId, { resolve, reject });
-
-      this._worker.postMessage({
-        requestId,
-        type: 'predictSprawl',
-        cityData,
-        targetYear,
-        baselineYear: this.state.baselineYear,
+      pathFeatures.push({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: lineCoords },
+        properties: {
+          id:       `${disaster.id}-path`,
+          category: disaster.category ?? disaster.properties?.category,
+        },
       });
-
-      setTimeout(() => {
-        if (this._pendingRequests.has(requestId)) {
-          this._pendingRequests.delete(requestId);
-          reject(new Error('Sprawl prediction timeout'));
-        }
-      }, 10000);
-    });
-  }
-
-  /**
-   * Predict infrastructure demand
-   * @param {object} baseline — { population, existingInfrastructure, coverage }
-   * @param {number} targetYear
-   * @returns {Promise<object>}
-   */
-  async predictInfrastructureDemand(baseline = {}, targetYear = 2050) {
-    if (this._destroyed) return null;
-
-    const cacheKey = `infra:${targetYear}`;
-    if (this._modelCache.has(cacheKey)) {
-      return this._modelCache.get(cacheKey);
     }
 
-    if (!this._worker) {
-      await this.initialize();
-    }
-
-    return new Promise((resolve, reject) => {
-      const requestId = ++this._requestId;
-      this._pendingRequests.set(requestId, { resolve, reject });
-
-      this._worker.postMessage({
-        requestId,
-        type: 'predictInfrastructure',
-        baseline,
-        targetYear,
-        baselineYear: this.state.baselineYear,
-      });
-
-      setTimeout(() => {
-        if (this._pendingRequests.has(requestId)) {
-          this._pendingRequests.delete(requestId);
-          reject(new Error('Infrastructure prediction timeout'));
-        }
-      }, 10000);
-    });
-  }
-
-  /**
-   * Predict land value changes
-   * @param {object} baseline — { currentValue, accessibility, amenities, risk }
-   * @param {number} targetYear
-   * @returns {Promise<object>}
-   */
-  async predictLandValue(baseline = {}, targetYear = 2050) {
-    if (this._destroyed) return null;
-
-    const cacheKey = `landValue:${targetYear}`;
-    if (this._modelCache.has(cacheKey)) {
-      return this._modelCache.get(cacheKey);
-    }
-
-    if (!this._worker) {
-      await this.initialize();
-    }
-
-    return new Promise((resolve, reject) => {
-      const requestId = ++this._requestId;
-      this._pendingRequests.set(requestId, { resolve, reject });
-
-      this._worker.postMessage({
-        requestId,
-        type: 'predictLandValue',
-        baseline,
-        targetYear,
-        baselineYear: this.state.baselineYear,
-      });
-
-      setTimeout(() => {
-        if (this._pendingRequests.has(requestId)) {
-          this._pendingRequests.delete(requestId);
-          reject(new Error('Land value prediction timeout'));
-        }
-      }, 10000);
-    });
-  }
-
-  /**
-   * Run all predictions for a given year & scenario
-   */
-  async predictFutureState(baseline = {}, targetYear = 2050, scenario = 'moderate') {
-    if (this._destroyed) return null;
-
-    this.state.isComputing = true;
-    this.eventBus.emit('prediction:started', { targetYear, scenario });
-
-    try {
-      const [population, sprawl, infrastructure, landValue] = await Promise.all([
-        this.predictPopulationGrowth(baseline, targetYear, scenario),
-        this.predictUrbanSprawl(baseline, targetYear),
-        this.predictInfrastructureDemand(baseline, targetYear),
-        this.predictLandValue(baseline, targetYear),
-      ]);
-
-      const result = { population, sprawl, infrastructure, landValue, scenario, year: targetYear };
-      this.state.isComputing = false;
-      this.eventBus.emit('prediction:complete', result);
-      
-      return result;
-    } catch (error) {
-      this.state.isComputing = false;
-      this.eventBus.emit('prediction:error', { error: error.message });
-      log.error('Prediction failed:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Subscribe to prediction events
-   */
-  on(event, callback) {
-    return this.eventBus.on(event, callback);
-  }
-
-  /**
-   * Clear cache and reset state
-   */
-  reset() {
-    this._modelCache.clear();
-    this.state.predictions.clear();
-    this.state.models = { population: null, sprawl: null, infrastructure: null, landValue: null };
-  }
-
-  /**
-   * Cleanup
-   */
-  destroy() {
-    this._destroyed = true;
-    if (this._worker) {
-      this._worker.terminate();
-      this._worker = null;
-    }
-    this._pendingRequests.clear();
-    this._modelCache.clear();
-    this.eventBus.clear();
+    return {
+      points: { type: 'FeatureCollection', features: pointFeatures },
+      paths:  { type: 'FeatureCollection', features: pathFeatures },
+    };
   }
 }
 

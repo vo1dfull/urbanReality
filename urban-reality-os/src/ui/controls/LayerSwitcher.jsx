@@ -222,6 +222,26 @@ const PREVIEWS = {
       </g>
     </svg>
   `),
+  nasa: svgDataUrl(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="160" height="90" viewBox="0 0 160 90">
+      <rect width="160" height="90" fill="#020617"/>
+      <g opacity="0.6">
+        <circle cx="30" cy="20" r="1.5" fill="#ffffff"/>
+        <circle cx="70" cy="10" r="1" fill="#ffffff"/>
+        <circle cx="120" cy="15" r="1.5" fill="#ffffff"/>
+        <circle cx="150" cy="30" r="1" fill="#ffffff"/>
+        <circle cx="10" cy="60" r="1" fill="#ffffff"/>
+        <circle cx="90" cy="8" r="1" fill="#ffffff"/>
+        <circle cx="140" cy="70" r="1.5" fill="#ffffff"/>
+      </g>
+      <circle cx="80" cy="45" r="28" fill="none" stroke="#1e3a5f" stroke-width="1.5" opacity="0.8"/>
+      <circle cx="80" cy="45" r="20" fill="none" stroke="#1e3a5f" stroke-width="1" opacity="0.5"/>
+      <circle cx="56" cy="32" r="7" fill="#ef4444" opacity="0.9"/>
+      <circle cx="110" cy="55" r="6" fill="#3b82f6" opacity="0.9"/>
+      <circle cx="75" cy="62" r="5" fill="#eab308" opacity="0.9"/>
+      <circle cx="95" cy="28" r="4" fill="#f97316" opacity="0.9"/>
+    </svg>
+  `),
 };
 
 const LayerCard = memo(function LayerCard({ id, label, active, previewSrc, onSelect, disabled = false }) {
@@ -254,6 +274,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     if (mapStyle === 'satellite') return 'satellite';
     if (layers.traffic) return 'traffic';
     if (layers.hospitals || layers.policeStations || layers.fireStations || layers.schools) return 'facilities';
+    if (layers.nasaEvents) return 'nasa';
     return null;
   }, [mapStyle, layers]);
 
@@ -293,6 +314,10 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
       }));
       return;
     }
+    if (id === 'nasa') {
+      setLayers((prev) => ({ ...prev, nasaEvents: !prev.nasaEvents }));
+      return;
+    }
     // Transit is optional and not yet wired in this build.
   }, [layers.fireStations, layers.hospitals, layers.policeStations, layers.schools, mapStyle, setLayers, setMapStyle]);
 
@@ -307,6 +332,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     { id: 'traffic', label: 'Traffic', previewSrc: PREVIEWS.traffic },
     { id: 'transit', label: 'Transit', previewSrc: PREVIEWS.transit, disabled: true },
     { id: 'facilities', label: 'Facilities', previewSrc: PREVIEWS.facilities },
+    { id: 'nasa', label: 'NASA Events', previewSrc: PREVIEWS.nasa },
   ]), []);
 
   return (

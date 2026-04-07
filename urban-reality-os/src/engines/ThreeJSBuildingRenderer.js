@@ -56,11 +56,32 @@ export default class ThreeJSBuildingRenderer {
     });
     this._renderer.autoClear = false;
 
-    // Scene lighting — afternoon sun + ambient fill
-    const sun = new THREE.DirectionalLight(0xfffbe6, 1.2);
-    sun.position.set(0.5, 1, 0.8);
+    // ── Photorealistic renderer settings ────────────────────────────────────
+    // ACESFilmic tone mapping: brings HDR scene values into sRGB display range
+    // with cinematic contrast — the single biggest realism boost for GLTF models.
+    this._renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this._renderer.toneMappingExposure = 1.1;
+    this._renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    // ── Photorealistic PBR lighting rig ─────────────────────────────────────
+    // Key light: warm afternoon sun (SW, high elevation), strong for hard shadows
+    const sun = new THREE.DirectionalLight(0xfff3d6, 2.4);
+    sun.position.set(-0.6, 1.0, 0.8);   // SW azimuth, ~55° elevation
+    sun.castShadow = true;
     this._scene.add(sun);
-    this._scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+    // Fill light: cool sky bounce from the opposite hemisphere — softens shadows
+    const skyFill = new THREE.DirectionalLight(0xc8dff0, 0.7);
+    skyFill.position.set(0.6, 0.5, -0.8);
+    this._scene.add(skyFill);
+
+    // Ambient: hemisphere light — warm ground reflect below, cool sky above
+    const hemi = new THREE.HemisphereLight(
+      0xc8e0f8,  // sky — soft blue-white
+      0xc8b090,  // ground — warm terracotta bounce
+      0.55,
+    );
+    this._scene.add(hemi);
 
     // WebGL context loss/restore handling
     const canvas = map.getCanvas();
@@ -281,11 +302,16 @@ export default class ThreeJSBuildingRenderer {
     while (this._scene.children.length > 0) {
       this._scene.remove(this._scene.children[0]);
     }
-    // Re-add lights
-    const sun = new THREE.DirectionalLight(0xfffbe6, 1.2);
-    sun.position.set(0.5, 1, 0.8);
+    // Re-add photorealistic lighting rig
+    const sun = new THREE.DirectionalLight(0xfff3d6, 2.4);
+    sun.position.set(-0.6, 1.0, 0.8);
+    sun.castShadow = true;
     this._scene.add(sun);
-    this._scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const skyFill = new THREE.DirectionalLight(0xc8dff0, 0.7);
+    skyFill.position.set(0.6, 0.5, -0.8);
+    this._scene.add(skyFill);
+    const hemi = new THREE.HemisphereLight(0xc8e0f8, 0xc8b090, 0.55);
+    this._scene.add(hemi);
 
     // Note: we don't have the original lngLat/options stored, so we log a warning.
     // In a production system, store model metadata for full reload.

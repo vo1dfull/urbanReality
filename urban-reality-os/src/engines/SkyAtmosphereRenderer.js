@@ -25,17 +25,23 @@ class SkyAtmosphereRenderer {
     this.fallbackStartTime = 0;
     this.fogSettings = {
       default: {
-        color: "rgb(186, 210, 235)",
-        "high-color": "rgb(36, 92, 223)",
-        "horizon-blend": 0.02,
-        "space-color": "rgb(11, 11, 25)"
+        // Photorealistic daytime haze — aerial perspective visible on far buildings
+        color: 'rgb(210, 224, 238)',
+        'high-color': 'rgb(100, 156, 210)',
+        'horizon-blend': 0.07,
+        'space-color': 'rgb(8, 10, 22)',
+        'star-intensity': 0.0,
+        range: [0.8, 12],
       },
       space: {
-        color: "rgb(11, 11, 25)",
-        "high-color": "rgb(5, 5, 15)",
-        "horizon-blend": 0.05,
-        "space-color": "rgb(2, 2, 8)"
-      }
+        // Deep space / globe view — near black
+        color: 'rgb(8, 10, 22)',
+        'high-color': 'rgb(4, 4, 14)',
+        'horizon-blend': 0.04,
+        'space-color': 'rgb(2, 2, 8)',
+        'star-intensity': 0.6,
+        range: [0.5, 8],
+      },
     };
   }
 
@@ -386,20 +392,38 @@ class SkyAtmosphereRenderer {
     if (!this.map) return;
 
     const hour = this.currentHour;
-    let fogColor, highColor;
+    let fogColor, highColor, horizonBlend, starIntensity;
 
-    if (hour >= 6 && hour <= 18) {
-      // Daytime: blue sky
-      fogColor = "rgb(186, 210, 235)";
-      highColor = "rgb(36, 92, 223)";
-    } else if ((hour >= 5 && hour < 6) || (hour > 18 && hour <= 19)) {
-      // Dawn/dusk: warm tones
-      fogColor = "rgb(255, 180, 150)";
-      highColor = "rgb(255, 120, 80)";
+    if (hour >= 10 && hour <= 16) {
+      // Midday: crisp blue haze, slight aerial perspective
+      fogColor = 'rgb(210, 224, 238)';
+      highColor = 'rgb(100, 156, 210)';
+      horizonBlend = 0.06;
+      starIntensity = 0.0;
+    } else if (hour >= 7 && hour < 10) {
+      // Morning: softer pale blue-white
+      fogColor = 'rgb(220, 232, 242)';
+      highColor = 'rgb(130, 175, 218)';
+      horizonBlend = 0.08;
+      starIntensity = 0.0;
+    } else if (hour > 16 && hour <= 18) {
+      // Late afternoon: warm golden haze
+      fogColor = 'rgb(240, 210, 175)';
+      highColor = 'rgb(200, 145, 100)';
+      horizonBlend = 0.10;
+      starIntensity = 0.0;
+    } else if ((hour >= 5 && hour < 7) || (hour > 18 && hour <= 20)) {
+      // Sunrise/sunset: vivid orange-pink atmosphere
+      fogColor = 'rgb(255, 175, 130)';
+      highColor = 'rgb(230, 100, 60)';
+      horizonBlend = 0.12;
+      starIntensity = 0.1;
     } else {
-      // Night: dark blue
-      fogColor = "rgb(20, 30, 60)";
-      highColor = "rgb(5, 10, 25)";
+      // Night: dark blue with faint star glow
+      fogColor = 'rgb(16, 24, 52)';
+      highColor = 'rgb(6, 10, 28)';
+      horizonBlend = 0.04;
+      starIntensity = 0.55;
     }
 
     try {
@@ -407,7 +431,9 @@ class SkyAtmosphereRenderer {
       this.map.setFog({
         ...existingFog,
         color: fogColor,
-        "high-color": highColor
+        'high-color': highColor,
+        'horizon-blend': horizonBlend,
+        'star-intensity': starIntensity,
       });
     } catch (error) {
       // Fog might not be set yet

@@ -18,6 +18,7 @@ import SuitabilityLayerPlugin from '../layers/terrain/SuitabilityLayerPlugin';
 import HeatLayerPlugin from '../layers/terrain/HeatLayerPlugin';
 import GreenCoverLayerPlugin from '../layers/terrain/GreenCoverLayerPlugin';
 import RoadPlannerLayerPlugin from '../layers/terrain/RoadPlannerLayerPlugin';
+import NasaEventsLayerPlugin from '../layers/NasaEventsLayerPlugin';
 
 class LayerEngine {
   constructor() {
@@ -45,7 +46,8 @@ class LayerEngine {
       .register(new SuitabilityLayerPlugin())
       .register(new HeatLayerPlugin())
       .register(new GreenCoverLayerPlugin())
-      .register(new RoadPlannerLayerPlugin());
+      .register(new RoadPlannerLayerPlugin())
+      .register(new NasaEventsLayerPlugin());
 
     this._registerBuiltins();
   }
@@ -67,6 +69,7 @@ class LayerEngine {
     this.registerLayer('analytics.population', { group: 'analytics', zIndex: 61, pluginId: 'terrainSuitability', enabled: false });
     this.registerLayer('analytics.risk', { group: 'analytics', zIndex: 62, pluginId: 'terrainFlood', enabled: false });
     this.registerLayer('analytics.economy', { group: 'analytics', zIndex: 63, pluginId: 'terrainGreen', enabled: false });
+    this.registerLayer('environment.nasa', { group: 'environment', zIndex: 55, pluginId: 'nasa-events', enabled: false });
   }
 
   registerLayer(id, config = {}) {
@@ -150,7 +153,10 @@ class LayerEngine {
     const plugin = this.registry.get(cfg.pluginId);
     if (!plugin) return;
     plugin.toggle(map, enabled);
-    this._fadePlugin(map, plugin, enabled, cfg.fadeMs);
+    // Skip fade animation for plugins that manage their own visibility (e.g. nasa-events)
+    if (cfg.pluginId !== 'nasa-events') {
+      this._fadePlugin(map, plugin, enabled, cfg.fadeMs);
+    }
   }
 
   _fadePlugin(map, plugin, enabled, fadeMs) {
@@ -279,7 +285,9 @@ class LayerEngine {
       terrainSuitability: storeState.terrainSubLayers?.suitability ? { visible: true } : false,
       terrainHeat: storeState.terrainSubLayers?.heat ? { visible: true, year: storeState.year } : false,
       terrainGreen: storeState.terrainSubLayers?.green ? { visible: true } : false,
-      terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false
+      terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false,
+      // NASA plugin always inits (async) so toggle works immediately; visible flag controls initial visibility
+      'nasa-events': { params: { status: 'open', limit: 50 }, visible: !!layers.nasaEvents },
     };
 
     this.registry.initAll(map, dataMap, onProgress);
@@ -312,7 +320,8 @@ class LayerEngine {
       terrainSuitability: storeState.terrainSubLayers?.suitability ? { visible: true } : false,
       terrainHeat: storeState.terrainSubLayers?.heat ? { visible: true, year: storeState.year } : false,
       terrainGreen: storeState.terrainSubLayers?.green ? { visible: true } : false,
-      terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false
+      terrainRoad: storeState.terrainSubLayers?.road ? { visible: true } : false,
+      'nasa-events': { params: { status: 'open', limit: 50 }, visible: !!layers.nasaEvents },
     };
 
     this.registry.recoverAll(map, dataMap, onProgress);
@@ -565,6 +574,19 @@ class LayerEngine {
     this.toggleLayer('facilities.police', map, !!layers.policeStations);
     this.toggleLayer('facilities.fire', map, !!layers.fireStations);
     this.toggleLayer('facilities.school', map, !!layers.schools);
+
+    // NASA events — init on first enable if not yet initialized
+    const nasaPlugin = this.registry.get('nasa-events');
+    if (layers.nasaEvents && nasaPlugin && !nasaPlugin.isInitialized()) {
+      // Fire-and-forget async init — visibility baked into layers during _doInit
+      nasaPlugin.init(map, { params: { status: 'open', limit: 50 }, visible: true });
+      // Zoom out to world view so global events are visible
+      try {
+        map.flyTo({ center: [0, 20], zoom: 2, duration: 1500 });
+      } catch (_) {}
+    } else if (nasaPlugin) {
+      this.toggleLayer('environment.nasa', map, !!layers.nasaEvents);
+    }
 
     this._applyZOrder(map);
   }

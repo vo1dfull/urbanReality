@@ -197,11 +197,13 @@ class MapEngine {
   _applySceneLighting() {
     if (!this._map) return;
     try {
+      // Photorealistic afternoon sun: warm white, high elevation from SW,
+      // strong intensity so facade/roof contrast matches real-world photography.
       this._map.setLight({
         anchor: 'map',
-        color: '#fffbe6',
-        intensity: 0.55,
-        position: [1.5, 225, 65],
+        color: '#fff8e8',      // warm solar white (not pure white = more natural)
+        intensity: 0.65,       // strong directional — creates visible shadow planes
+        position: [1.5, 210, 60], // azimuth 210° (SW sun), elevation 60°
       });
     } catch (err) {
       log.warn('setLight not supported on this style/runtime:', err);
@@ -211,12 +213,17 @@ class MapEngine {
   _applyFog() {
     if (!this._map) return;
     try {
+      // Photorealistic atmospheric haze:
+      // - Start fog close (range[0]=0.8) so distant buildings get aerial perspective
+      // - Soft horizon blend for natural sky-to-ground fade
+      // - Light blue-grey fog matches real aerial/satellite photography
       this._map.setFog({
-        range: [0.5, 10],
-        color: '#ddeeff',
-        'high-color': '#a0c8ff',
-        'horizon-blend': 0.1,
-        'space-color': '#0b0b19',
+        range: [0.8, 12],
+        color: 'rgb(210, 224, 238)',          // hazy light blue — atmosphere
+        'high-color': 'rgb(120, 168, 210)',    // richer blue overhead
+        'horizon-blend': 0.08,                 // smooth horizon gradient
+        'space-color': 'rgb(8, 10, 22)',       // deep space dark for high pitch
+        'star-intensity': 0.0,                 // no stars in day mode
       });
     } catch (err) {
       log.warn('setFog not supported on this style/runtime:', err);

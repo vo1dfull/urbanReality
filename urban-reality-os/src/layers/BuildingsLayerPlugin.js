@@ -70,13 +70,38 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
       type: 'fill-extrusion',
       minzoom: MIN_ZOOM,
       paint: {
+        // Hyper-realistic facade colors: material-aware palette keyed off
+        // building type → concrete/glass/brick tones, height-stratified.
         'fill-extrusion-color': [
           'case',
+          // ── Simulation overrides (flood/critical) ─────────────────────────
           ['boolean', ['feature-state', 'isCritical'], false],
-          ['interpolate', ['linear'], ['feature-state', 'pulsePhase'], 0, '#fecaca', 0.5, '#dc2626', 1, '#fecaca'],
+          ['interpolate', ['linear'], ['feature-state', 'pulsePhase'],
+            0, '#fecaca', 0.5, '#dc2626', 1, '#fecaca'],
           ['boolean', ['feature-state', 'isSubmerged'], false],
-          ['interpolate', ['linear'], ['feature-state', 'submersionRatio'], 0, '#475569', 1, '#f97316'],
-          ['interpolate', ['linear'], ['coalesce', ['to-number', ['feature-state', 'adjustedHeight']], ['to-number', ['get', 'render_height']], ['to-number', ['get', 'height']], 0], 0, '#1e3a5f', 15, '#1e3a5f', 30, '#2d6a9f', 60, '#3a82c4', 100, '#4a9eff', 200, '#e0f0ff'],
+          ['interpolate', ['linear'], ['feature-state', 'submersionRatio'],
+            0, '#475569', 1, '#f97316'],
+          // ── Material-aware day palette ─────────────────────────────────────
+          // Low-rise (< 15 m): warm concrete/brick — #c2b280 → #b5a27a
+          // Mid-rise (15–60 m): off-white/light concrete — #d6d0c4 → #bfbab0
+          // High-rise (60–120 m): glass/steel curtain wall — #8fb4d0 → #a8cce0
+          // Tower (> 120 m): reflective glass — #cce4f4 → #e8f4fc
+          ['interpolate', ['linear'],
+            ['coalesce',
+              ['to-number', ['feature-state', 'adjustedHeight']],
+              ['to-number', ['get', 'render_height']],
+              ['to-number', ['get', 'height']],
+              0,
+            ],
+            0,   '#b8a98a',   // ground storey — warm sandstone
+            8,   '#c2b48e',   // low residential — brick/render
+            15,  '#cec8bc',   // low-mid — light concrete
+            30,  '#d4cec6',   // mid-rise — off-white panels
+            50,  '#bfd0dd',   // upper mid — light curtain wall
+            80,  '#a8c4d8',   // high-rise — steel/glass blue
+            120, '#c0ddf0',   // tower base — reflective glass
+            200, '#daeeff',   // supertall — bright specular sky reflection
+          ],
         ],
         'fill-extrusion-height': [
           'coalesce',
@@ -92,15 +117,21 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
           ['to-number', ['get', 'min_height']],
           0,
         ],
+        // Smooth fade-in with near-full opacity at high zoom for realism
         'fill-extrusion-opacity': [
           'interpolate', ['linear'], ['zoom'],
           13.8, 0,
-          14.2, 0.78,
-          16, 0.92,
+          14.2, 0.82,
+          15.5, 0.92,
+          17,   0.97,
         ],
+        // Vertical gradient = roof lighter than facade (diffuse sky lighting)
         'fill-extrusion-vertical-gradient': true,
-        'fill-extrusion-ambient-occlusion-intensity': 0.85,
-        'fill-extrusion-ambient-occlusion-ground-radius': 18,
+        // Deep contact shadow for grounding + soft edge AO
+        'fill-extrusion-ambient-occlusion-intensity': 0.92,
+        'fill-extrusion-ambient-occlusion-ground-radius': 20,
+        // Floor-to-floor detail at high zoom
+        'fill-extrusion-flood-light-intensity': 0.0,
       },
       layout: { visibility: 'none' },
     });
@@ -292,12 +323,29 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     if (!map || !map.getLayer('3d-buildings')) return;
     const zoom = map.getZoom();
     const pitch = map.getPitch();
-    const shouldShow = zoom >= MIN_ZOOM && pitch >= 25;
+    // Show buildings at slightly lower pitch threshold so they appear
+    // as soon as the camera tilts — matches Google Earth behaviour.
+    const shouldShow = zoom >= MIN_ZOOM && pitch >= 20;
     try {
       map.setLayoutProperty('3d-buildings', 'visibility', shouldShow ? 'visible' : 'none');
-      const radius = zoom >= HIGH_DETAIL_ZOOM ? 18 : 12;
+
+      // ── Hyper-realism LOD: scale AO radius + intensity with zoom ──────────
+      let aoRadius, aoIntensity;
+      if (zoom >= 17) {
+        // Street-level: deep contact shadows, wide soft penumbra
+        aoRadius = 24;
+        aoIntensity = 0.95;
+      } else if (zoom >= HIGH_DETAIL_ZOOM) {
+        aoRadius = 18;
+        aoIntensity = 0.90;
+      } else {
+        aoRadius = 12;
+        aoIntensity = 0.80;
+      }
+
       map.setPaintProperty('3d-buildings', 'fill-extrusion-vertical-gradient', true);
-      map.setPaintProperty('3d-buildings', 'fill-extrusion-ambient-occlusion-ground-radius', radius);
+      map.setPaintProperty('3d-buildings', 'fill-extrusion-ambient-occlusion-ground-radius', aoRadius);
+      map.setPaintProperty('3d-buildings', 'fill-extrusion-ambient-occlusion-intensity', aoIntensity);
     } catch (_) {
       // Style may be reloading; skip safely.
     }
@@ -351,7 +399,7 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     if (!this._map || !this._map.getLayer('3d-buildings')) return;
     try {
       const defaultColor = isNight
-        ? // Night: dark facade, taller buildings show more lit windows (brighter)
+        ? // ── Night: dark concrete facades, amber/warm window glow scales with height ──
           ['interpolate', ['linear'],
             ['coalesce',
               ['to-number', ['feature-state', 'adjustedHeight']],
@@ -359,14 +407,16 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
               ['to-number', ['get', 'height']],
               0,
             ],
-            0,   '#0d1117',   // ground — near black
-            15,  '#111827',   // low-rise — very dark
-            30,  '#1a2744',   // mid-rise — dark navy
-            60,  '#1e3a5f',   // tall — navy with hint of windows
-            100, '#243b6e',   // high-rise — more lit windows
-            200, '#2d4f8a',   // tower — bright window glow
+            0,   '#080c14',   // ground — near-black tarmac/base
+            8,   '#0d1320',   // low storey — very dark concrete
+            15,  '#111b2e',   // low-rise — dark navy, few windows
+            30,  '#162038',   // mid-rise — faint lit-floor glow
+            50,  '#1e2d4a',   // upper mid — office windows begin
+            80,  '#233660',   // high-rise — warm amber office glow
+            120, '#2a4278',   // tower — bright lit curtain wall
+            200, '#344f90',   // supertall — brilliant blue-white crown
           ]
-        : // Day: height-based blue gradient (existing)
+        : // ── Day: hyper-realistic material palette (warm concrete → glass/steel) ──
           ['interpolate', ['linear'],
             ['coalesce',
               ['to-number', ['feature-state', 'adjustedHeight']],
@@ -374,33 +424,45 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
               ['to-number', ['get', 'height']],
               0,
             ],
-            0,   '#1e3a5f',
-            15,  '#1e3a5f',
-            30,  '#2d6a9f',
-            60,  '#3a82c4',
-            100, '#4a9eff',
-            200, '#e0f0ff',
+            0,   '#b8a98a',
+            8,   '#c2b48e',
+            15,  '#cec8bc',
+            30,  '#d4cec6',
+            50,  '#bfd0dd',
+            80,  '#a8c4d8',
+            120, '#c0ddf0',
+            200, '#daeeff',
           ];
 
-      // Rebuild the full 3-branch case expression preserving flood overrides
+      // Preserve flood-simulation overrides
       const colorExpr = [
         'case',
         ['boolean', ['feature-state', 'isCritical'], false],
-        ['interpolate', ['linear'], ['feature-state', 'pulsePhase'], 0, '#fecaca', 0.5, '#dc2626', 1, '#fecaca'],
+        ['interpolate', ['linear'], ['feature-state', 'pulsePhase'],
+          0, '#fecaca', 0.5, '#dc2626', 1, '#fecaca'],
         ['boolean', ['feature-state', 'isSubmerged'], false],
-        ['interpolate', ['linear'], ['feature-state', 'submersionRatio'], 0, '#475569', 1, '#f97316'],
+        ['interpolate', ['linear'], ['feature-state', 'submersionRatio'],
+          0, '#475569', 1, '#f97316'],
         defaultColor,
       ];
 
       this._map.setPaintProperty('3d-buildings', 'fill-extrusion-color', colorExpr);
 
-      // Night: slightly higher opacity so dark buildings still read well
+      // Night: slightly higher opacity + deeper AO so dark buildings read crisply
       this._map.setPaintProperty('3d-buildings', 'fill-extrusion-opacity', [
         'interpolate', ['linear'], ['zoom'],
         13.8, 0,
-        14.2, isNight ? 0.88 : 0.78,
-        16,   isNight ? 0.96 : 0.92,
+        14.2, isNight ? 0.90 : 0.82,
+        15.5, isNight ? 0.97 : 0.92,
+        17,   isNight ? 1.00 : 0.97,
       ]);
+
+      // Night AO: deeper shadow intensity for dramatic realism
+      this._map.setPaintProperty(
+        '3d-buildings',
+        'fill-extrusion-ambient-occlusion-intensity',
+        isNight ? 0.98 : 0.92,
+      );
     } catch (_) {
       // Layer may not exist yet during style reload — safe to ignore
     }

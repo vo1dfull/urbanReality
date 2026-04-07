@@ -1,0 +1,49 @@
+Date : 2026-04-07 17:07:25
+Directory : f:\urbanReality
+Total : 11 files,  1254 codes, 88 comments, 382 blanks, all 1724 lines
+
+Languages
++----------------+------------+------------+------------+------------+------------+
+| language       | files      | code       | comment    | blank      | total      |
++----------------+------------+------------+------------+------------+------------+
+| Markdown       |          4 |        918 |          0 |        318 |      1,236 |
+| JavaScript     |          5 |        291 |         83 |         56 |        430 |
+| JavaScript JSX |          2 |         45 |          5 |          8 |         58 |
++----------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                              | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                 |         11 |      1,254 |         88 |        382 |      1,724 |
+| urban-reality-os                                                                  |         11 |      1,254 |         88 |        382 |      1,724 |
+| urban-reality-os\.kiro                                                            |          4 |        918 |          0 |        318 |      1,236 |
+| urban-reality-os\.kiro\specs                                                      |          4 |        918 |          0 |        318 |      1,236 |
+| urban-reality-os\.kiro\specs\3d-buildings-upgrade                                 |          3 |        794 |          0 |        262 |      1,056 |
+| urban-reality-os\.kiro\specs\nasa-eonet-layer                                     |          1 |        124 |          0 |         56 |        180 |
+| urban-reality-os\src                                                              |          7 |        336 |         88 |         64 |        488 |
+| urban-reality-os\src\components                                                   |          3 |         47 |          6 |          9 |         62 |
+| urban-reality-os\src\components\intro                                             |          3 |         47 |          6 |          9 |         62 |
+| urban-reality-os\src\components\intro (Files)                                     |          2 |         45 |          5 |          8 |         58 |
+| urban-reality-os\src\components\intro\systems                                     |          1 |          2 |          1 |          1 |          4 |
+| urban-reality-os\src\engines                                                      |          3 |        233 |         73 |         51 |        357 |
+| urban-reality-os\src\layers                                                       |          1 |         56 |          9 |          4 |         69 |
++-----------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| filename                                                                          | language       | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+
+| f:\urbanReality\urban-reality-os\.kiro\specs\3d-buildings-upgrade\design.md       | Markdown       |        547 |          0 |        174 |        721 |
+| f:\urbanReality\urban-reality-os\.kiro\specs\3d-buildings-upgrade\requirements.md | Markdown       |        114 |          0 |         56 |        170 |
+| f:\urbanReality\urban-reality-os\.kiro\specs\3d-buildings-upgrade\tasks.md        | Markdown       |        133 |          0 |         32 |        165 |
+| f:\urbanReality\urban-reality-os\.kiro\specs\nasa-eonet-layer\requirements.md     | Markdown       |        124 |          0 |         56 |        180 |
+| f:\urbanReality\urban-reality-os\src\components\intro\CityBuildAnimation.jsx      | JavaScript JSX |         25 |          4 |          6 |         35 |
+| f:\urbanReality\urban-reality-os\src\components\intro\IntroScene.jsx              | JavaScript JSX |         20 |          1 |          2 |         23 |
+| f:\urbanReality\urban-reality-os\src\components\intro\systems\CameraDirector.js   | JavaScript     |          2 |          1 |          1 |          4 |
+| f:\urbanReality\urban-reality-os\src\engines\MapEngine.js                         | JavaScript     |         26 |          4 |          3 |         33 |
+| f:\urbanReality\urban-reality-os\src\engines\SkyAtmosphereRenderer.js             | JavaScript     |         16 |          8 |          3 |         27 |
+| f:\urbanReality\urban-reality-os\src\engines\ThreeJSBuildingRenderer.js           | JavaScript     |        191 |         61 |         45 |        297 |
+| f:\urbanReality\urban-reality-os\src\layers\BuildingsLayerPlugin.js               | JavaScript     |         56 |          9 |          4 |         69 |
+| Total                                                                             |                |      1,254 |         88 |        382 |      1,724 |
++-----------------------------------------------------------------------------------+----------------+------------+------------+------------+------------+

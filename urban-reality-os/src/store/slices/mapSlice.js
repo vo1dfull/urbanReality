@@ -15,6 +15,7 @@ export const createMapSlice = (set) => ({
     policeStations: false,
     fireStations: false,
     schools: false,
+    nasaEvents: false,
   },
   dataReady: false,
   year: INITIAL_YEAR,
@@ -72,4 +73,9 @@ export const createMapSlice = (set) => ({
     return { greenZones: has ? state.greenZones.filter((k) => k !== key) : [key, ...state.greenZones].slice(0, 500) };
   }),
   clearGreenZones: () => set({ greenZones: [] }),
+
+  // ── Disaster simulation impact ──────────────────────────────────────────
+  simulationImpact: null, // { traffic, aqi, risk, livability }
+  setSimulationImpact: (impact) => set({ simulationImpact: impact }),
+  clearSimulationImpact: () => set({ simulationImpact: null }),
 });

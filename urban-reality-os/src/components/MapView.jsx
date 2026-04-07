@@ -59,6 +59,10 @@ import MapEngine from '../engines/MapEngine';
 import InteractionEngine from '../engines/InteractionEngine';
 import DataEngine from '../engines/DataEngine';
 import FrameController from '../core/FrameController';
+import NasaEngine from '../engines/NasaEngine';
+import LayerEngine from '../engines/LayerEngine';
+import DisasterEngine from '../engines/DisasterEngine';
+import ImpactEngine from '../engines/ImpactEngine';
 
 // UI Components
 import CoordinateDisplay from './CoordinateDisplay';
@@ -79,6 +83,8 @@ import ContextCard from '../ui/layout/ContextCard';
 
 import { addSavedPlace } from '../utils/savedPlaces';
 import { BASE_YEAR, MAX_YEAR, IMPACT_MODEL } from '../constants/mapConstants';
+import NasaFilterBar from './NasaFilterBar';
+import NasaEventPanel from './NasaEventPanel';
 
 export default function MapView() {
   // ── Hooks ──
@@ -158,6 +164,92 @@ export default function MapView() {
   const [draftName, setDraftName] = useState('');
   const [draftType, setDraftType] = useState('custom');
   const [introComplete, setIntroComplete] = useState(false);
+
+  // ── NASA EONET state ──
+  const [nasaEvent, setNasaEvent] = useState(null);
+  const [nasaFilter, setNasaFilter] = useState('all');
+  const [nasaLoading, setNasaLoading] = useState(false);
+  const [nasaLive, setNasaLive] = useState(false);
+  const [nasaStale, setNasaStale] = useState(false);
+  const [nasaLastUpdated, setNasaLastUpdated] = useState(null);
+
+  // ── NASA event select listener + live status ──
+  useEffect(() => {
+    if (!mapReady) return;
+    const map = MapEngine.getMap();
+    if (!map) return;
+    const handler = (e) => setNasaEvent(e.feature ?? null);
+    map.on('nasa:event:select', handler);
+    return () => map.off('nasa:event:select', handler);
+  }, [mapReady]);
+
+  // Mark live when layer is enabled
+  useEffect(() => {
+    if (layers.nasaEvents) {
+      setNasaLive(true);
+      setNasaLastUpdated(new Date());
+    }
+  }, [layers.nasaEvents]);
+
+  // ── Disaster simulation loop ──
+  useEffect(() => {
+    if (!layers.nasaEvents) return;
+
+    const map = MapEngine.getMap();
+    const plugin = LayerEngine.getPlugin('nasa-events');
+
+    DisasterEngine.startLoop((disasters) => {
+      // Push evolved positions to the map layer
+      if (plugin && map) {
+        const fc = { type: 'FeatureCollection', features: disasters };
+        plugin.update(map, fc);
+      }
+
+      // Calculate city impact if a location is active
+      const store = useMapStore.getState();
+      const city  = store.activeLocation;
+      if (city && disasters.length > 0) {
+        const total = ImpactEngine.calculateTotal(disasters, city);
+        store.setSimulationImpact(total);
+      }
+    }, () => {
+      // Return current city interventions from store
+      const state = useMapStore.getState();
+      return {
+        fireStation: state.layers.fireStations,
+        drainage:    state.layers.flood,
+        greenZone:   (state.greenZones?.length ?? 0) > 0,
+      };
+    });
+
+    return () => {
+      DisasterEngine.stopLoop();
+      useMapStore.getState().clearSimulationImpact?.();
+    };
+  }, [layers.nasaEvents]);
+
+  // ── NASA filter change handler ──
+  const handleNasaFilterChange = useCallback(async (category) => {
+    setNasaLoading(true);
+    const map = MapEngine.getMap();
+    // Ensure layer is enabled when user interacts with filter
+    if (map) LayerEngine.enableLayer('environment.nasa', map);
+    let data;
+    if (category === 'all') {
+      data = await NasaEngine.fetchEvents({ status: 'open', limit: 50 });
+    } else {
+      data = NasaEngine.getEventsByCategory(category) ?? await NasaEngine.fetchEvents({ category, status: 'open', limit: 50 });
+    }
+    const plugin = LayerEngine.getPlugin('nasa-events');
+    if (plugin && map) {
+      plugin.update(map, data ?? { type: 'FeatureCollection', features: [] });
+    }
+    setNasaFilter(category);
+    setNasaLoading(false);
+    setNasaLive(true);
+    setNasaStale(false);
+    setNasaLastUpdated(new Date());
+  }, []);
 
   useEffect(() => {
     if (!savedPlaceDraft) return;
@@ -286,6 +378,14 @@ export default function MapView() {
         onToggleFlood={toggleFloodMode}
         startCityFlyThrough={startCityFlyThrough}
         onRequestLogin={() => setIsLoginOpen(true)}
+        nasaEvent={nasaEvent}
+        setNasaEvent={setNasaEvent}
+        nasaFilter={nasaFilter}
+        nasaLoading={nasaLoading}
+        nasaLive={nasaLive}
+        nasaStale={nasaStale}
+        nasaLastUpdated={nasaLastUpdated}
+        onNasaFilterChange={handleNasaFilterChange}
       />
 
       {/* ── OVERLAY ROOT (top layer — tooltips, popups) ── */}
@@ -525,6 +625,9 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
   setActivePanel, setAppMode,
   mapReady, onLocationSelect, onToggleFlood, startCityFlyThrough,
   onRequestLogin,
+  nasaEvent, setNasaEvent,
+  nasaFilter, nasaLoading, nasaLive, nasaStale, nasaLastUpdated,
+  onNasaFilterChange,
 }) {
   _ensureDockPolishStyle();
   return (
@@ -642,6 +745,26 @@ const ModernLayoutRoot = memo(function ModernLayoutRoot({
       <CitySuggestions map={mapRef.current} visible={showSuggestions} />
       <CoordinateDisplay mapRef={mapRef} />
       <FacilityListPanel facilityData={facilityData} layers={layers} mapRef={mapRef} />
+      {layers.nasaEvents && (
+        <div style={{ pointerEvents: 'auto' }}>
+          <NasaFilterBar
+            activeFilter={nasaFilter}
+            onFilterChange={onNasaFilterChange}
+            isLoading={nasaLoading}
+            isLive={nasaLive}
+            isStale={nasaStale}
+            lastUpdated={nasaLastUpdated}
+          />
+        </div>
+      )}
+      {nasaEvent !== null && (
+        <div style={{ pointerEvents: 'auto' }}>
+          <NasaEventPanel
+            event={nasaEvent}
+            onClose={() => setNasaEvent(null)}
+          />
+        </div>
+      )}
     </div>
   );
 });
