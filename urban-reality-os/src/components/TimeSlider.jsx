@@ -28,22 +28,24 @@ export default function TimeSlider() {
   return (
     <div
       style={{
-        position: "absolute",
-        bottom: 30,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 20,
-        background: "rgba(2,6,23,0.9)",
-        padding: "14px 20px",
+        position: 'relative',
+        zIndex: 'auto',
+        background: 'rgba(20, 25, 40, 0.6)',
+        padding: '12px 14px',
         borderRadius: 14,
-        color: "white",
-        width: 360,
-        boxShadow: "0 15px 40px rgba(0,0,0,0.6)",
-        backdropFilter: "blur(8px)"
+        color: 'white',
+        width: '100%',
+        minWidth: 360,
+        maxWidth: 420,
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(14px)',
+        transition: 'all 0.25s ease',
       }}
     >
-      <div style={{ marginBottom: 8 }}>
-        <b>🕒 Simulation Year:</b> {year}
+      <div style={{ marginBottom: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.18, color: '#dbeafe' }}>Simulation Year</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: '#f8fafc' }}>{year}</span>
       </div>
 
       <input
@@ -53,16 +55,16 @@ export default function TimeSlider() {
         step="1"
         value={year}
         onChange={e => setYear(Number(e.target.value))}
-        style={{ width: "100%" }}
+        style={{ width: '100%', marginBottom: 3, height: 14, accentColor: '#60a5fa' }}
       />
 
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 10,
           opacity: 0.7,
-          marginBottom: 12
+          marginBottom: 6,
         }}
       >
         <span>{BASE_YEAR}</span>
@@ -71,8 +73,11 @@ export default function TimeSlider() {
         <span>{MAX_YEAR}</span>
       </div>
 
-      <div style={{ marginBottom: 8 }}>
-        <b>🌅 Sky Time:</b> {Math.floor(skyTime)}:{String(Math.floor((skyTime % 1) * 60)).padStart(2, '0')}
+      <div style={{ marginBottom: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.18, color: '#dbeafe' }}>Sky Time</span>
+        <span style={{ fontSize: 12, fontWeight: 800, color: '#f8fafc' }}>
+          {Math.floor(skyTime)}:{String(Math.floor((skyTime % 1) * 60)).padStart(2, '0')}
+        </span>
       </div>
 
       <input
@@ -82,15 +87,15 @@ export default function TimeSlider() {
         step="0.5"
         value={skyTime}
         onChange={e => setSkyTime(Number(e.target.value))}
-        style={{ width: "100%" }}
+        style={{ width: '100%', marginBottom: 3, height: 14, accentColor: '#60a5fa' }}
       />
 
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: 12,
-          opacity: 0.7
+          display: 'flex',
+          justifyContent: 'space-between',
+          fontSize: 10,
+          opacity: 0.7,
         }}
       >
         <span>🌙 00:00</span>

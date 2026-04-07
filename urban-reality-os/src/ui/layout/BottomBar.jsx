@@ -5,18 +5,26 @@ const BottomBar = memo(function BottomBar() {
   return (
     <div style={{
       position: 'fixed',
-      left: 84,
-      right: 356,
-      bottom: 16,
-      zIndex: 20,
+      left: 'calc(20px + min(540px, calc(100vw - 40px)) + 18px)',
+      right: 420,
+      bottom: 20,
+      zIndex: 55,
+      width: '100%',
+      minWidth: 360,
+      maxWidth: 480,
       display: 'flex',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       pointerEvents: 'none',
     }}>
       <div
-        style={{ pointerEvents: 'auto', transform: 'translateY(0)', transition: 'transform 180ms cubic-bezier(0.4,0,0.2,1)' }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+        style={{
+          pointerEvents: 'auto',
+          width: '100%',
+          transform: 'translateY(2px)',
+          transition: 'transform 180ms cubic-bezier(0.4,0,0.2,1)',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(2px)'; }}
       >
         <TimeSlider />
       </div>

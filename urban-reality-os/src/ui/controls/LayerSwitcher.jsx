@@ -10,30 +10,31 @@ function ensureLayerStripStyles() {
   style.textContent = `
     .layer-strip-wrap {
       position: fixed;
-      left: 16px;
-      bottom: 16px;
-      z-index: 20;
+      left: 20px;
+      bottom: 20px;
+      z-index: 60;
       pointer-events: none;
     }
 
     .layer-strip {
       pointer-events: none;
       display: flex;
-      gap: 12px;
+      gap: 11px;
       overflow-x: auto;
-      padding: 8px;
+      padding: 10px;
       border-radius: 16px;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      background: rgba(20, 20, 30, 0.6);
-      border: 1px solid rgba(255,255,255,0.10);
-      box-shadow: 0 10px 28px rgba(2,6,23,0.22);
-      max-width: min(520px, calc(100vw - 32px));
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      background: rgba(20, 25, 40, 0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+      max-width: min(540px, calc(100vw - 40px));
       scrollbar-width: none;
       -ms-overflow-style: none;
       overscroll-behavior-x: contain;
       scroll-snap-type: x proximity;
       will-change: transform;
+      transition: all 0.25s ease;
     }
 
     .layer-strip::-webkit-scrollbar { display: none; }
