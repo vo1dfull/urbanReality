@@ -237,10 +237,11 @@ class MapEngine {
       // - Soft horizon blend for natural sky-to-ground fade
       // - Light blue-grey fog matches real aerial/satellite photography
       this._map.setFog({
-        range: [0.8, 12],
-        color: 'rgb(210, 224, 238)',          // hazy light blue — atmosphere
-        'high-color': 'rgb(120, 168, 210)',    // richer blue overhead
-        'horizon-blend': 0.08,                 // smooth horizon gradient
+        // Pull fog closer and farther for stronger atmospheric perspective.
+        range: [0.45, 9.5],
+        color: 'rgb(188, 216, 238)',          // horizon haze (must match sky family)
+        'high-color': 'rgb(86, 150, 208)',    // richer zenith blue
+        'horizon-blend': 0.18,                // stronger sky-map blend to remove horizon seam
         'space-color': 'rgb(8, 10, 22)',       // deep space dark for high pitch
         'star-intensity': 0.0,                 // no stars in day mode
       });

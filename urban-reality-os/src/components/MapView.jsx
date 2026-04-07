@@ -352,6 +352,27 @@ export default function MapView() {
         willChange: 'transform',      /* 🔥 Forces GPU compositing layer */
       }} />
 
+      {/* Horizon haze blend: softens terrain-to-sky seam for cinematic realism */}
+      {(mapStyle === 'terrain' || mapStyle === 'satellite') && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'fixed',
+            left: 0,
+            right: 0,
+            bottom: '34%',
+            height: '30vh',
+            zIndex: 1,
+            pointerEvents: 'none',
+            mixBlendMode: 'screen',
+            opacity: mapStyle === 'terrain' ? 0.45 : 0.25,
+            background: mapStyle === 'terrain'
+              ? 'linear-gradient(to top, rgba(242,249,255,0.62) 0%, rgba(216,234,248,0.38) 34%, rgba(178,210,236,0.18) 58%, rgba(152,192,224,0.08) 78%, rgba(130,176,214,0.0) 100%)'
+              : 'linear-gradient(to top, rgba(102,126,188,0.32) 0%, rgba(68,90,154,0.18) 42%, rgba(34,50,96,0.0) 100%)',
+          }}
+        />
+      )}
+
       <MapSyncOrchestrator mapReady={mapReady} />
 
       {/* ── MODERN LAYOUT ROOT (strict non-overlapping zones) ── */}
