@@ -325,9 +325,10 @@ export default class BuildingsLayerPlugin extends BaseLayerPlugin {
     const pitch = map.getPitch();
     // Show buildings at slightly lower pitch threshold so they appear
     // as soon as the camera tilts — matches Google Earth behaviour.
-    const shouldShow = zoom >= MIN_ZOOM && pitch >= 20;
+    // However, at zoom >= 16, hide the fill-extrusion to let RealisticBuildingRenderer take over.
+    const shouldShowFillExtrusion = zoom >= MIN_ZOOM && pitch >= 20 && zoom < 16;
     try {
-      map.setLayoutProperty('3d-buildings', 'visibility', shouldShow ? 'visible' : 'none');
+      map.setLayoutProperty('3d-buildings', 'visibility', shouldShowFillExtrusion ? 'visible' : 'none');
 
       // ── Hyper-realism LOD: scale AO radius + intensity with zoom ──────────
       let aoRadius, aoIntensity;

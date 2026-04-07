@@ -9,6 +9,7 @@ import { throttle } from '../utils/cache';
 import { createLogger } from '../core/Logger';
 import SpaceRenderer from './SpaceRenderer';
 import SkyAtmosphereRenderer from './SkyAtmosphereRenderer';
+import RealisticBuildingRenderer from '../renderers/RealisticBuildingRenderer';
 
 const log = createLogger('MapEngine');
 
@@ -73,6 +74,8 @@ class MapEngine {
     // Space and sky renderers
     this._spaceRenderer = new SpaceRenderer();
     this._skyRenderer = new SkyAtmosphereRenderer();
+    // Hyper-realistic building renderer (custom WebGL layer)
+    this._realisticBuildingRenderer = new RealisticBuildingRenderer();
   }
 
   setLayerEngine(layerEngine) {
@@ -186,6 +189,15 @@ class MapEngine {
         this._map.getCanvas().style.backgroundColor = '#020617';
       } else {
         this._map.getCanvas().style.backgroundColor = '#f1f7ff';
+      }
+
+      // Add realistic building renderer on top of fill-extrusion layer
+      try {
+        if (!this._map.getLayer('realistic-buildings')) {
+          this._map.addLayer(this._realisticBuildingRenderer.customLayer);
+        }
+      } catch (err) {
+        log.warn('Failed to add realistic buildings renderer:', err);
       }
 
       log.info('Renderers initialized');
@@ -801,6 +813,9 @@ class MapEngine {
     if (this._skyRenderer) {
       this._skyRenderer.disable();
     }
+    if (this._realisticBuildingRenderer && this._map) {
+      try { this._map.removeLayer('realistic-buildings'); } catch (_) {}
+    }
     if (this._map) {
       this._map.remove();
       this._map = null;
@@ -869,6 +884,7 @@ class MapEngine {
    */
   setTime(hour) {
     this._skyRenderer.setTime(hour);
+    this._realisticBuildingRenderer.setTime(hour);
 
     // Drive map.setLight dynamically from the time slider
     if (!this._map) return;
