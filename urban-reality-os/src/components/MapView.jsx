@@ -26,7 +26,6 @@ const MapSyncOrchestrator = memo(function MapSyncOrchestrator({ mapReady }) {
   useFloodAnimation();
   useYearProjection();
   useInteractions();
-  useKeyboardShortcuts();
   useOnlineStatus();
   useAuthSessionRestore();
   return null;
@@ -91,6 +90,7 @@ export default function MapView() {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const { mapContainerRef } = useMapEngine();
   const { startCityFlyThrough } = useCameraControls();
+  useKeyboardShortcuts();
   
   // ── Urban Intelligence System ──
   const { engines: urbanEngines, isReady: urbanReady, isInitialized: urbanInitialized, initError } = useUrbanIntelligence();

@@ -18,13 +18,17 @@ export default function useKeyboardShortcuts() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       const tag = e.target?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+      if (e.repeat) return;
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) return;
 
       const store = useMapStore.getState();
 
-      switch (e.key) {
+      const key = e.code || e.key;
+
+      switch (key) {
         case 'f':
         case 'F':
+        case 'KeyF':
           setFacilityCheckOpen((prev) => !prev);
           break;
 
@@ -36,7 +40,8 @@ export default function useKeyboardShortcuts() {
           break;
 
         case 'r':
-        case 'R': {
+        case 'R':
+        case 'KeyR': {
           // Reset camera
           const map = MapEngine.getMap();
           if (map) {
@@ -55,12 +60,14 @@ export default function useKeyboardShortcuts() {
 
         case 't':
         case 'T':
+        case 'KeyT':
           // Toggle terrain mode
           store.setMapStyle(store.mapStyle === 'terrain' ? 'default' : 'terrain');
           break;
 
         case 'd':
         case 'D':
+        case 'KeyD':
           // Toggle debug panel
           store.setDebugMode(!store.debugMode);
           break;

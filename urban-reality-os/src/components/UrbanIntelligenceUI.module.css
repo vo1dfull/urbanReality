@@ -7,7 +7,7 @@
 .container {
   position: fixed;
   top: 16px;
-  right: 16px;
+  right: 80px;
   width: min(360px, calc(100vw - 32px));
   max-height: none;
   background: transparent;
