@@ -22,6 +22,7 @@ const PRIORITY_NORMAL = 1;
 const PRIORITY_IDLE = 2;
 
 const PRIORITY_MAP = { critical: PRIORITY_CRITICAL, normal: PRIORITY_NORMAL, idle: PRIORITY_IDLE };
+const TIMELINE_SIZE = 512;
 
 class FrameController {
   constructor() {
@@ -48,6 +49,17 @@ class FrameController {
     this._watchdogCallbacks = [];
     this._fpsUpdateCounter = 0;
 
+    this._fixedTimestepEnabled = false;
+    this._fixedStepMs = 16.6667;
+    this._stepAccumulator = 0;
+    this._smoothingAlpha = 0.15;
+    this._smoothedDelta = 16.6667;
+
+    this._timeline = new Array(TIMELINE_SIZE);
+    this._timelineIdx = 0;
+    this._timelineSize = 0;
+    this._timelineSubscribers = [];
+
     // Frame budget tracking
     this._frameBudgetExceeded = 0; // consecutive frames over budget
     this._idleMultiplier = 1; // increases on low FPS to skip idle tasks
@@ -69,6 +81,15 @@ class FrameController {
     }
   }
 
+  init() {
+    this._destroyed = false;
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this._visibilityHandler);
+      document.addEventListener('visibilitychange', this._visibilityHandler);
+    }
+    return this;
+  }
+
   /**
    * Add a task to the global loop.
    * @param {Function} fn
@@ -86,6 +107,8 @@ class FrameController {
       lastRun: 0,
       label: label || `task-${id}`,
       priority: PRIORITY_MAP[priority] ?? PRIORITY_NORMAL,
+      dependencies: null,
+      group: 'default',
     });
     this._tasksDirty = true;
     if (!this._paused) this._startLoop();
@@ -172,7 +195,9 @@ class FrameController {
       if (!this._running) return;
 
       // ── FPS tracking (ring buffer — zero allocation) ──
-      const delta = timestamp - this._lastFrameTime;
+      const rawDelta = timestamp - this._lastFrameTime;
+      this._smoothedDelta = this._smoothedDelta + (rawDelta - this._smoothedDelta) * this._smoothingAlpha;
+      const delta = this._smoothedDelta;
       this._lastFrameTime = timestamp;
       this._fpsRing[this._fpsRingIdx] = delta;
       this._fpsRingIdx = (this._fpsRingIdx + 1) & (FPS_RING_SIZE - 1); // fast modulo
@@ -210,15 +235,17 @@ class FrameController {
       if (this._tasksDirty) this._rebuildTaskArrays();
 
       const frameStart = performance.now();
+      this._recordTimeline('frame:start', frameStart, 0, 'system');
 
       // ── CRITICAL tasks: ALWAYS run ──
-      for (let i = 0; i < this._criticalTasks.length; i++) {
-        const task = this._criticalTasks[i];
-        if (task.interval > 0) {
-          if (timestamp - task.lastRun < task.interval) continue;
-          task.lastRun = timestamp;
+      if (this._fixedTimestepEnabled) {
+        this._stepAccumulator += delta;
+        while (this._stepAccumulator >= this._fixedStepMs) {
+          this._runTaskArray(this._criticalTasks, timestamp, frameStart, true);
+          this._stepAccumulator -= this._fixedStepMs;
         }
-        try { task.fn(timestamp); } catch (e) { console.error('[FC] Critical task error:', e); }
+      } else {
+        this._runTaskArray(this._criticalTasks, timestamp, frameStart, true);
       }
 
       // ── NORMAL tasks: run if within budget ──
@@ -227,17 +254,7 @@ class FrameController {
       const remainingBudget = FRAME_BUDGET_MS - criticalCost;
 
       if (remainingBudget > 2) {
-        for (let i = 0; i < this._normalTasks.length; i++) {
-          const task = this._normalTasks[i];
-          if (task.interval > 0) {
-            if (timestamp - task.lastRun < task.interval) continue;
-            task.lastRun = timestamp;
-          }
-          try { task.fn(timestamp); } catch (e) { console.error('[FC] Normal task error:', e); }
-
-          // Check budget after each task
-          if (performance.now() - frameStart > FRAME_BUDGET_MS) break;
-        }
+        this._runTaskArray(this._normalTasks, timestamp, frameStart, false);
       }
 
       // ── IDLE tasks: only run if budget remains AND not throttled ──
@@ -245,17 +262,7 @@ class FrameController {
       const totalCost = afterNormal - frameStart;
 
       if (totalCost < FRAME_BUDGET_MS * 0.75) {
-        for (let i = 0; i < this._idleTasks.length; i++) {
-          const task = this._idleTasks[i];
-          const adjustedInterval = task.interval * this._idleMultiplier;
-          if (adjustedInterval > 0) {
-            if (timestamp - task.lastRun < adjustedInterval) continue;
-            task.lastRun = timestamp;
-          }
-          try { task.fn(timestamp); } catch (e) { console.error('[FC] Idle task error:', e); }
-
-          if (performance.now() - frameStart > FRAME_BUDGET_MS) break;
-        }
+        this._runTaskArray(this._idleTasks, timestamp, frameStart, false, this._idleMultiplier);
       }
 
       const frameCost = performance.now() - frameStart;
@@ -272,6 +279,8 @@ class FrameController {
           try { this._watchdogCallbacks[i](payload); } catch (_) {}
         }
       }
+
+      this._recordTimeline('frame:end', performance.now(), frameCost, 'system');
 
       this._rafId = requestAnimationFrame(loop);
     };
@@ -301,8 +310,77 @@ class FrameController {
       fps: this._fps,
       isLowFPS: this.isLowFPS(),
       idleMultiplier: this._idleMultiplier,
+      fixedTimestep: this._fixedTimestepEnabled,
+      fixedStepMs: this._fixedStepMs,
       tasks: Array.from(this._tasks.values()).map(t => t.label),
     };
+  }
+
+  setFixedTimestep(enabled, stepMs = 16.6667) {
+    this._fixedTimestepEnabled = !!enabled;
+    this._fixedStepMs = Math.max(1, stepMs);
+  }
+
+  setSmoothing(alpha = 0.15) {
+    this._smoothingAlpha = Math.max(0, Math.min(1, alpha));
+  }
+
+  setTaskMeta(id, meta = {}) {
+    const task = this._tasks.get(id);
+    if (!task) return;
+    task.dependencies = Array.isArray(meta.dependencies) ? meta.dependencies : task.dependencies;
+    task.group = meta.group || task.group;
+  }
+
+  subscribeTimeline(cb) {
+    this._timelineSubscribers.push(cb);
+    return () => {
+      const idx = this._timelineSubscribers.indexOf(cb);
+      if (idx >= 0) this._timelineSubscribers.splice(idx, 1);
+    };
+  }
+
+  getTimeline(limit = 100) {
+    const count = Math.min(limit, this._timelineSize);
+    const out = new Array(count);
+    for (let i = 0; i < count; i++) {
+      const idx = (this._timelineIdx - 1 - i + TIMELINE_SIZE) % TIMELINE_SIZE;
+      out[count - 1 - i] = this._timeline[idx];
+    }
+    return out;
+  }
+
+  _recordTimeline(label, ts, duration, group) {
+    const ev = { label, ts, duration, group };
+    this._timeline[this._timelineIdx] = ev;
+    this._timelineIdx = (this._timelineIdx + 1) % TIMELINE_SIZE;
+    if (this._timelineSize < TIMELINE_SIZE) this._timelineSize++;
+    for (let i = 0; i < this._timelineSubscribers.length; i++) {
+      try { this._timelineSubscribers[i](ev); } catch (_) {}
+    }
+  }
+
+  _runTaskArray(arr, timestamp, frameStart, strictBudget, intervalMultiplier = 1) {
+    for (let i = 0; i < arr.length; i++) {
+      const task = arr[i];
+      const adjustedInterval = task.interval * intervalMultiplier;
+      if (adjustedInterval > 0) {
+        if (timestamp - task.lastRun < adjustedInterval) continue;
+        task.lastRun = timestamp;
+      }
+
+      const t0 = performance.now();
+      try {
+        task.fn(timestamp);
+      } catch (e) {
+        console.error('[FC] Task error:', task.label, e);
+      }
+      const cost = performance.now() - t0;
+      if (cost > 6) this._recordTimeline(task.label, t0, cost, task.group || 'task');
+
+      if (strictBudget && performance.now() - frameStart > FRAME_BUDGET_MS) break;
+      if (!strictBudget && performance.now() - frameStart > FRAME_BUDGET_MS) break;
+    }
   }
 
   destroy() {
@@ -314,6 +392,9 @@ class FrameController {
     this._criticalTasks.length = 0;
     this._normalTasks.length = 0;
     this._idleTasks.length = 0;
+    this._timelineSubscribers.length = 0;
+    this._timelineSize = 0;
+    this._timelineIdx = 0;
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this._visibilityHandler);
     }

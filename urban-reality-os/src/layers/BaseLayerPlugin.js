@@ -105,6 +105,7 @@ export default class BaseLayerPlugin {
    * Safe helper to add source only if it doesn't exist.
    */
   _addSource(map, id, config) {
+    if (!map || typeof map.getSource !== 'function' || typeof map.addSource !== 'function') return;
     if (!map.getSource(id)) {
       map.addSource(id, config);
     }
@@ -115,6 +116,7 @@ export default class BaseLayerPlugin {
    * Safe helper to add layer only if it doesn't exist.
    */
   _addLayer(map, config, beforeId) {
+    if (!map || typeof map.getLayer !== 'function' || typeof map.addLayer !== 'function') return;
     if (!map.getLayer(config.id)) {
       if (beforeId && map.getLayer(beforeId)) {
         map.addLayer(config, beforeId);

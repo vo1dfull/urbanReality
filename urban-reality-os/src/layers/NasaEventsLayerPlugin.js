@@ -101,13 +101,18 @@ class NasaEventsLayerPlugin extends BaseLayerPlugin {
     if (!map) return;
     if (this.initialized) { this.toggle(map, data?.visible !== false); return; }
     if (this._initPromise) {
-      await this._initPromise;
+      try { await this._initPromise; } catch (_) {}
       this.toggle(map, data?.visible !== false);
       return;
     }
     this._initPromise = this._doInit(map, data);
-    await this._initPromise;
-    this._initPromise = null;
+    try {
+      await this._initPromise;
+    } catch (err) {
+      log.error('init failed:', err);
+    } finally {
+      this._initPromise = null;
+    }
   }
 
   async _doInit(map, data) {

@@ -1,18 +1,57 @@
 // ================================================
-// core/EventBus.js — High-Performance Event System
-// 🔥 PERF: Fast-path emit (no try-catch unless error)
-// 🔥 PERF: Batch emit for high-frequency events
-// 🔥 PERF: Deferred emit via microtask (non-blocking)
-// 🔥 PERF: No object allocation in hot paths
+// core/EventBus.js — Enterprise event system
+// ✅ Backward-compatible on/off/emit/emitDeferred APIs
+// ✅ Wildcard namespaces: map:* and *
+// ✅ Event history/replay + latency tracing
+// ✅ Priority queue batching + lifecycle hooks
+// ✅ Listener fault isolation with circuit breaker
 // ================================================
+
+const HISTORY_LIMIT = 1000;
+const PRIORITY = { high: 0, normal: 1, low: 2 };
 
 class EventBusClass {
   constructor() {
-    /** @type {Map<string, Function[]>} Using arrays for faster iteration than Set */
     this._listeners = new Map();
     this._emitCount = 0;
     this._deferredQueue = [];
     this._deferScheduled = false;
+
+    this._history = new Array(HISTORY_LIMIT);
+    this._historySize = 0;
+    this._historyIdx = 0;
+
+    this._priorityQueues = [[], [], []];
+    this._priorityScheduled = false;
+    this._traceEnabled = true;
+    this._traceSubscribers = new Set();
+    this._listenerFailures = new WeakMap();
+    this._started = true;
+  }
+
+  init() {
+    this._started = true;
+    return this;
+  }
+
+  start() {
+    this._started = true;
+  }
+
+  stop() {
+    this._started = false;
+  }
+
+  destroy() {
+    this.stop();
+    this.clear();
+    this._traceSubscribers.clear();
+    this._deferredQueue.length = 0;
+    this._priorityQueues[0].length = 0;
+    this._priorityQueues[1].length = 0;
+    this._priorityQueues[2].length = 0;
+    this._historySize = 0;
+    this._historyIdx = 0;
   }
 
   /**
@@ -54,24 +93,86 @@ class EventBusClass {
    * @param {*} data
    */
   emit(event, data) {
+    if (!this._started) return;
     this._emitCount++;
-    const arr = this._listeners.get(event);
+    const startedAt = performance.now();
+
+    this._emitToArray(event, this._listeners.get(event), data);
+
+    // Namespace wildcard support: map:move -> map:* plus global *
+    const namespaceIdx = event.indexOf(':');
+    if (namespaceIdx > 0) {
+      const nsEvent = `${event.slice(0, namespaceIdx)}:*`;
+      this._emitToArray(nsEvent, this._listeners.get(nsEvent), data);
+    }
+    if (event !== '*') {
+      this._emitToArray('*', this._listeners.get('*'), { event, data });
+    }
+
+    if (this._traceEnabled) {
+      const duration = performance.now() - startedAt;
+      this._pushHistory({
+        ts: Date.now(),
+        event,
+        duration,
+        listenerCount: this.listenerCount(event),
+      });
+      const trace = { event, duration, ts: Date.now() };
+      for (const cb of this._traceSubscribers) {
+        try { cb(trace); } catch (_) {}
+      }
+    }
+  }
+
+  _emitToArray(eventName, arr, data) {
     if (!arr || arr.length === 0) return;
 
-    // Fast path: most events have 1-2 listeners
-    if (arr.length === 1) {
-      arr[0](data);
-      return;
-    }
-    if (arr.length === 2) {
-      arr[0](data);
-      arr[1](data);
-      return;
-    }
-
-    // General path
     for (let i = 0, len = arr.length; i < len; i++) {
-      arr[i](data);
+      const cb = arr[i];
+      if (!this._canRunListener(cb)) continue;
+      const start = performance.now();
+      try {
+        cb(data);
+        this._markListenerSuccess(cb);
+      } catch (e) {
+        this._markListenerFailure(cb);
+        console.error(`[EventBus] Error in "${eventName}":`, e);
+      }
+      if (this._traceEnabled && this._traceSubscribers.size > 0) {
+        const listenerDuration = performance.now() - start;
+        if (listenerDuration > 8) {
+          const trace = { event: eventName, phase: 'listener', duration: listenerDuration, ts: Date.now() };
+          for (const sub of this._traceSubscribers) {
+            try { sub(trace); } catch (_) {}
+          }
+        }
+      }
+    }
+  }
+
+  _canRunListener(cb) {
+    const state = this._listenerFailures.get(cb);
+    if (!state) return true;
+    if (!state.openUntil) return true;
+    return Date.now() >= state.openUntil;
+  }
+
+  _markListenerSuccess(cb) {
+    const state = this._listenerFailures.get(cb);
+    if (!state) return;
+    state.failures = 0;
+    state.openUntil = 0;
+  }
+
+  _markListenerFailure(cb) {
+    let state = this._listenerFailures.get(cb);
+    if (!state) {
+      state = { failures: 0, openUntil: 0 };
+      this._listenerFailures.set(cb, state);
+    }
+    state.failures++;
+    if (state.failures >= 5) {
+      state.openUntil = Date.now() + 10_000;
     }
   }
 
@@ -81,6 +182,7 @@ class EventBusClass {
    * @param {*} data
    */
   emitSafe(event, data) {
+    if (!this._started) return;
     this._emitCount++;
     const arr = this._listeners.get(event);
     if (!arr) return;
@@ -104,6 +206,7 @@ class EventBusClass {
    * @param {*} data
    */
   emitDeferred(event, data) {
+    if (!this._started) return;
     this._deferredQueue.push(event, data); // flat array, 2 items per event
     if (!this._deferScheduled) {
       this._deferScheduled = true;
@@ -119,6 +222,7 @@ class EventBusClass {
   }
 
   async emitAsync(event, data) {
+    if (!this._started) return;
     this._emitCount++;
     const arr = this._listeners.get(event);
     if (!arr) return;
@@ -136,6 +240,60 @@ class EventBusClass {
     return this._listeners.get(event)?.length ?? 0;
   }
 
+  emitQueued(event, data, priority = 'normal') {
+    if (!this._started) return;
+    const p = PRIORITY[priority] ?? PRIORITY.normal;
+    this._priorityQueues[p].push(event, data);
+    if (this._priorityScheduled) return;
+    this._priorityScheduled = true;
+    queueMicrotask(() => {
+      this._priorityScheduled = false;
+      for (let pr = 0; pr < this._priorityQueues.length; pr++) {
+        const q = this._priorityQueues[pr];
+        for (let i = 0; i < q.length; i += 2) {
+          this.emit(q[i], q[i + 1]);
+        }
+        q.length = 0;
+      }
+    });
+  }
+
+  subscribeTrace(cb) {
+    this._traceSubscribers.add(cb);
+    return () => this._traceSubscribers.delete(cb);
+  }
+
+  enableTracing(enabled) {
+    this._traceEnabled = !!enabled;
+  }
+
+  _pushHistory(item) {
+    this._history[this._historyIdx] = item;
+    this._historyIdx = (this._historyIdx + 1) % HISTORY_LIMIT;
+    if (this._historySize < HISTORY_LIMIT) this._historySize++;
+  }
+
+  getHistory(limit = 100) {
+    const count = Math.min(limit, this._historySize);
+    const out = new Array(count);
+    for (let i = 0; i < count; i++) {
+      const idx = (this._historyIdx - 1 - i + HISTORY_LIMIT) % HISTORY_LIMIT;
+      out[count - 1 - i] = this._history[idx];
+    }
+    return out;
+  }
+
+  replay(event, listener, limit = 50) {
+    if (typeof listener !== 'function') return;
+    const history = this.getHistory(limit);
+    for (let i = 0; i < history.length; i++) {
+      const item = history[i];
+      if (item.event === event) {
+        try { listener(item); } catch (_) {}
+      }
+    }
+  }
+
   getStats() {
     let totalListeners = 0;
     const events = [];
@@ -145,7 +303,15 @@ class EventBusClass {
         totalListeners += arr.length;
       }
     }
-    return { events, totalListeners, emitCount: this._emitCount };
+    return {
+      events,
+      totalListeners,
+      emitCount: this._emitCount,
+      queuedEvents: this._priorityQueues[0].length + this._priorityQueues[1].length + this._priorityQueues[2].length,
+      deferredEvents: this._deferredQueue.length / 2,
+      historySize: this._historySize,
+      tracing: this._traceEnabled,
+    };
   }
 
   clear(event) {

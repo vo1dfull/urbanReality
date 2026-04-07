@@ -62,6 +62,7 @@ import NasaEngine from '../engines/NasaEngine';
 import LayerEngine from '../engines/LayerEngine';
 import DisasterEngine from '../engines/DisasterEngine';
 import ImpactEngine from '../engines/ImpactEngine';
+import EngineCore from '../core/EngineCore';
 
 // UI Components
 import CoordinateDisplay from './CoordinateDisplay';
@@ -86,6 +87,10 @@ import NasaFilterBar from './NasaFilterBar';
 import NasaEventPanel from './NasaEventPanel';
 
 export default function MapView() {
+  useEffect(() => {
+    EngineCore.lifecycle.init();
+  }, []);
+
   // ── Hooks ──
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const { mapContainerRef } = useMapEngine();
@@ -585,7 +590,8 @@ const FPSHUD = memo(function FPSHUD() {
 
   useEffect(() => {
     if (!debugMode || !containerRef.current) return;
-    const unsub = FrameController.onFPS(({ fps }) => {
+    const unsub = FrameController.onFPS(({ fps } = {}) => {
+      if (!Number.isFinite(fps)) return;
       if (containerRef.current) {
         containerRef.current.textContent = `${fps} FPS`;
         containerRef.current.style.color = fps >= 50 ? '#4ade80' : fps >= 30 ? '#fbbf24' : '#f87171';
