@@ -1293,10 +1293,9 @@ class DataEngine {
         cleanup();
 
         if (!response.ok) {
-          if (response.status >= 500 && attempt < maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, backoffMs));
-            backoffMs *= 2;
-            continue;
+          if (response.status >= 500 || response.status === 429) {
+            console.warn(`[DataEngine] Overpass ${lat},${lng} returned HTTP ${response.status}; using empty facility fallback.`);
+            return null;
           }
           throw new Error(`Overpass HTTP ${response.status}`);
         }

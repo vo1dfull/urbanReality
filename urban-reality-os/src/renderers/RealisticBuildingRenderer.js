@@ -14,6 +14,7 @@
 //   map.addLayer(rbr.customLayer);
 //   rbr.setTime(10.5);          // call from MapEngine.setTime()
 // ================================================
+import maplibregl from 'maplibre-gl';
 import { createLogger } from '../core/Logger';
 
 const log = createLogger('RealisticBuildingRenderer');
@@ -494,13 +495,14 @@ export default class RealisticBuildingRenderer {
     // Camera position in Mercator
     const center = map.getCenter();
     const camMC  = maplibregl.MercatorCoordinate.fromLngLat(center, 0);
+    const matrixData = normalizeMatrix4(matrix);
 
     // ── WebGL state ──────────────────────────────────────────────────────
     gl.useProgram(this._program);
 
     const u = this._u;
     // Matrix
-    gl.uniformMatrix4fv(u.uMatrix, false, matrix);
+    gl.uniformMatrix4fv(u.uMatrix, false, matrixData);
     // Sun
     gl.uniform3fv(u.uSunDir,       sunDir);
     gl.uniform3f(u.uSunColor,      sunR, sunG, sunB);
@@ -576,9 +578,24 @@ export default class RealisticBuildingRenderer {
 
     let features = [];
     try {
-      features = this._map.queryRenderedFeatures({ layers: ['building'] });
+      const layerId = this._map.getLayer('3d-buildings')
+        ? '3d-buildings'
+        : this._map.getLayer('building')
+          ? 'building'
+          : null;
+
+      if (!layerId) {
+        this._vertCount = 0;
+        this._needsRebuild = false;
+        return;
+      }
+
+      features = this._map.queryRenderedFeatures({ layers: [layerId] });
     } catch (e) {
       log.warn('queryRenderedFeatures error:', e);
+      this._vertCount = 0;
+      this._needsRebuild = false;
+      return;
     }
 
     if (!features || features.length === 0) return;
@@ -631,4 +648,16 @@ export default class RealisticBuildingRenderer {
     this._u.uCameraPos        = gl.getUniformLocation(prog, 'uCameraPos');
     this._u.uTime             = gl.getUniformLocation(prog, 'uTime');
   }
+}
+
+function normalizeMatrix4(matrix) {
+  if (matrix instanceof Float32Array && matrix.length === 16) return matrix;
+  if (Array.isArray(matrix) && matrix.length === 16) return new Float32Array(matrix);
+  if (matrix && typeof matrix === 'object') {
+    if (ArrayBuffer.isView(matrix) && matrix.length === 16) return new Float32Array(matrix);
+    if (Array.isArray(matrix.matrix) && matrix.matrix.length === 16) return new Float32Array(matrix.matrix);
+    if (ArrayBuffer.isView(matrix.matrix) && matrix.matrix.length === 16) return new Float32Array(matrix.matrix);
+    if (Array.isArray(matrix.value) && matrix.value.length === 16) return new Float32Array(matrix.value);
+  }
+  return new Float32Array(16);
 }
