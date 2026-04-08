@@ -2,73 +2,158 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const CLICK_DEBOUNCE_MS = 120;
 
-let _layerStripStyleInjected = false;
-function ensureLayerStripStyles() {
-  if (_layerStripStyleInjected || typeof document === 'undefined') return;
-  _layerStripStyleInjected = true;
+let _layerControlStyleInjected = false;
+function ensureLayerControlStyles() {
+  if (_layerControlStyleInjected || typeof document === 'undefined') return;
+  _layerControlStyleInjected = true;
   const style = document.createElement('style');
   style.textContent = `
-    .layer-strip-wrap {
+    .layer-hover-control {
       position: fixed;
       left: 20px;
       bottom: 20px;
-      z-index: 60;
-      pointer-events: none;
+      z-index: 20;
+      pointer-events: auto;
     }
 
-    .layer-strip {
-      pointer-events: none;
+    .layer-hover-shell {
+      position: relative;
+      width: 52px;
+      height: 52px;
       display: flex;
-      gap: 11px;
-      overflow-x: auto;
-      padding: 10px;
+      align-items: center;
+    }
+
+    .layer-trigger {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      border: 1px solid rgba(140, 180, 255, 0.18);
+      background: rgba(20, 25, 40, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #dbeafe;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      transform: translateZ(0);
+      position: relative;
+    }
+
+    .layer-trigger:hover {
+      border-color: rgba(96, 165, 250, 0.45);
+      box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.28), 0 12px 34px rgba(6, 40, 72, 0.45);
+    }
+
+    .layer-trigger.is-open {
+      transform: scale(1.02);
+      animation: layer-pulse 2.4s ease-in-out infinite;
+    }
+
+    .layer-trigger svg {
+      transition: transform 0.25s ease, filter 0.25s ease;
+      filter: drop-shadow(0 0 5px rgba(125, 211, 252, 0.35));
+    }
+
+    .layer-trigger.is-open svg {
+      transform: rotate(8deg);
+      filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.55));
+    }
+
+    .layer-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translateX(-50%) translateY(4px);
+      opacity: 0;
+      pointer-events: none;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #dbeafe;
+      background: rgba(8, 14, 28, 0.92);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 8px;
+      padding: 5px 8px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    }
+
+    .layer-trigger:hover .layer-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .layer-expand-panel {
+      position: absolute;
+      left: 60px;
+      top: 50%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
       border-radius: 16px;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      background: rgba(20, 25, 40, 0.6);
+      background: rgba(20, 25, 40, 0.85);
       border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-      max-width: min(540px, calc(100vw - 40px));
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      max-width: min(430px, calc(100vw - 420px));
+      overflow-x: auto;
       scrollbar-width: none;
-      -ms-overflow-style: none;
-      overscroll-behavior-x: contain;
-      scroll-snap-type: x proximity;
-      will-change: transform;
       transition: all 0.25s ease;
+      transform: translateY(-50%) translateX(-10px) scale(0.95);
+      opacity: 0;
+      pointer-events: none;
+      will-change: transform, opacity;
     }
 
-    .layer-strip::-webkit-scrollbar { display: none; }
+    .layer-expand-panel::-webkit-scrollbar { display: none; }
+
+    .layer-expand-panel.is-open {
+      transform: translateY(-50%) translateX(0) scale(1);
+      opacity: 1;
+      pointer-events: auto;
+    }
 
     .layer-card {
       pointer-events: auto;
-      width: 80px;
-      min-width: 80px;
-      height: 65px;
+      width: 62px;
+      min-width: 62px;
+      height: 62px;
       border-radius: 12px;
       overflow: hidden;
       cursor: pointer;
       user-select: none;
-      transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
-                  border-color 180ms cubic-bezier(0.4, 0, 0.2, 1),
-                  box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1),
-                  background 180ms cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.2s ease,
+                  border-color 0.2s ease,
+                  box-shadow 0.2s ease,
+                  background 0.2s ease;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.10);
       box-shadow: 0 8px 18px rgba(0,0,0,0.22);
       display: flex;
       flex-direction: column;
-      scroll-snap-align: start;
       transform: translateZ(0);
+      position: relative;
     }
 
-    .layer-card:hover { transform: scale(1.08) translateZ(0); }
+    .layer-card:hover {
+      transform: scale(1.05) translateZ(0);
+      border-color: rgba(125, 211, 252, 0.35);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.28), 0 10px 24px rgba(3, 21, 43, 0.4);
+    }
     .layer-card:active { transform: scale(1.02) translateZ(0); }
 
     .layer-card.active {
-      border: 2px solid #4da3ff;
-      box-shadow: 0 0 0 2px rgba(77,163,255,0.18), 0 10px 26px rgba(2,6,23,0.30);
-      transform: scale(1.06) translateZ(0);
-      background: rgba(77,163,255,0.10);
+      border: 2px solid #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56,189,248,0.24), 0 0 14px rgba(20,184,166,0.32), 0 10px 26px rgba(2,6,23,0.30);
+      transform: scale(1.05) translateZ(0);
+      background: rgba(56,189,248,0.12);
     }
 
     .layer-card[aria-disabled="true"] {
@@ -81,7 +166,7 @@ function ensureLayerStripStyles() {
     }
 
     .layer-card__preview {
-      height: 41px;
+      height: 100%;
       width: 100%;
       position: relative;
       background: rgba(255,255,255,0.06);
@@ -95,20 +180,63 @@ function ensureLayerStripStyles() {
     }
 
     .layer-card__label {
-      height: 24px;
+      height: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 11px;
+      font-size: 9.5px;
       font-weight: 800;
       letter-spacing: 0.02em;
       color: rgba(226,232,240,0.95);
-      background: rgba(8,12,28,0.35);
+      background: linear-gradient(180deg, rgba(8,12,28,0.12) 0%, rgba(8,12,28,0.78) 100%);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      border-top: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(255,255,255,0.12);
       text-shadow: 0 1px 10px rgba(0,0,0,0.35);
+      padding: 0 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .layer-card__coming-soon {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      padding: 2px 4px;
+      font-size: 8px;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    @keyframes layer-pulse {
+      0% { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); }
+      50% { box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14), 0 10px 32px rgba(3, 21, 43, 0.45); }
+      100% { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); }
+    }
+
+    @media (hover: none), (pointer: coarse) {
+      .layer-hover-control {
+        left: 12px;
+        bottom: 84px;
+      }
+
+      .layer-trigger:hover .layer-tooltip {
+        opacity: 0;
+      }
+
+      .layer-expand-panel {
+        max-width: calc(100vw - 88px);
+      }
     }
   `;
   document.head.appendChild(style);
@@ -262,13 +390,20 @@ const LayerCard = memo(function LayerCard({ id, label, active, previewSrc, onSel
         <img src={previewSrc} alt="" loading="lazy" decoding="async" />
       </div>
       <div className="layer-card__label">{label}</div>
+      {disabled && <span className="layer-card__coming-soon">Soon</span>}
     </button>
   );
 });
 
 const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers, setMapStyle }) {
   const lastClickRef = useRef(0);
-  ensureLayerStripStyles();
+  const collapseTimerRef = useRef(null);
+  const [isPinnedOpen, setIsPinnedOpen] = useState(false);
+  const [isContainerHovered, setIsContainerHovered] = useState(false);
+  const [iconHoverIntent, setIconHoverIntent] = useState(false);
+  const [isTouch, setIsTouch] = useState(false);
+
+  ensureLayerControlStyles();
 
   const derivedActive = useMemo(() => {
     if (mapStyle === 'terrain') return 'terrain';
@@ -327,6 +462,83 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     applyLayer(id);
   }, [applyLayer]);
 
+  const isOpen = isTouch ? isPinnedOpen : (isPinnedOpen || (iconHoverIntent && isContainerHovered));
+
+  const clearCollapseTimer = useCallback(() => {
+    if (collapseTimerRef.current) {
+      window.clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+  }, []);
+
+  const handleContainerEnter = useCallback(() => {
+    if (isTouch) return;
+    clearCollapseTimer();
+    setIsContainerHovered(true);
+  }, [clearCollapseTimer, isTouch]);
+
+  const handleContainerLeave = useCallback(() => {
+    if (isTouch || isPinnedOpen) return;
+    clearCollapseTimer();
+    collapseTimerRef.current = window.setTimeout(() => {
+      setIsContainerHovered(false);
+      setIconHoverIntent(false);
+    }, 240);
+  }, [clearCollapseTimer, isPinnedOpen, isTouch]);
+
+  const handleIconHover = useCallback(() => {
+    if (isTouch) return;
+    clearCollapseTimer();
+    setIconHoverIntent(true);
+    setIsContainerHovered(true);
+  }, [clearCollapseTimer, isTouch]);
+
+  const handleTriggerClick = useCallback(() => {
+    clearCollapseTimer();
+    setIsPinnedOpen((prev) => !prev);
+    if (!isTouch) {
+      setIconHoverIntent(true);
+      setIsContainerHovered(true);
+    }
+  }, [clearCollapseTimer, isTouch]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(hover: none), (pointer: coarse)');
+    const syncTouchMode = () => {
+      const touchMode = media.matches;
+      setIsTouch(touchMode);
+      if (touchMode) {
+        setIsContainerHovered(false);
+        setIconHoverIntent(false);
+      }
+    };
+
+    syncTouchMode();
+    if (media.addEventListener) media.addEventListener('change', syncTouchMode);
+    else media.addListener(syncTouchMode);
+
+    return () => {
+      if (media.removeEventListener) media.removeEventListener('change', syncTouchMode);
+      else media.removeListener(syncTouchMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isTouch || !isPinnedOpen) return;
+    const handleOutsidePointer = (event) => {
+      const root = document.querySelector('.layer-hover-control');
+      if (!root) return;
+      if (!root.contains(event.target)) {
+        setIsPinnedOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutsidePointer);
+    return () => document.removeEventListener('pointerdown', handleOutsidePointer);
+  }, [isPinnedOpen, isTouch]);
+
+  useEffect(() => () => clearCollapseTimer(), [clearCollapseTimer]);
+
   const items = useMemo(() => ([
     { id: 'satellite', label: 'Satellite', previewSrc: PREVIEWS.satellite },
     { id: 'terrain', label: 'Terrain', previewSrc: PREVIEWS.terrain },
@@ -337,8 +549,35 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
   ]), []);
 
   return (
-    <div className="layer-strip-wrap" aria-label="Map layers">
-      <div className="layer-strip">
+    <div
+      className="layer-hover-control"
+      aria-label="Map layers"
+      onMouseEnter={handleContainerEnter}
+      onMouseLeave={handleContainerLeave}
+    >
+      <div className="layer-hover-shell">
+        <button
+          type="button"
+          className={`layer-trigger${isOpen ? ' is-open' : ''}`}
+          aria-expanded={isOpen}
+          aria-label="Layers"
+          title="Layers"
+          onClick={handleTriggerClick}
+          onMouseEnter={handleIconHover}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3L3 7.5L12 12L21 7.5L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+            <path d="M3 12L12 16.5L21 12" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+            <path d="M3 16.5L12 21L21 16.5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+          </svg>
+          <span className="layer-tooltip">Layers</span>
+        </button>
+
+        <div
+          className={`layer-expand-panel${isOpen ? ' is-open' : ''}`}
+          onMouseEnter={handleContainerEnter}
+          onMouseLeave={handleContainerLeave}
+        >
         {items.map((item) => (
           <LayerCard
             key={item.id}
@@ -350,6 +589,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
             onSelect={handleSelect}
           />
         ))}
+        </div>
       </div>
     </div>
   );
