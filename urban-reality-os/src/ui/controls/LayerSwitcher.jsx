@@ -18,10 +18,11 @@ function ensureLayerControlStyles() {
 
     .layer-hover-shell {
       position: relative;
-      width: 52px;
-      height: 52px;
-      display: flex;
+      width: auto;
+      height: auto;
+      display: inline-flex;
       align-items: center;
+      pointer-events: auto;
     }
 
     .layer-trigger {
@@ -90,26 +91,36 @@ function ensureLayerControlStyles() {
 
     .layer-expand-panel {
       position: absolute;
-      left: 60px;
+      left: calc(100% + 8px);
       top: 50%;
       display: flex;
       align-items: center;
       gap: 10px;
       padding: 10px 12px;
       border-radius: 16px;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
       background: rgba(20, 25, 40, 0.85);
       border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
       max-width: min(430px, calc(100vw - 420px));
       overflow-x: auto;
       scrollbar-width: none;
-      transition: all 0.25s ease;
+      transition: transform 0.22s ease, opacity 0.22s ease;
       transform: translateY(-50%) translateX(-10px) scale(0.95);
       opacity: 0;
       pointer-events: none;
+      visibility: hidden;
       will-change: transform, opacity;
+    }
+
+    .layer-expand-panel::before {
+      content: '';
+      position: absolute;
+      left: -12px;
+      top: 0;
+      bottom: 0;
+      width: 12px;
     }
 
     .layer-expand-panel::-webkit-scrollbar { display: none; }
@@ -118,10 +129,10 @@ function ensureLayerControlStyles() {
       transform: translateY(-50%) translateX(0) scale(1);
       opacity: 1;
       pointer-events: auto;
+      visibility: visible;
     }
 
     .layer-card {
-      pointer-events: auto;
       width: 62px;
       min-width: 62px;
       height: 62px;
@@ -129,10 +140,7 @@ function ensureLayerControlStyles() {
       overflow: hidden;
       cursor: pointer;
       user-select: none;
-      transition: transform 0.2s ease,
-                  border-color 0.2s ease,
-                  box-shadow 0.2s ease,
-                  background 0.2s ease;
+      transition: all 0.18s ease;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.10);
       box-shadow: 0 8px 18px rgba(0,0,0,0.22);
@@ -143,7 +151,7 @@ function ensureLayerControlStyles() {
     }
 
     .layer-card:hover {
-      transform: scale(1.05) translateZ(0);
+      transform: scale(1.06) translateZ(0);
       border-color: rgba(125, 211, 252, 0.35);
       box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.28), 0 10px 24px rgba(3, 21, 43, 0.4);
     }
@@ -151,7 +159,7 @@ function ensureLayerControlStyles() {
 
     .layer-card.active {
       border: 2px solid #38bdf8;
-      box-shadow: 0 0 0 2px rgba(56,189,248,0.24), 0 0 14px rgba(20,184,166,0.32), 0 10px 26px rgba(2,6,23,0.30);
+      box-shadow: 0 0 14px rgba(0,150,255,0.6), 0 0 0 1px rgba(0,150,255,0.25);
       transform: scale(1.05) translateZ(0);
       background: rgba(56,189,248,0.12);
     }
@@ -189,14 +197,10 @@ function ensureLayerControlStyles() {
       right: 0;
       bottom: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 9.5px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.02em;
-      color: rgba(226,232,240,0.95);
-      background: linear-gradient(180deg, rgba(8,12,28,0.12) 0%, rgba(8,12,28,0.78) 100%);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border-top: 1px solid rgba(255,255,255,0.12);
+      color: rgba(226,232,240,0.9);
       text-shadow: 0 1px 10px rgba(0,0,0,0.35);
       padding: 0 4px;
       white-space: nowrap;
@@ -399,8 +403,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
   const lastClickRef = useRef(0);
   const collapseTimerRef = useRef(null);
   const [isPinnedOpen, setIsPinnedOpen] = useState(false);
-  const [isContainerHovered, setIsContainerHovered] = useState(false);
-  const [iconHoverIntent, setIconHoverIntent] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [isTouch, setIsTouch] = useState(false);
 
   ensureLayerControlStyles();
@@ -462,7 +465,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     applyLayer(id);
   }, [applyLayer]);
 
-  const isOpen = isTouch ? isPinnedOpen : (isPinnedOpen || (iconHoverIntent && isContainerHovered));
+  const finalOpen = isTouch ? isPinnedOpen : isOpen;
 
   const clearCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) {
@@ -471,35 +474,44 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     }
   }, []);
 
-  const handleContainerEnter = useCallback(() => {
+  const openPanel = useCallback(() => {
     if (isTouch) return;
     clearCollapseTimer();
-    setIsContainerHovered(true);
+    setIsOpen(true);
   }, [clearCollapseTimer, isTouch]);
 
-  const handleContainerLeave = useCallback(() => {
-    if (isTouch || isPinnedOpen) return;
+  const closePanel = useCallback(() => {
+    if (isTouch) return;
     clearCollapseTimer();
     collapseTimerRef.current = window.setTimeout(() => {
-      setIsContainerHovered(false);
-      setIconHoverIntent(false);
-    }, 240);
-  }, [clearCollapseTimer, isPinnedOpen, isTouch]);
+      setIsOpen(false);
+    }, 180);
+  }, [clearCollapseTimer, isTouch]);
 
   const handleIconHover = useCallback(() => {
-    if (isTouch) return;
-    clearCollapseTimer();
-    setIconHoverIntent(true);
-    setIsContainerHovered(true);
-  }, [clearCollapseTimer, isTouch]);
+    openPanel();
+  }, [openPanel]);
+
+  const handleIconLeave = useCallback(() => {
+    closePanel();
+  }, [closePanel]);
+
+  const handlePanelEnter = useCallback(() => {
+    openPanel();
+  }, [openPanel]);
+
+  const handlePanelLeave = useCallback(() => {
+    closePanel();
+  }, [closePanel]);
 
   const handleTriggerClick = useCallback(() => {
     clearCollapseTimer();
-    setIsPinnedOpen((prev) => !prev);
-    if (!isTouch) {
-      setIconHoverIntent(true);
-      setIsContainerHovered(true);
-    }
+    setIsPinnedOpen((prev) => {
+      const next = !prev;
+      if (!next) setIsOpen(false);
+      return next;
+    });
+    if (!isTouch) setIsOpen(true);
   }, [clearCollapseTimer, isTouch]);
 
   useEffect(() => {
@@ -509,8 +521,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
       const touchMode = media.matches;
       setIsTouch(touchMode);
       if (touchMode) {
-        setIsContainerHovered(false);
-        setIconHoverIntent(false);
+        setIsOpen(false);
       }
     };
 
@@ -552,18 +563,17 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     <div
       className="layer-hover-control"
       aria-label="Map layers"
-      onMouseEnter={handleContainerEnter}
-      onMouseLeave={handleContainerLeave}
     >
       <div className="layer-hover-shell">
         <button
           type="button"
-          className={`layer-trigger${isOpen ? ' is-open' : ''}`}
-          aria-expanded={isOpen}
+          className={`layer-trigger${finalOpen ? ' is-open' : ''}`}
+          aria-expanded={finalOpen}
           aria-label="Layers"
           title="Layers"
           onClick={handleTriggerClick}
           onMouseEnter={handleIconHover}
+          onMouseLeave={handleIconLeave}
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M12 3L3 7.5L12 12L21 7.5L12 3Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
@@ -574,9 +584,9 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
         </button>
 
         <div
-          className={`layer-expand-panel${isOpen ? ' is-open' : ''}`}
-          onMouseEnter={handleContainerEnter}
-          onMouseLeave={handleContainerLeave}
+          className={`layer-expand-panel${finalOpen ? ' is-open' : ''}`}
+          onMouseEnter={handlePanelEnter}
+          onMouseLeave={handlePanelLeave}
         >
         {items.map((item) => (
           <LayerCard
