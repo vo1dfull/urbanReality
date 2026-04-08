@@ -29,17 +29,19 @@ function ensureLayerControlStyles() {
       width: 52px;
       height: 52px;
       border-radius: 14px;
-      border: 1px solid rgba(140, 180, 255, 0.18);
-      background: rgba(20, 25, 40, 0.7);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(20, 25, 40, 0.55);
+      backdrop-filter: blur(16px) saturate(140%);
+      -webkit-backdrop-filter: blur(16px) saturate(140%);
       display: flex;
       align-items: center;
       justify-content: center;
       color: #dbeafe;
       cursor: pointer;
       transition: all 0.25s ease;
-      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+      box-shadow:
+        0 10px 30px rgba(0,0,0,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.08);
       transform: translateZ(0);
       position: relative;
     }
@@ -98,11 +100,14 @@ function ensureLayerControlStyles() {
       gap: 10px;
       padding: 10px 12px;
       border-radius: 16px;
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      background: rgba(20, 25, 40, 0.85);
-      border: 1px solid rgba(255,255,255,0.08);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(22px) saturate(140%);
+      -webkit-backdrop-filter: blur(22px) saturate(140%);
+      background: rgba(15, 20, 35, 0.55);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow:
+        0 18px 60px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        inset 0 -1px 0 rgba(255,255,255,0.03);
       max-width: min(430px, calc(100vw - 420px));
       overflow-x: auto;
       scrollbar-width: none;
@@ -121,6 +126,16 @@ function ensureLayerControlStyles() {
       top: 0;
       bottom: 0;
       width: 12px;
+    }
+
+    .layer-expand-panel::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      opacity: 0.9;
     }
 
     .layer-expand-panel::-webkit-scrollbar { display: none; }
@@ -158,10 +173,21 @@ function ensureLayerControlStyles() {
     .layer-card:active { transform: scale(1.02) translateZ(0); }
 
     .layer-card.active {
-      border: 2px solid #38bdf8;
-      box-shadow: 0 0 14px rgba(0,150,255,0.6), 0 0 0 1px rgba(0,150,255,0.25);
-      transform: scale(1.05) translateZ(0);
-      background: rgba(56,189,248,0.12);
+      border: 1px solid rgba(56, 189, 248, 0.6);
+      box-shadow:
+        0 0 16px rgba(56,189,248,0.6),
+        0 0 0 1px rgba(56,189,248,0.3);
+      transform: scale(1.08) translateZ(0);
+      background: rgba(56, 189, 248, 0.18);
+    }
+
+    .layer-card.active::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0 12px rgba(56,189,248,0.4);
+      pointer-events: none;
     }
 
     .layer-card[aria-disabled="true"] {
@@ -185,6 +211,10 @@ function ensureLayerControlStyles() {
       width: 100%;
       object-fit: cover;
       display: block;
+    }
+
+    .layer-card.active .layer-card__preview img {
+      filter: brightness(1.15) saturate(1.2);
     }
 
     .layer-card__label {
@@ -419,11 +449,21 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
 
   // Requested state management shape — locally track selection for snappy UI,
   // but keep it in sync with the canonical store props.
-  const [activeLayer, setActiveLayer] = useState(derivedActive || 'terrain');
+  const [activeLayer, setActiveLayer] = useState(derivedActive);
   useEffect(() => {
-    if (!derivedActive) return;
     setActiveLayer(derivedActive);
   }, [derivedActive]);
+
+  const items = useMemo(() => ([
+    { id: 'satellite', label: 'Satellite', previewSrc: PREVIEWS.satellite },
+    { id: 'terrain', label: 'Terrain', previewSrc: PREVIEWS.terrain },
+    { id: 'traffic', label: 'Traffic', previewSrc: PREVIEWS.traffic },
+    { id: 'transit', label: 'Transit', previewSrc: PREVIEWS.transit, disabled: true },
+    { id: 'facilities', label: 'Facilities', previewSrc: PREVIEWS.facilities },
+    { id: 'nasa', label: 'NASA Events', previewSrc: PREVIEWS.nasa },
+  ]), []);
+
+  const finalOpen = isTouch ? isPinnedOpen : isOpen;
 
   const applyLayer = useCallback((id) => {
     const now = performance.now();
@@ -465,7 +505,55 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
     applyLayer(id);
   }, [applyLayer]);
 
-  const finalOpen = isTouch ? isPinnedOpen : isOpen;
+  const isItemActive = useCallback((id) => {
+    if (id === 'terrain') return mapStyle === 'terrain';
+    if (id === 'satellite') return mapStyle === 'satellite';
+    if (id === 'traffic') return !!layers.traffic;
+    if (id === 'facilities') return !!(layers.hospitals || layers.policeStations || layers.fireStations || layers.schools);
+    if (id === 'nasa') return !!layers.nasaEvents;
+    return activeLayer === id;
+  }, [activeLayer, layers.fireStations, layers.hospitals, layers.nasaEvents, layers.policeStations, layers.schools, layers.traffic, mapStyle]);
+
+  const getNextEnabledLayer = useCallback((direction) => {
+    if (!items.length) return null;
+
+    const currentIndex = Math.max(0, items.findIndex((item) => item.id === activeLayer));
+
+    for (let offset = 1; offset <= items.length; offset += 1) {
+      const nextIndex = (currentIndex + direction * offset + items.length) % items.length;
+      const nextLayer = items[nextIndex];
+      if (!nextLayer.disabled) {
+        return nextLayer;
+      }
+    }
+
+    return null;
+  }, [activeLayer, items]);
+
+  const handleScrollSwitch = useCallback((event) => {
+    if (!finalOpen) return;
+
+    event.preventDefault();
+
+    const nextLayer = getNextEnabledLayer(event.deltaY > 0 ? 1 : -1);
+    if (nextLayer) {
+      handleSelect(nextLayer.id);
+    }
+  }, [finalOpen, getNextEnabledLayer, handleSelect]);
+
+  const handleKeyDown = useCallback((event) => {
+    if (!finalOpen) return;
+
+    const isLayerCycleKey = event.key.toLowerCase() === 'l';
+    if (!isLayerCycleKey) return;
+
+    event.preventDefault();
+
+    const nextLayer = getNextEnabledLayer(event.shiftKey ? -1 : 1);
+    if (nextLayer) {
+      handleSelect(nextLayer.id);
+    }
+  }, [finalOpen, getNextEnabledLayer, handleSelect]);
 
   const clearCollapseTimer = useCallback(() => {
     if (collapseTimerRef.current) {
@@ -550,15 +638,6 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
 
   useEffect(() => () => clearCollapseTimer(), [clearCollapseTimer]);
 
-  const items = useMemo(() => ([
-    { id: 'satellite', label: 'Satellite', previewSrc: PREVIEWS.satellite },
-    { id: 'terrain', label: 'Terrain', previewSrc: PREVIEWS.terrain },
-    { id: 'traffic', label: 'Traffic', previewSrc: PREVIEWS.traffic },
-    { id: 'transit', label: 'Transit', previewSrc: PREVIEWS.transit, disabled: true },
-    { id: 'facilities', label: 'Facilities', previewSrc: PREVIEWS.facilities },
-    { id: 'nasa', label: 'NASA Events', previewSrc: PREVIEWS.nasa },
-  ]), []);
-
   return (
     <div
       className="layer-hover-control"
@@ -572,6 +651,8 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
           aria-label="Layers"
           title="Layers"
           onClick={handleTriggerClick}
+          onWheel={handleScrollSwitch}
+          onKeyDown={handleKeyDown}
           onMouseEnter={handleIconHover}
           onMouseLeave={handleIconLeave}
         >
@@ -594,7 +675,7 @@ const LayerSwitcher = memo(function LayerSwitcher({ mapStyle, layers, setLayers,
             id={item.id}
             label={item.label}
             previewSrc={item.previewSrc}
-            active={activeLayer === item.id}
+            active={isItemActive(item.id)}
             disabled={!!item.disabled}
             onSelect={handleSelect}
           />
